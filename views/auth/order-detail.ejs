@@ -1,0 +1,41 @@
+<%- include('../partials/header') %>
+
+<h1 class="page-title">Order #<%= order.id %></h1>
+
+<div class="order-detail-box">
+  <p><strong>Status:</strong> <span class="status-badge status-<%= order.status.toLowerCase() %>"><%= order.status %></span></p>
+  <p><strong>Payment Status:</strong> <span class="status-badge <%= order.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= order.payment_status || 'Unpaid' %></span></p>
+  <p><strong>Delivery Address:</strong> <%= order.address %></p>
+  <p><strong>Payment Method:</strong> <%= order.payment_method %></p>
+  <% if (order.transaction_id) { %><p><strong>Transaction ID:</strong> <%= order.transaction_id %></p><% } %>
+  <% if (order.courier_name) { %><p><strong>Courier:</strong> <%= order.courier_name %><% if (order.tracking_number) { %> (Tracking: <%= order.tracking_number %>)<% } %></p><% } %>
+  <p><strong>Order Date:</strong> <%= new Date(order.created_at).toLocaleString() %></p>
+</div>
+
+<div class="table-responsive">
+<table class="cart-table">
+  <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
+  <tbody>
+    <% items.forEach(item => { %>
+      <tr>
+        <td><%= item.product_name %><% if (item.variant_label) { %><br><span style="font-size:12px; color:#888;"><%= item.variant_label %></span><% } %></td>
+        <td>৳<%= item.price %></td>
+        <td><%= item.quantity %></td>
+        <td>৳<%= (item.price * item.quantity).toFixed(2) %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+
+<div class="cart-summary">
+  <% if (order.discount_amount > 0) { %>
+    <p>Coupon (<%= order.coupon_code %>): -৳<%= order.discount_amount %></p>
+  <% } %>
+  <p>Delivery Charge: ৳<%= Number(order.delivery_charge || 0).toFixed(2) %></p>
+  <h3>Total: ৳<%= order.total_amount %></h3>
+</div>
+
+<a href="/account" class="back-link">&larr; Back to My Orders</a>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,43 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Inventory</h1>
+
+<div class="category-bar" style="margin-bottom:20px;">
+  <a href="/admin/inventory?filter=all" class="<%= filter === 'all' ? 'active' : '' %>">All Products</a>
+  <a href="/admin/inventory?filter=low" class="<%= filter === 'low' ? 'active' : '' %>">Low Stock (≤10)</a>
+  <a href="/admin/inventory?filter=out" class="<%= filter === 'out' ? 'active' : '' %>">Out of Stock</a>
+</div>
+
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Image</th><th>Product</th><th>Category</th><th>Current Stock</th><th>Status</th><th>Update Stock</th></tr></thead>
+  <tbody>
+    <% products.forEach(p => { %>
+      <tr>
+        <td><img src="/uploads/<%= p.image %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"></td>
+        <td><%= p.name %></td>
+        <td><%= p.category_name || '-' %></td>
+        <td><strong><%= p.stock %></strong></td>
+        <td>
+          <% if (p.stock === 0) { %>
+            <span class="status-badge status-cancelled">Out of Stock</span>
+          <% } else if (p.stock <= 10) { %>
+            <span class="status-badge status-pending">Low Stock</span>
+          <% } else { %>
+            <span class="status-badge status-delivered">In Stock</span>
+          <% } %>
+        </td>
+        <td>
+          <form action="/admin/inventory/update/<%= p.id %>" method="POST" class="qty-stepper">
+            <input type="hidden" name="filter" value="<%= filter %>">
+            <input type="number" name="stock" value="<%= p.stock %>" min="0" style="width:70px; padding:6px; border:1px solid #ccc; border-radius:4px;">
+            <button type="submit" class="btn-primary" style="padding:6px 14px; font-size:13px;">Update</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+
+<%- include('../partials/admin-footer') %>

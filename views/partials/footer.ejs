@@ -1,0 +1,91 @@
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <%= new Date().getFullYear() %> <%= siteName %>. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- ===== Live Chat Widget ===== -->
+  <div id="chat-widget">
+    <button id="chat-toggle-btn" onclick="toggleChat()">💬</button>
+
+    <div id="chat-panel">
+      <div class="chat-panel-header">
+        <span>Chat with us</span>
+        <a href="tel:<%= shopPhone %>" class="chat-call-btn" title="Call us">📞 Call</a>
+        <button onclick="toggleChat()" class="chat-close-btn">✕</button>
+      </div>
+
+      <div id="widget-chat-box" class="widget-chat-box"></div>
+
+      <form id="widget-chat-form" class="widget-chat-form">
+        <input type="text" id="widget-chat-input" placeholder="Type a message..." autocomplete="off" required>
+        <button type="submit">➤</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const chatPanel = document.getElementById('chat-panel');
+    const widgetChatBox = document.getElementById('widget-chat-box');
+    const widgetChatForm = document.getElementById('widget-chat-form');
+    const widgetChatInput = document.getElementById('widget-chat-input');
+    let chatOpened = false;
+
+    function toggleChat() {
+      chatPanel.classList.toggle('open');
+      if (chatPanel.classList.contains('open') && !chatOpened) {
+        chatOpened = true;
+        loadWidgetMessages();
+      }
+    }
+
+    async function loadWidgetMessages() {
+      try {
+        const res = await fetch('/chat/messages');
+        const data = await res.json();
+        renderWidgetMessages(data.messages);
+      } catch (err) {
+        console.error('Chat load failed', err);
+      }
+    }
+
+    function renderWidgetMessages(messages) {
+      if (messages.length === 0) {
+        widgetChatBox.innerHTML = '<p class="widget-chat-empty">Hi! Kono proshno thakle amader lekho, amra shathe shathe reply debo.</p>';
+        return;
+      }
+      widgetChatBox.innerHTML = messages.map(m => `
+        <div class="widget-bubble widget-${m.sender}">
+          <p>${m.message.replace(/</g, '&lt;')}</p>
+          <span class="widget-time">${new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        </div>
+      `).join('');
+      widgetChatBox.scrollTop = widgetChatBox.scrollHeight;
+    }
+
+    widgetChatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = widgetChatInput.value.trim();
+      if (!message) return;
+      widgetChatInput.value = '';
+
+      try {
+        await fetch('/chat/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        loadWidgetMessages();
+      } catch (err) {
+        console.error('Chat send failed', err);
+      }
+    });
+
+    // Chat khola thakle প্রতি 4 second e notun message ache kina check kora
+    setInterval(() => {
+      if (chatPanel.classList.contains('open')) loadWidgetMessages();
+    }, 4000);
+  </script>
+</body>
+</html>

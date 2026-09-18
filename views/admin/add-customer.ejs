@@ -1,0 +1,28 @@
+<%- include('../partials/admin-header') %>
+
+<h1><%= customer ? 'Edit Customer' : 'Add New Customer' %></h1>
+
+<% if (error) { %><p class="error-msg"><%= error %></p><% } %>
+
+<form action="<%= customer ? '/admin/customers/edit/' + customer.id : '/admin/customers/add' %>" method="POST" class="admin-form">
+  <label>Full Name</label>
+  <input type="text" name="name" value="<%= customer ? customer.name : '' %>" required>
+
+  <label>Email</label>
+  <input type="email" name="email" value="<%= customer ? customer.email : '' %>" required>
+
+  <label>Phone Number</label>
+  <input type="text" name="phone" value="<%= customer && customer.phone ? customer.phone : '' %>">
+
+  <label>Address</label>
+  <textarea name="address" rows="3"><%= customer && customer.address ? customer.address : '' %></textarea>
+
+  <label><%= customer ? 'New Password (khali rakho change na korte chaile)' : 'Password' %></label>
+  <input type="password" name="password" <%= customer ? '' : 'required' %> minlength="6">
+
+  <button type="submit" class="btn-primary"><%= customer ? 'Update Customer' : 'Add Customer' %></button>
+</form>
+
+<a href="/admin/customers" class="back-link">&larr; Back to Customers</a>
+
+<%- include('../partials/admin-footer') %>

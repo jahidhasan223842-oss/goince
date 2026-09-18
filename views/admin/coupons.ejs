@@ -1,0 +1,50 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Coupons</h1>
+
+<form action="/admin/coupons/add" method="POST" class="admin-form">
+  <label>Coupon Code</label>
+  <input type="text" name="code" placeholder="e.g. WELCOME10" required>
+
+  <label>Discount Percent (%)</label>
+  <input type="number" name="discount_percent" min="1" max="100" required>
+
+  <label>Expiry Date (Optional)</label>
+  <input type="date" name="expiry_date">
+
+  <button type="submit" class="btn-primary">Add Coupon</button>
+</form>
+
+<h2 style="margin-top:30px;">All Coupons</h2>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead>
+    <tr><th>Code</th><th>Discount</th><th>Expiry</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    <% coupons.forEach(c => { %>
+      <tr>
+        <td><strong><%= c.code %></strong></td>
+        <td><%= c.discount_percent %>%</td>
+        <td><%= c.expiry_date ? new Date(c.expiry_date).toLocaleDateString() : 'No expiry' %></td>
+        <td>
+          <span class="status-badge <%= c.active ? 'status-delivered' : 'status-cancelled' %>">
+            <%= c.active ? 'Active' : 'Inactive' %>
+          </span>
+        </td>
+        <td>
+          <form action="/admin/coupons/toggle/<%= c.id %>" method="POST" style="display:inline">
+            <button type="submit" class="link-btn-danger" style="color:#2196f3;"><%= c.active ? 'Deactivate' : 'Activate' %></button>
+          </form>
+          |
+          <form action="/admin/coupons/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');">
+            <button type="submit" class="link-btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+
+<%- include('../partials/admin-footer') %>

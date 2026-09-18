@@ -1,0 +1,54 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Dashboard</h1>
+
+<div class="stat-cards">
+  <div class="stat-card">
+    <h3><%= totalProducts %></h3>
+    <p>Total Products</p>
+  </div>
+  <div class="stat-card">
+    <h3><%= totalOrders %></h3>
+    <p>Total Orders</p>
+  </div>
+  <div class="stat-card">
+    <h3>৳<%= totalRevenue %></h3>
+    <p>Total Revenue</p>
+  </div>
+  <div class="stat-card">
+    <h3><%= totalCustomers %></h3>
+    <p>Registered Customers</p>
+  </div>
+</div>
+
+<% if (lowStockCount > 0 || outOfStockCount > 0) { %>
+  <div class="stock-alert-box">
+    <p>⚠️ <strong><%= lowStockCount %></strong> product<%= lowStockCount != 1 ? 's are' : ' is' %> running low on stock (10 ba tar kom), <strong><%= outOfStockCount %></strong> product<%= outOfStockCount != 1 ? 's are' : ' is' %> completely out of stock.
+    <a href="/admin/inventory">View Inventory &rarr;</a></p>
+  </div>
+<% } %>
+
+<h2>Recent Pending Orders</h2>
+<% if (pendingOrders.length === 0) { %>
+  <p>No pending orders right now.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead>
+    <tbody>
+      <% pendingOrders.forEach(o => { %>
+        <tr>
+          <td>#<%= o.id %></td>
+          <td><%= o.customer_name %></td>
+          <td><%= o.phone %></td>
+          <td>৳<%= o.total_amount %></td>
+          <td><%= new Date(o.created_at).toLocaleDateString() %></td>
+          <td><a href="/admin/orders/<%= o.id %>">View</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

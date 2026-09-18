@@ -1,0 +1,46 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Chat with <%= conversation.customer_name %></h1>
+
+<div class="chat-box" id="chat-box">
+  <% messages.forEach(m => { %>
+    <div class="chat-bubble chat-<%= m.sender %>">
+      <p><%= m.message %></p>
+      <span class="chat-time"><%= new Date(m.created_at).toLocaleTimeString() %></span>
+    </div>
+  <% }) %>
+</div>
+
+<form action="/admin/chats/<%= conversation.id %>/reply" method="POST" class="chat-reply-form">
+  <input type="text" name="message" placeholder="Type your reply..." required autocomplete="off">
+  <button type="submit" class="btn-primary">Send</button>
+</form>
+
+<a href="/admin/chats" class="back-link">&larr; Back to all chats</a>
+
+<script>
+  // Notun message asche kina, kichukhon por por check kora (polling)
+  const chatBox = document.getElementById('chat-box');
+  const conversationId = <%= conversation.id %>;
+
+  async function refreshMessages() {
+    try {
+      const res = await fetch(`/admin/chats/${conversationId}/messages`);
+      const data = await res.json();
+      chatBox.innerHTML = data.messages.map(m => `
+        <div class="chat-bubble chat-${m.sender}">
+          <p>${m.message.replace(/</g, '&lt;')}</p>
+          <span class="chat-time">${new Date(m.created_at).toLocaleTimeString()}</span>
+        </div>
+      `).join('');
+      chatBox.scrollTop = chatBox.scrollHeight;
+    } catch (err) {
+      console.error('Chat refresh failed', err);
+    }
+  }
+
+  setInterval(refreshMessages, 4000);
+  chatBox.scrollTop = chatBox.scrollHeight;
+</script>
+
+<%- include('../partials/admin-footer') %>

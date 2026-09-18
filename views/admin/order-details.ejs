@@ -1,0 +1,108 @@
+<%- include('../partials/admin-header') %>
+
+<div class="admin-page-header no-print">
+  <h1>Order #<%= order.id %></h1>
+  <div>
+    <span class="status-badge status-<%= order.status.toLowerCase() %>"><%= order.status %></span>
+    <button onclick="window.print()" class="btn-primary" style="margin-left:10px;">🖨️ Print Invoice</button>
+  </div>
+</div>
+
+<div id="invoice-print-area">
+  <div class="invoice-print-header only-print">
+    <h2><%= siteName %></h2>
+    <p>Invoice for Order #<%= order.id %></p>
+  </div>
+
+  <div class="invoice-box">
+    <div class="invoice-grid">
+      <div>
+        <h3>Customer Info</h3>
+        <p><strong>Name:</strong> <%= order.customer_name %></p>
+        <p><strong>Phone:</strong> <%= order.phone %></p>
+        <% if (order.email) { %><p><strong>Email:</strong> <%= order.email %></p><% } %>
+        <p><strong>Address:</strong> <%= order.address %></p>
+      </div>
+      <div>
+        <h3>Order Info</h3>
+        <p><strong>Order Date:</strong> <%= new Date(order.created_at).toLocaleString() %></p>
+        <p><strong>Payment Method:</strong> <%= order.payment_method %></p>
+        <p><strong>Payment Status:</strong>
+          <span class="status-badge <%= order.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= order.payment_status %></span>
+        </p>
+        <% if (order.transaction_id) { %><p><strong>Transaction ID:</strong> <%= order.transaction_id %></p><% } %>
+        <% if (order.coupon_code) { %><p><strong>Coupon Used:</strong> <%= order.coupon_code %></p><% } %>
+        <% if (order.courier_name) { %><p><strong>Courier:</strong> <%= order.courier_name %></p><% } %>
+        <% if (order.tracking_number) { %><p><strong>Tracking No:</strong> <%= order.tracking_number %></p><% } %>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:28px;">Items</h3>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
+    <tbody>
+      <% let subtotal = 0; %>
+      <% items.forEach(item => {
+           const lineTotal = item.price * item.quantity;
+           subtotal += lineTotal;
+      %>
+        <tr>
+          <td><%= item.product_name %><% if (item.variant_label) { %><br><span style="font-size:12px; color:#888;"><%= item.variant_label %></span><% } %></td>
+          <td>৳<%= Number(item.price).toFixed(2) %></td>
+          <td><%= item.quantity %></td>
+          <td>৳<%= lineTotal.toFixed(2) %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="invoice-total-box">
+    <p><span>Subtotal</span><span>৳<%= subtotal.toFixed(2) %></span></p>
+    <% if (order.discount_amount && order.discount_amount > 0) { %>
+      <p class="discount-line"><span>Discount <%= order.coupon_code ? '(' + order.coupon_code + ')' : '' %></span><span>- ৳<%= Number(order.discount_amount).toFixed(2) %></span></p>
+    <% } %>
+    <p><span>Delivery Charge</span><span>৳<%= Number(order.delivery_charge || 0).toFixed(2) %></span></p>
+    <p class="invoice-grand-total"><span>Total Paid</span><span>৳<%= Number(order.total_amount).toFixed(2) %></span></p>
+    <p class="payment-method-line"><span>Payment Method</span><span><%= order.payment_method %></span></p>
+  </div>
+</div>
+
+<div class="no-print">
+  <h3 style="margin-top:30px;">Update Order Status</h3>
+  <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form">
+    <select name="status">
+      <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
+        <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s %></option>
+      <% }) %>
+    </select>
+    <button type="submit" class="btn-primary">Update Status</button>
+  </form>
+
+  <h3 style="margin-top:24px;">Update Payment Status</h3>
+  <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form">
+    <select name="payment_status">
+      <% ['Unpaid','Paid','Partial','Refunded'].forEach(s => { %>
+        <option value="<%= s %>" <%= order.payment_status === s ? 'selected' : '' %>><%= s %></option>
+      <% }) %>
+    </select>
+    <button type="submit" class="btn-primary">Update Payment</button>
+  </form>
+
+  <h3 style="margin-top:24px;">Courier / Tracking Info</h3>
+  <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;">
+    <label>Courier Company</label>
+    <input type="text" name="courier_name" value="<%= order.courier_name || '' %>" placeholder="e.g. Pathao, Steadfast">
+
+    <label>Tracking Number</label>
+    <input type="text" name="tracking_number" value="<%= order.tracking_number || '' %>" placeholder="e.g. TRK123456">
+
+    <button type="submit" class="btn-primary">Save Shipping Info</button>
+  </form>
+
+  <a href="/admin/orders" class="back-link">&larr; Back to Orders</a>
+</div>
+
+<%- include('../partials/admin-footer') %>

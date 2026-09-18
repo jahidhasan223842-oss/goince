@@ -1,0 +1,251 @@
+<%- include('partials/header') %>
+
+<div class="product-details">
+  <div class="product-image">
+    <img src="/uploads/<%= product.image %>" alt="<%= product.name %>" id="main-product-image" onerror="this.src='/uploads/no-image.png'">
+
+    <% if (galleryImages && galleryImages.length > 0) { %>
+      <div class="thumbnail-row">
+        <img src="/uploads/<%= product.image %>" class="thumbnail active" onclick="swapImage(this, '/uploads/<%= product.image %>')" onerror="this.src='/uploads/no-image.png'">
+        <% galleryImages.forEach(img => { %>
+          <img src="/uploads/<%= img.image %>" class="thumbnail" onclick="swapImage(this, '/uploads/<%= img.image %>')" onerror="this.src='/uploads/no-image.png'">
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="product-info">
+    <h1><%= product.name %></h1>
+
+    <% if (avgRating) { %>
+      <p class="avg-rating">⭐ <%= avgRating %> / 5 (<%= reviewCount %> review<%= reviewCount != 1 ? 's' : '' %>)</p>
+    <% } else { %>
+      <p class="avg-rating">No reviews yet</p>
+    <% } %>
+
+    <div class="price-row">
+      <p class="price" id="display-price">৳<%= product.price %></p>
+      <% if (discountPercent) { %>
+        <p class="compare-price">৳<%= product.compare_at_price %></p>
+        <span class="discount-badge">-<%= discountPercent %>%</span>
+      <% } %>
+    </div>
+
+    <p class="stock" id="display-stock"><%= product.stock > 0 ? product.stock + ' in stock' : 'Out of stock' %></p>
+    <p class="description"><%= product.description %></p>
+
+    <% if (options && options.length > 0) { %>
+      <div class="option-selectors" style="margin-bottom:15px;">
+        <label style="font-weight:600; display:block; margin-bottom:6px;"><%= optionLabel %>: <span id="selected-option-name">-</span></label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <% options.forEach((o, i) => { %>
+            <button type="button" class="option-pill<%= i === 0 ? ' active' : '' %>"
+                 data-option-id="<%= o.id %>"
+                 data-option-name="<%= o.value_name %>"
+                 data-option-image="<%= o.image ? '/uploads/' + o.image : '' %>"
+                 onclick="selectOption(this)"
+                 style="cursor:pointer; display:flex; align-items:center; gap:6px; padding:7px 14px; border-radius:20px; border:2px solid <%= i === 0 ? '#f0a500' : '#ddd' %>; background:#fff; font-size:13px;">
+              <% if (o.color_hex) { %><span style="display:inline-block; width:16px; height:16px; border-radius:50%; background:<%= o.color_hex %>; border:1px solid #ccc;"></span><% } %>
+              <%= o.value_name %>
+            </button>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (variants && variants.length > 0) { %>
+      <div class="variant-selectors" style="margin-bottom:15px;">
+        <% variantAttributes.forEach(attr => { %>
+          <div style="margin-bottom:10px;">
+            <label style="font-weight:600; display:block; margin-bottom:4px;"><%= attr.name %></label>
+            <select class="variant-attr-select" data-attribute-id="<%= attr.id %>" style="padding:8px 12px; border:1px solid #ccc; border-radius:4px;">
+              <option value="">-- Select <%= attr.name %> --</option>
+              <% attr.values.forEach(v => { %>
+                <option value="<%= v.id %>"><%= v.value %></option>
+              <% }) %>
+            </select>
+          </div>
+        <% }) %>
+        <p id="variant-message" style="color:#e63946; font-size:13px;"></p>
+      </div>
+    <% } %>
+
+    <form action="/cart/add/<%= product.id %>" method="POST" class="add-to-cart-form" id="add-to-cart-form" <%= (variants && variants.length > 0) ? 'style="display:none;"' : '' %>>
+      <input type="hidden" name="variant_id" id="variant_id_input" value="">
+      <input type="hidden" name="option_id" id="option_id_input" value="<%= (options && options.length > 0) ? options[0].id : '' %>">
+      <label for="quantity">Quantity:</label>
+      <input type="number" name="quantity" id="quantity" value="1" min="1" max="<%= product.stock %>">
+      <button type="submit" class="btn-primary" id="add-to-cart-btn" <%= product.stock === 0 ? 'disabled' : '' %>><%= product.stock > 0 ? 'Add to Cart' : 'Out of Stock' %></button>
+    </form>
+
+    <% if (userName) { %>
+      <form action="/wishlist/add/<%= product.id %>" method="POST" style="margin-top:10px;">
+        <button type="submit" class="btn-wishlist">♡ Add to Wishlist</button>
+      </form>
+    <% } %>
+
+    <div class="delivery-info-box">
+      <p>🚚 Delivery Charge: <strong>৳<%= deliveryCharge %></strong> (Inside Dhaka) / <strong>৳<%= deliveryChargeOutside %></strong> (Outside Dhaka)</p>
+      <p>📦 Estimated Delivery: 3-5 business days</p>
+    </div>
+
+    <a href="/" class="back-link">&larr; Back to shop</a>
+  </div>
+</div>
+
+<% if (specs && specs.length > 0) { %>
+  <div class="specs-section">
+    <h2>Specifications</h2>
+    <div class="table-responsive">
+    <table class="specs-table">
+      <% specs.forEach(s => { %>
+        <tr><td><%= s.key %></td><td><%= s.value %></td></tr>
+      <% }) %>
+    </table>
+    </div>
+  </div>
+<% } %>
+
+<div class="reviews-section">
+  <h2>Reviews</h2>
+
+  <% if (reviews.length === 0) { %>
+    <p>Be the first to review this product!</p>
+  <% } else { %>
+    <% reviews.forEach(r => { %>
+      <div class="review-item">
+        <p class="review-stars"><%= '⭐'.repeat(r.rating) %></p>
+        <p class="review-author"><strong><%= r.user_name %></strong> — <%= new Date(r.created_at).toLocaleDateString() %></p>
+        <% if (r.comment) { %><p class="review-comment"><%= r.comment %></p><% } %>
+      </div>
+    <% }) %>
+  <% } %>
+
+  <% if (userName) { %>
+    <h3>Write a Review</h3>
+    <form action="/product/<%= product.id %>/review" method="POST" class="review-form">
+      <label>Rating</label>
+      <select name="rating" required>
+        <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+        <option value="4">⭐⭐⭐⭐ (4)</option>
+        <option value="3">⭐⭐⭐ (3)</option>
+        <option value="2">⭐⭐ (2)</option>
+        <option value="1">⭐ (1)</option>
+      </select>
+      <label>Comment (optional)</label>
+      <textarea name="comment" rows="3"></textarea>
+      <button type="submit" class="btn-primary">Submit Review</button>
+    </form>
+  <% } else { %>
+    <p><a href="/login">Login</a> to write a review.</p>
+  <% } %>
+</div>
+
+<% if (related && related.length > 0) { %>
+  <div class="section-heading"><h2>Related Products</h2></div>
+  <div class="product-grid">
+    <% related.forEach(p => { %>
+      <div class="product-card">
+        <a href="/product/<%= p.id %>">
+          <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
+          <h3><%= p.name %></h3>
+          <p class="price">৳<%= p.price %></p>
+        </a>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<script>
+  function swapImage(el, src) {
+    document.getElementById('main-product-image').src = src;
+    document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function selectOption(el) {
+    document.querySelectorAll('.option-pill').forEach(s => s.style.borderColor = '#ddd');
+    el.style.borderColor = '#f0a500';
+    document.getElementById('option_id_input').value = el.dataset.optionId;
+    document.getElementById('selected-option-name').textContent = el.dataset.optionName;
+    if (el.dataset.optionImage) {
+      document.getElementById('main-product-image').src = el.dataset.optionImage;
+      document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
+    }
+  }
+
+  <% if (options && options.length > 0) { %>
+  // Page load hote-i prothom option-ta selected dekhano
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('selected-option-name').textContent = <%- JSON.stringify(options[0].value_name) %>;
+  });
+  <% } %>
+
+  <% if (variants && variants.length > 0) { %>
+  // Product-er shob variant, prottekta-r attribute combination shoho
+  const variantData = <%- JSON.stringify(variants.map(v => ({
+    id: v.id,
+    price: v.price,
+    stock: v.stock,
+    attrs: v.attrs.reduce((acc, a) => { acc[a.attribute_id] = a.value_id; return acc; }, {})
+  }))) %>;
+
+  const selects = document.querySelectorAll('.variant-attr-select');
+  const form = document.getElementById('add-to-cart-form');
+  const msg = document.getElementById('variant-message');
+  const priceEl = document.getElementById('display-price');
+  const stockEl = document.getElementById('display-stock');
+  const variantIdInput = document.getElementById('variant_id_input');
+  const qtyInput = document.getElementById('quantity');
+  const addBtn = document.getElementById('add-to-cart-btn');
+
+  function updateVariantSelection() {
+    const selection = {};
+    let allSelected = true;
+    selects.forEach(sel => {
+      if (sel.value) {
+        selection[sel.dataset.attributeId] = sel.value;
+      } else {
+        allSelected = false;
+      }
+    });
+
+    if (!allSelected) {
+      form.style.display = 'none';
+      msg.textContent = '';
+      return;
+    }
+
+    const match = variantData.find(v => {
+      return Object.keys(selection).every(attrId => String(v.attrs[attrId]) === String(selection[attrId]));
+    });
+
+    if (!match) {
+      form.style.display = 'none';
+      msg.textContent = 'Ei combination-ta ekhon available na.';
+      return;
+    }
+
+    msg.textContent = '';
+    variantIdInput.value = match.id;
+    priceEl.textContent = '৳' + Number(match.price).toFixed(2);
+    if (match.stock > 0) {
+      stockEl.textContent = match.stock + ' in stock';
+      qtyInput.max = match.stock;
+      qtyInput.value = 1;
+      addBtn.disabled = false;
+      addBtn.textContent = 'Add to Cart';
+      form.style.display = '';
+    } else {
+      stockEl.textContent = 'Out of stock';
+      addBtn.disabled = true;
+      addBtn.textContent = 'Out of Stock';
+      form.style.display = '';
+    }
+  }
+
+  selects.forEach(sel => sel.addEventListener('change', updateVariantSelection));
+  <% } %>
+</script>
+
+<%- include('partials/footer') %>

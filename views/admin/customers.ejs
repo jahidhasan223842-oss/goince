@@ -1,0 +1,52 @@
+<%- include('../partials/admin-header') %>
+
+<div class="admin-page-header">
+  <h1>Customers</h1>
+  <a href="/admin/customers/add" class="btn-primary">+ Add New Customer</a>
+</div>
+
+<form method="GET" action="/admin/customers" class="admin-search-form">
+  <input type="text" name="q" value="<%= q || '' %>" placeholder="Name, email ba phone diye search koro...">
+  <button type="submit" class="btn-primary">Search</button>
+  <% if (q) { %> <a href="/admin/customers">Clear</a> <% } %>
+</form>
+
+<% if (customers.length === 0) { %>
+  <p>Kono customer paoya jayni.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead>
+      <tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th><th>Status</th><th>Joined</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      <% customers.forEach(c => { %>
+        <tr>
+          <td><a href="/admin/customers/<%= c.id %>"><%= c.name %></a></td>
+          <td><%= c.email %></td>
+          <td><%= c.phone || '-' %></td>
+          <td><a href="/admin/customers/<%= c.id %>"><%= c.order_count %></a></td>
+          <td>৳<%= c.total_spent %></td>
+          <td>
+            <% if (c.is_blocked) { %>
+              <span class="status-badge status-cancelled">Blocked</span>
+            <% } else { %>
+              <span class="status-badge status-delivered">Active</span>
+            <% } %>
+          </td>
+          <td><%= new Date(c.created_at).toLocaleDateString() %></td>
+          <td>
+            <a href="/admin/customers/<%= c.id %>">View</a> |
+            <a href="/admin/customers/edit/<%= c.id %>">Edit</a> |
+            <form action="/admin/customers/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete this customer? Their orders will stay but unlinked.');">
+              <button type="submit" class="link-btn-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - <%= siteName %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="admin-body">
+  <div class="admin-wrapper">
+    <aside class="admin-sidebar">
+      <h2><%= siteName %></h2>
+      <nav>
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/admin/products">Products</a>
+        <a href="/admin/categories">Categories</a>
+        <a href="/admin/inventory">Inventory</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/customers">Customers</a>
+        <a href="/admin/coupons">Coupons</a>
+        <a href="/admin/chats">Live Chat</a>
+        <a href="/admin/settings">Settings</a>
+        <a href="/" target="_blank">View Site</a>
+        <a href="/admin/logout" class="logout-link">Logout</a>
+      </nav>
+    </aside>
+    <main class="admin-content">

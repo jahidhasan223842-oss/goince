@@ -1,0 +1,24 @@
+<%- include('../partials/header') %>
+
+<div class="auth-box">
+  <h1>Create Account</h1>
+  <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
+  <form action="/signup" method="POST" class="auth-form">
+    <label>Full Name</label>
+    <input type="text" name="name" required>
+
+    <label>Email</label>
+    <input type="email" name="email" required>
+
+    <label>Phone Number</label>
+    <input type="text" name="phone">
+
+    <label>Password</label>
+    <input type="password" name="password" minlength="6" required>
+
+    <button type="submit" class="btn-primary">Sign Up</button>
+  </form>
+  <p class="auth-switch">Already have an account? <a href="/login">Login</a></p>
+</div>
+
+<%- include('../partials/footer') %>

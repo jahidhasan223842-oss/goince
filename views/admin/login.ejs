@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Login - <%= siteName %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="admin-login-body">
+  <div class="admin-login-box">
+    <h2><%= siteName %> Admin</h2>
+    <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
+    <% if (typeof message !== 'undefined' && message) { %><p class="success-msg"><%= message %></p><% } %>
+    <form action="/admin/login" method="POST">
+      <label>Email</label>
+      <input type="email" name="email" required>
+      <label>Password</label>
+      <input type="password" name="password" required>
+      <button type="submit" class="btn-primary">Login</button>
+    </form>
+    <p class="switch-link"><a href="/admin/forgot-password">Forgot Password?</a></p>
+  </div>
+</body>
+</html>

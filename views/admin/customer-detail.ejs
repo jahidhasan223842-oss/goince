@@ -1,0 +1,86 @@
+<%- include('../partials/admin-header') %>
+
+<div class="admin-page-header">
+  <h1><%= customer.name %></h1>
+  <div>
+    <a href="/admin/customers/edit/<%= customer.id %>" class="btn-primary">Edit Customer</a>
+    <form action="/admin/customers/<%= customer.id %>/toggle-block" method="POST" style="display:inline">
+      <% if (customer.is_blocked) { %>
+        <button type="submit" class="btn-primary">Unblock Customer</button>
+      <% } else { %>
+        <button type="submit" class="link-btn-danger" style="padding:10px 22px;border-radius:5px;">Block Customer</button>
+      <% } %>
+    </form>
+  </div>
+</div>
+
+<p><a href="/admin/customers">&larr; Back to Customers</a></p>
+
+<div class="invoice-box" style="margin-bottom:20px;">
+  <div class="invoice-grid">
+    <div>
+      <h3>Profile</h3>
+      <p><strong>Email:</strong> <%= customer.email %></p>
+      <p><strong>Phone:</strong> <%= customer.phone || '-' %></p>
+      <p><strong>Address:</strong> <%= customer.address || '-' %></p>
+      <p><strong>Joined:</strong> <%= new Date(customer.created_at).toLocaleDateString() %></p>
+      <p><strong>Account Status:</strong>
+        <% if (customer.is_blocked) { %>
+          <span class="status-badge status-cancelled">Blocked</span>
+        <% } else { %>
+          <span class="status-badge status-delivered">Active</span>
+        <% } %>
+      </p>
+    </div>
+    <div>
+      <h3>Wishlist</h3>
+      <p><%= wishlistCount %> item<%= wishlistCount != 1 ? 's' : '' %> saved</p>
+    </div>
+  </div>
+</div>
+
+<div class="stat-cards">
+  <div class="stat-card">
+    <h3><%= totalOrders %></h3>
+    <p>Total Orders</p>
+  </div>
+  <div class="stat-card">
+    <h3>৳<%= totalSpent.toFixed(2) %></h3>
+    <p>Total Spent</p>
+  </div>
+  <div class="stat-card">
+    <h3>৳<%= avgOrderValue.toFixed(2) %></h3>
+    <p>Avg. Order Value</p>
+  </div>
+  <div class="stat-card">
+    <h3><%= lastOrderDate ? new Date(lastOrderDate).toLocaleDateString() : '-' %></h3>
+    <p>Last Order</p>
+  </div>
+</div>
+
+<h2>Order History</h2>
+<% if (orders.length === 0) { %>
+  <p>Ei customer ekhono kono order koreni.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead>
+      <tr><th>ID</th><th>Total</th><th>Status</th><th>Payment</th><th>Date</th><th></th></tr>
+    </thead>
+    <tbody>
+      <% orders.forEach(o => { %>
+        <tr>
+          <td>#<%= o.id %></td>
+          <td>৳<%= o.total_amount %></td>
+          <td><span class="status-badge status-<%= o.status.toLowerCase() %>"><%= o.status %></span></td>
+          <td><span class="status-badge <%= o.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= o.payment_status || 'Unpaid' %></span></td>
+          <td><%= new Date(o.created_at).toLocaleDateString() %></td>
+          <td><a href="/admin/orders/<%= o.id %>">View</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

@@ -1,0 +1,31 @@
+<%- include('partials/header') %>
+
+<h1 class="page-title">My Wishlist</h1>
+
+<% if (items.length === 0) { %>
+  <p>Wishlist khali ache. <a href="/">Shopping shuru koro</a></p>
+<% } else { %>
+  <div class="product-grid">
+    <% items.forEach(p => { %>
+      <div class="product-card wishlist-card">
+        <a href="/product/<%= p.id %>">
+          <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
+          <h3><%= p.name %></h3>
+          <p class="price">৳<%= p.price %></p>
+        </a>
+        <div class="wishlist-actions">
+          <form action="/wishlist/move-to-cart/<%= p.id %>" method="POST">
+            <button type="submit" class="btn-primary" <%= p.stock <= 0 ? 'disabled' : '' %>>
+              <%= p.stock > 0 ? 'Move to Cart' : 'Out of Stock' %>
+            </button>
+          </form>
+          <form action="/wishlist/remove/<%= p.id %>" method="POST">
+            <button type="submit" class="link-btn-danger">Remove</button>
+          </form>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

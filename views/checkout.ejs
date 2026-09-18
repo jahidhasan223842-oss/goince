@@ -1,0 +1,88 @@
+<%- include('partials/header') %>
+
+<h1 class="page-title">Checkout</h1>
+
+<div class="checkout-wrap">
+  <div class="checkout-summary">
+    <h3>Order Summary</h3>
+    <ul>
+      <% cart.forEach(item => { %>
+        <li><%= item.name %><% if (item.variantLabel) { %> (<%= item.variantLabel %>)<% } %> x <%= item.quantity %> — ৳<%= (item.price * item.quantity).toFixed(2) %></li>
+      <% }) %>
+    </ul>
+    <p>Subtotal: ৳<span id="subtotal-display"><%= subtotal.toFixed(2) %></span></p>
+    <% if (discount > 0) { %><p>Discount (<%= coupon.code %>): -৳<%= discount.toFixed(2) %></p><% } %>
+    <p>Delivery Charge: ৳<span id="delivery-display"><%= deliveryCharge.toFixed(2) %></span></p>
+    <h3>Total: ৳<span id="total-display"><%= total.toFixed(2) %></span></h3>
+  </div>
+
+  <form action="/checkout" method="POST" class="checkout-form">
+    <label>Full Name</label>
+    <input type="text" name="customer_name" required>
+
+    <label>Email (Order confirmation pete)</label>
+    <input type="email" name="email" placeholder="you@example.com">
+
+    <label>Phone Number</label>
+    <input type="text" name="phone" required>
+
+    <label>Delivery Address</label>
+    <textarea name="address" rows="3" required></textarea>
+
+    <label>Delivery Area</label>
+    <select name="delivery_area" id="delivery_area" onchange="updateTotal()">
+      <option value="inside_dhaka" data-charge="<%= deliveryCharges.inside_dhaka %>">Inside Dhaka (৳<%= deliveryCharges.inside_dhaka %>)</option>
+      <option value="outside_dhaka" data-charge="<%= deliveryCharges.outside_dhaka %>">Outside Dhaka (৳<%= deliveryCharges.outside_dhaka %>)</option>
+    </select>
+
+    <label>Payment Method</label>
+    <select name="payment_method" id="payment_method" onchange="toggleTxnField()">
+      <option value="Cash on Delivery">Cash on Delivery</option>
+      <option value="bKash">bKash</option>
+      <option value="Nagad">Nagad</option>
+      <option value="Card">Card (Visa/Mastercard)</option>
+    </select>
+
+    <div id="txn-field" style="display:none;">
+      <label id="txn-label">Transaction ID</label>
+      <input type="text" name="transaction_id" id="txn-input" placeholder="e.g. 8N7A2K9XYZ">
+    </div>
+
+    <button type="submit" class="btn-primary">Place Order</button>
+  </form>
+</div>
+
+<script>
+  const subtotal = <%= subtotal %>;
+  const discount = <%= discount %>;
+
+  function updateTotal() {
+    const select = document.getElementById('delivery_area');
+    const charge = parseFloat(select.options[select.selectedIndex].dataset.charge);
+    const total = subtotal - discount + charge;
+
+    document.getElementById('delivery-display').textContent = charge.toFixed(2);
+    document.getElementById('total-display').textContent = total.toFixed(2);
+  }
+
+  function toggleTxnField() {
+    const method = document.getElementById('payment_method').value;
+    const txnField = document.getElementById('txn-field');
+    const txnLabel = document.getElementById('txn-label');
+    const txnInput = document.getElementById('txn-input');
+
+    if (method === 'Cash on Delivery') {
+      txnField.style.display = 'none';
+    } else if (method === 'Card') {
+      txnField.style.display = 'block';
+      txnLabel.textContent = 'Note';
+      txnInput.placeholder = 'Card payment gateway shiggroi asche — ekhon COD e process hobe';
+    } else {
+      txnField.style.display = 'block';
+      txnLabel.textContent = 'Transaction ID (bKash/Nagad theke Send Money korar por je ID pao)';
+      txnInput.placeholder = 'e.g. 8N7A2K9XYZ';
+    }
+  }
+</script>
+
+<%- include('partials/footer') %>

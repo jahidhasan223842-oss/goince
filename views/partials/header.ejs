@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= siteName %> - Online Shop</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo"><%= siteName %></a>
+      <form action="/" method="GET" class="search-form">
+        <input type="text" name="search" placeholder="Search products..." value="<%= typeof search !== 'undefined' ? search : '' %>">
+        <button type="submit">Search</button>
+      </form>
+      <nav class="main-nav">
+        <a href="/">Home</a>
+        <a href="/cart">Cart <% if (cartCount > 0) { %><span class="badge"><%= cartCount %></span><% } %></a>
+        <% if (userName) { %>
+          <a href="/wishlist">Wishlist</a>
+          <a href="/account">My Account</a>
+          <a href="/logout">Logout</a>
+        <% } else { %>
+          <a href="/login" class="btn-nav-outline">Login</a>
+          <a href="/signup" class="btn-nav-solid">Sign Up</a>
+        <% } %>
+      </nav>
+    </div>
+  </header>
+  <main class="container">

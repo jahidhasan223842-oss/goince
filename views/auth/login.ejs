@@ -1,0 +1,20 @@
+<%- include('../partials/header') %>
+
+<div class="auth-box">
+  <h1>Login</h1>
+  <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
+  <% if (typeof message !== 'undefined' && message) { %><p class="success-msg"><%= message %></p><% } %>
+  <form action="/login" method="POST" class="auth-form">
+    <label>Email</label>
+    <input type="email" name="email" required>
+
+    <label>Password</label>
+    <input type="password" name="password" required>
+
+    <button type="submit" class="btn-primary">Login</button>
+  </form>
+  <p class="switch-link"><a href="/forgot-password">Forgot Password?</a></p>
+  <p class="auth-switch">New here? <a href="/signup">Create an account</a></p>
+</div>
+
+<%- include('../partials/footer') %>

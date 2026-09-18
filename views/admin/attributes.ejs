@@ -1,0 +1,49 @@
+<%- include('../partials/admin-header') %>
+
+<div class="admin-page-header">
+  <h1>Attributes</h1>
+</div>
+
+<p style="color:#666; margin-bottom:20px;">Size, Color-er moto Attribute banao, tarpor tar nicher Value gulo (jemon Small/Medium/Large) add koro. Prottek product-er "Variants" page theke ei value-gulo diye combination toiri kora jabe.</p>
+
+<form action="/admin/attributes/add" method="POST" class="inline-form" style="margin-bottom:30px;">
+  <input type="text" name="name" placeholder="Notun Attribute-er naam (jemon: Size)" required style="padding:10px 12px; border:1px solid #ccc; border-radius:4px; min-width:250px;">
+  <button type="submit" class="btn-primary">+ Add Attribute</button>
+</form>
+
+<% if (attributes.length === 0) { %>
+  <p>Kono Attribute nei. Upore theke ekta banao (jemon "Size" ba "Color").</p>
+<% } else { %>
+  <% attributes.forEach(attr => { %>
+    <div class="invoice-box" style="margin-bottom:20px;">
+      <div class="admin-page-header" style="margin-bottom:12px;">
+        <h3><%= attr.name %></h3>
+        <form action="/admin/attributes/delete/<%= attr.id %>" method="POST" onsubmit="return confirm('Ei Attribute delete korle er nicher shob Value o mucbe, ar ei diye toiri kono product variant thakle sheigulor combination o vengge jabe. Sure?');">
+          <button type="submit" class="link-btn-danger">Delete Attribute</button>
+        </form>
+      </div>
+
+      <% if (attr.values.length === 0) { %>
+        <p style="color:#999; font-size:14px; margin-bottom:10px;">Kono Value nei.</p>
+      <% } else { %>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+          <% attr.values.forEach(v => { %>
+            <span class="status-badge status-confirmed" style="display:inline-flex; align-items:center; gap:8px;">
+              <%= v.value %>
+              <form action="/admin/attribute-values/delete/<%= v.id %>" method="POST" style="display:inline" onsubmit="return confirm('Ei value delete korle, eta diye toiri kono product variant-er shathe-o ar match hobe na. Sure?');">
+                <button type="submit" style="background:none; border:none; color:#fff; cursor:pointer; font-weight:bold;">×</button>
+              </form>
+            </span>
+          <% }) %>
+        </div>
+      <% } %>
+
+      <form action="/admin/attributes/<%= attr.id %>/values/add" method="POST" class="inline-form">
+        <input type="text" name="value" placeholder="Notun Value (jemon: Small)" required style="padding:8px 12px; border:1px solid #ccc; border-radius:4px;">
+        <button type="submit" class="btn-primary" style="padding:8px 16px;">+ Add Value</button>
+      </form>
+    </div>
+  <% }) %>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

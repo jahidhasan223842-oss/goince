@@ -1,0 +1,25 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Live Chat</h1>
+
+<% if (conversations.length === 0) { %>
+  <p>Kono chat conversation ekhono nei.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead><tr><th>Customer</th><th>Last Message</th><th>Time</th><th></th></tr></thead>
+    <tbody>
+      <% conversations.forEach(c => { %>
+        <tr>
+          <td><%= c.customer_name %></td>
+          <td><%= c.last_message ? (c.last_message.length > 50 ? c.last_message.slice(0,50) + '...' : c.last_message) : '(no messages)' %></td>
+          <td><%= new Date(c.last_message_at).toLocaleString() %></td>
+          <td><a href="/admin/chats/<%= c.id %>">Open Chat</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>
