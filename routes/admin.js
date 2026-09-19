@@ -261,7 +261,13 @@ router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCo
     res.redirect('/admin/products');
   } catch (err) {
     console.error(err);
-    res.status(500).send('Product add korte problem hoyeche.');
+    res.status(500).send(`
+      <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
+        <h1>😕 Product Add Korte Problem Hoyeche</h1>
+        <p><strong>Actual Error:</strong> ${err.sqlMessage || err.message}</p>
+        <a href="/admin/products/add" style="color:#f0a500; font-weight:bold;">&larr; Abar Try Koro</a>
+      </div>
+    `);
   }
 });
 
@@ -303,7 +309,13 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
     res.redirect('/admin/products');
   } catch (err) {
     console.error(err);
-    res.status(500).send('Product update korte problem hoyeche.');
+    res.status(500).send(`
+      <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
+        <h1>😕 Product Update Korte Problem Hoyeche</h1>
+        <p><strong>Actual Error:</strong> ${err.sqlMessage || err.message}</p>
+        <a href="/admin/products/edit/${id}" style="color:#f0a500; font-weight:bold;">&larr; Abar Try Koro</a>
+      </div>
+    `);
   }
 });
 
