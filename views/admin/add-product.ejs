@@ -14,8 +14,11 @@
     <% }) %>
   </select>
 
-  <label>Description</label>
-  <textarea name="description" rows="4"><%= product ? product.description : '' %></textarea>
+  <label>Short Description — Ekta-dui line-e product-ta ki, ei ta product page-e title-r nichei dekhabe</label>
+  <textarea name="short_description" rows="2" maxlength="300" placeholder="Jemon: 100% cotton comfortable t-shirt, everyday wear-er jonno perfect."><%= product && product.short_description ? product.short_description : '' %></textarea>
+
+  <label>Long Description — Product niye bistarito lekha, ei ta page-er niche "Product Details" section-e dekhabe</label>
+  <textarea name="description" rows="6" placeholder="Product-ta niye vindin details lekhun - material, use-case, care instruction, ba jekono kichu customer jana dorkar."><%= product ? product.description : '' %></textarea>
 
   <label>Specifications (ekta line e ekta feature, jemon: Material: Cotton)</label>
   <textarea name="specifications" rows="4" placeholder="Material: Cotton&#10;Weight: 200g&#10;Origin: Bangladesh"><%= product && product.specifications ? product.specifications : '' %></textarea>
