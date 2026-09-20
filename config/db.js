@@ -10,7 +10,11 @@ const pool = mysql.createPool({
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  decimalNumbers: true // Eta na dile price/compare_at_price-er moto DECIMAL column
+                       // string hisebe ashe, tate boro/choto number compare bhul hoy
+                       // (jemon "1200" ke "900"-er cheye choto mone hoy). Eta true dile
+                       // MySQL2 nijei number hisebe convert kore dey, shob jaygay thik kaj korbe.
 });
 
 const db = pool.promise();
