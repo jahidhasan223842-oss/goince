@@ -1,0 +1,95 @@
+<%- include('../partials/admin-header') %>
+
+<h1>📊 Reports</h1>
+
+<div class="report-tabs">
+  <a href="/admin/reports?period=daily" class="report-tab<%= period === 'daily' ? ' active' : '' %>">Daily</a>
+  <a href="/admin/reports?period=weekly" class="report-tab<%= period === 'weekly' ? ' active' : '' %>">Weekly</a>
+  <a href="/admin/reports?period=monthly" class="report-tab<%= period === 'monthly' ? ' active' : '' %>">Monthly</a>
+  <a href="/admin/reports?period=yearly" class="report-tab<%= period === 'yearly' ? ' active' : '' %>">Yearly</a>
+  <a href="/admin/reports?period=all" class="report-tab<%= period === 'all' ? ' active' : '' %>">All Time</a>
+  <a href="#" class="report-tab<%= period === 'custom' ? ' active' : '' %>" onclick="document.getElementById('custom-date-form').classList.toggle('hidden'); return false;">📅 Custom Date</a>
+</div>
+
+<form id="custom-date-form" class="custom-date-form<%= period === 'custom' ? '' : ' hidden' %>" action="/admin/reports" method="GET">
+  <input type="hidden" name="period" value="custom">
+  <label>From: <input type="date" name="from" value="<%= customFrom %>" required></label>
+  <label>To: <input type="date" name="to" value="<%= customTo %>" required></label>
+  <button type="submit" class="btn-primary">Show Report</button>
+</form>
+
+<p class="report-period-label">Showing: <strong><%= periodLabel %></strong></p>
+
+<div class="report-summary-grid">
+  <div class="report-card">
+    <p class="report-card-label">Total Orders</p>
+    <p class="report-card-value"><%= summary.totalOrders %></p>
+  </div>
+  <div class="report-card">
+    <p class="report-card-label">Total Revenue</p>
+    <p class="report-card-value">৳<%= Number(summary.totalRevenue).toFixed(2) %></p>
+  </div>
+  <div class="report-card">
+    <p class="report-card-label">Items Sold</p>
+    <p class="report-card-value"><%= itemsSummary.totalItemsSold %></p>
+  </div>
+  <div class="report-card">
+    <p class="report-card-label">Avg. Order Value</p>
+    <p class="report-card-value">৳<%= Number(summary.avgOrderValue).toFixed(2) %></p>
+  </div>
+  <div class="report-card report-card-muted">
+    <p class="report-card-label">Cancelled Orders</p>
+    <p class="report-card-value"><%= cancelledSummary.cancelledOrders %></p>
+  </div>
+</div>
+
+<h2 class="report-section-heading">🏆 Top Selling Products</h2>
+<% if (topProducts.length === 0) { %>
+  <p>Ei period-e kono product bikri hoyni.</p>
+<% } else { %>
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Product</th><th>Units Sold</th><th>Revenue</th></tr>
+      </thead>
+      <tbody>
+        <% topProducts.forEach(p => { %>
+          <tr>
+            <td><%= p.product_name %></td>
+            <td><%= p.unitsSold %></td>
+            <td>৳<%= Number(p.revenue).toFixed(2) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<h2 class="report-section-heading">🧾 Orders (<%= periodLabel %>)</h2>
+<% if (orders.length === 0) { %>
+  <p>Ei period-e kono order paoya jayni.</p>
+<% } else { %>
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Order ID</th><th>Customer</th><th>Amount</th><th>Status</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        <% orders.forEach(o => { %>
+          <tr>
+            <td>#<%= o.id %></td>
+            <td><%= o.customer_name %></td>
+            <td>৳<%= Number(o.total_amount).toFixed(2) %></td>
+            <td><span class="status-badge status-<%= o.status.toLowerCase() %>"><%= o.status %></span></td>
+            <td><%= new Date(o.created_at).toLocaleString() %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <% if (orders.length === 20) { %>
+    <p class="report-note">Sudhu shobcheye recent 20 ta order dekhano hocche. Shob order dekhte <a href="/admin/orders">Orders page</a>-e jan.</p>
+  <% } %>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

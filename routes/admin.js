@@ -762,4 +762,106 @@ router.post('/test-email', requireAdmin, async (req, res) => {
   res.render('admin/test-email', { result, testEmail: test_email, siteName: 'Goince' });
 });
 
+// ==================== REPORTS ====================
+// Daily / Weekly / Monthly / Yearly / All Time / Custom Date Range sales report
+router.get('/reports', requireAdmin, async (req, res) => {
+  try {
+    const validPeriods = ['daily', 'weekly', 'monthly', 'yearly', 'all', 'custom'];
+    const period = validPeriods.includes(req.query.period) ? req.query.period : 'daily';
+
+    // Period onujayi WHERE condition (parameterized, SQL injection thekay nirapod)
+    // ebong ekta readable label toiri kora
+    let dateCondition = '1=1';
+    let params = [];
+    let periodLabel = 'All Time';
+    let customFrom = req.query.from || '';
+    let customTo = req.query.to || '';
+
+    if (period === 'daily') {
+      dateCondition = 'DATE(created_at) = CURDATE()';
+      periodLabel = "Today (" + new Date().toLocaleDateString() + ")";
+    } else if (period === 'weekly') {
+      dateCondition = 'YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)';
+      periodLabel = 'This Week';
+    } else if (period === 'monthly') {
+      dateCondition = 'YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE())';
+      periodLabel = 'This Month';
+    } else if (period === 'yearly') {
+      dateCondition = 'YEAR(created_at) = YEAR(CURDATE())';
+      periodLabel = 'This Year (' + new Date().getFullYear() + ')';
+    } else if (period === 'custom') {
+      // from/to date format thik ache kina check kora (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (dateRegex.test(customFrom) && dateRegex.test(customTo)) {
+        dateCondition = 'DATE(created_at) BETWEEN ? AND ?';
+        params = [customFrom, customTo];
+        periodLabel = customFrom + ' theke ' + customTo;
+      } else {
+        // Valid date na dile aajker date dekhano (fallback)
+        dateCondition = 'DATE(created_at) = CURDATE()';
+        periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Tarikh select korun";
+      }
+    } else {
+      periodLabel = 'All Time';
+    }
+
+    // Cancelled order bad diye shob summary calculate kora hocche
+    const [[summary]] = await db.query(
+      `SELECT
+         COUNT(*) AS totalOrders,
+         COALESCE(SUM(total_amount), 0) AS totalRevenue,
+         COALESCE(AVG(total_amount), 0) AS avgOrderValue
+       FROM orders
+       WHERE ${dateCondition} AND status != 'Cancelled'`,
+      params
+    );
+
+    const [[itemsSummary]] = await db.query(
+      `SELECT COALESCE(SUM(order_items.quantity), 0) AS totalItemsSold
+       FROM order_items
+       JOIN orders ON orders.id = order_items.order_id
+       WHERE ${dateCondition} AND orders.status != 'Cancelled'`,
+      params
+    );
+
+    // Cancelled order koyta hoyeche shetao alada kore dekhano
+    const [[cancelledSummary]] = await db.query(
+      `SELECT COUNT(*) AS cancelledOrders FROM orders WHERE ${dateCondition} AND status = 'Cancelled'`,
+      params
+    );
+
+    // Ei period-e shob theke beshi bikri hoya product (top 5)
+    const [topProducts] = await db.query(
+      `SELECT order_items.product_name,
+              SUM(order_items.quantity) AS unitsSold,
+              SUM(order_items.quantity * order_items.price) AS revenue
+       FROM order_items
+       JOIN orders ON orders.id = order_items.order_id
+       WHERE ${dateCondition} AND orders.status != 'Cancelled'
+       GROUP BY order_items.product_name
+       ORDER BY unitsSold DESC
+       LIMIT 5`,
+      params
+    );
+
+    // Ei period-er order-gulo (recent 20 ta, shob status shoho)
+    const [orders] = await db.query(
+      `SELECT id, customer_name, total_amount, status, created_at
+       FROM orders
+       WHERE ${dateCondition}
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      params
+    );
+
+    res.render('admin/reports', {
+      period, periodLabel, summary, itemsSummary, cancelledSummary,
+      topProducts, orders, customFrom, customTo, siteName: 'Goince'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Report load korte problem hoyeche: ' + err.message);
+  }
+});
+
 module.exports = router;
