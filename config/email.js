@@ -76,4 +76,26 @@ Ei link ta 1 ghonta porjonto valid thakbe. Jodi tumi ei request na koro thako, e
   }
 }
 
-module.exports = { sendOrderConfirmation, sendPasswordResetEmail };
+async function sendTestEmail(toEmail) {
+  // Admin panel er "Test Email" button theke use hoy — result screen e shathe shathe dekhano jay,
+  // Server Log khuje ber korar jhamela lagbe na
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    return { success: false, error: '.env file e EMAIL_USER ba EMAIL_PASS khali ache.' };
+  }
+  if (!transporter) {
+    return { success: false, error: 'Email transporter toiri hoyni (unknown reason).' };
+  }
+  try {
+    await transporter.sendMail({
+      from: `"Goince" <${process.env.EMAIL_USER}>`,
+      to: toEmail,
+      subject: 'Goince Test Email',
+      text: `Ei ta ekta test email. Eta jodi tumi paccho, mane Goince er email system thik moto kaj korche!`
+    });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message, code: err.code, response: err.response };
+  }
+}
+
+module.exports = { sendOrderConfirmation, sendPasswordResetEmail, sendTestEmail };

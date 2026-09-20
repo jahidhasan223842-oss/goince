@@ -749,4 +749,17 @@ router.post('/settings', requireAdmin, async (req, res) => {
   });
 });
 
+// ==================== TEST EMAIL (Debug tool) ====================
+
+router.get('/test-email', requireAdmin, (req, res) => {
+  res.render('admin/test-email', { result: null, testEmail: '', siteName: 'Goince' });
+});
+
+router.post('/test-email', requireAdmin, async (req, res) => {
+  const { test_email } = req.body;
+  const { sendTestEmail } = require('../config/email');
+  const result = await sendTestEmail(test_email);
+  res.render('admin/test-email', { result, testEmail: test_email, siteName: 'Goince' });
+});
+
 module.exports = router;
