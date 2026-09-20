@@ -36,12 +36,24 @@
   <% if (products.length === 0) { %>
     <p>No products found.</p>
   <% } %>
-  <% products.forEach(p => { %>
+  <% products.forEach(p => {
+       // compare_at_price thakle ebong seta price theke beshi hole discount hishab kora
+       let discountPercent = 0;
+       if (p.compare_at_price && p.compare_at_price > p.price) {
+         discountPercent = Math.round((1 - p.price / p.compare_at_price) * 100);
+       }
+  %>
     <div class="product-card">
       <a href="/product/<%= p.id %>">
         <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
         <h3><%= p.name %></h3>
-        <p class="price">৳<%= p.price %></p>
+        <div class="price-row">
+          <p class="price">৳<%= p.price %></p>
+          <% if (discountPercent) { %>
+            <p class="compare-price">৳<%= p.compare_at_price %></p>
+            <span class="discount-badge">-<%= discountPercent %>%</span>
+          <% } %>
+        </div>
       </a>
     </div>
   <% }) %>
