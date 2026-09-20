@@ -41,6 +41,12 @@ ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(10,2) DEFAULT 0;
 ```
 (Notun/fresh database hole eta lagbe na, `schema.sql` shob kore dibe)
 
+**Short/Long Description:** Product-e "Short Description" ar "Long Description" alada field hisebe add kora hoyeche (age ekta-i "Description" chilo). Purono database hole ei file ta run koro:
+```bash
+mysql -u root -p goince_db < sql/add_product_descriptions.sql
+```
+Eta purono "description" column-er data automatic "Long Description"-e copy kore dibe, kono data hariye jabe na.
+
 ### 5. Server chalu koro
 ```bash
 npm start

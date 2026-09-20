@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS products (
   category_id INT,
   name VARCHAR(255) NOT NULL,
   description TEXT,
+  short_description VARCHAR(300) DEFAULT NULL,
   specifications TEXT DEFAULT NULL,
   price DECIMAL(10,2) NOT NULL,
   compare_at_price DECIMAL(10,2) DEFAULT NULL,

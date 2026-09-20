@@ -16,6 +16,9 @@
 
   <div class="product-info">
     <h1><%= product.name %></h1>
+    <% if (product.short_description) { %>
+      <p class="short-description"><%= product.short_description %></p>
+    <% } %>
 
     <% if (avgRating) { %>
       <p class="avg-rating">⭐ <%= avgRating %> / 5 (<%= reviewCount %> review<%= reviewCount != 1 ? 's' : '' %>)</p>
@@ -32,7 +35,6 @@
     </div>
 
     <p class="stock" id="display-stock"><%= product.stock > 0 ? product.stock + ' in stock' : 'Out of stock' %></p>
-    <p class="description"><%= product.description %></p>
 
     <% if (options && options.length > 0) { %>
       <div class="option-selectors" style="margin-bottom:15px;">
@@ -92,6 +94,13 @@
     <a href="/" class="back-link">&larr; Back to shop</a>
   </div>
 </div>
+
+<% if (product.description) { %>
+  <div class="long-description-section">
+    <h2>Product Details</h2>
+    <p class="description"><%= product.description %></p>
+  </div>
+<% } %>
 
 <% if (specs && specs.length > 0) { %>
   <div class="specs-section">
