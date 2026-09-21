@@ -4,16 +4,21 @@
 
 <div class="checkout-wrap">
   <div class="checkout-summary">
-    <h3>Order Summary</h3>
+    <h3>📋 Order Summary</h3>
     <ul>
       <% cart.forEach(item => { %>
-        <li><%= item.name %><% if (item.variantLabel) { %> (<%= item.variantLabel %>)<% } %> x <%= item.quantity %> — ৳<%= (item.price * item.quantity).toFixed(2) %></li>
+        <li>
+          <span class="summary-item-name"><%= item.name %><% if (item.variantLabel) { %> <span class="summary-item-variant">(<%= item.variantLabel %>)</span><% } %> <span class="summary-item-qty">× <%= item.quantity %></span></span>
+          <span class="summary-item-price">৳<%= (item.price * item.quantity).toFixed(2) %></span>
+        </li>
       <% }) %>
     </ul>
-    <p>Subtotal: ৳<span id="subtotal-display"><%= subtotal.toFixed(2) %></span></p>
-    <% if (discount > 0) { %><p>Discount (<%= coupon.code %>): -৳<%= discount.toFixed(2) %></p><% } %>
-    <p>Delivery Charge: ৳<span id="delivery-display"><%= deliveryCharge.toFixed(2) %></span></p>
-    <h3>Total: ৳<span id="total-display"><%= total.toFixed(2) %></span></h3>
+    <div class="summary-totals">
+      <p><span>Subtotal</span><span>৳<span id="subtotal-display"><%= subtotal.toFixed(2) %></span></span></p>
+      <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-৳<%= discount.toFixed(2) %></span></p><% } %>
+      <p><span>Delivery Charge</span><span>৳<span id="delivery-display"><%= deliveryCharge.toFixed(2) %></span></span></p>
+    </div>
+    <h3 class="summary-grand-total"><span>Total</span><span>৳<span id="total-display"><%= total.toFixed(2) %></span></span></h3>
   </div>
 
   <form action="/checkout" method="POST" class="checkout-form">
@@ -21,48 +26,56 @@
       <p class="error-msg"><%= error %></p>
     <% } %>
 
-    <label>Full Name</label>
-    <input type="text" name="customer_name" required>
+    <div class="checkout-section">
+      <h4 class="checkout-section-title">👤 Contact & Delivery</h4>
 
-    <label>Email (to receive order confirmation)</label>
-    <input type="email" name="email" placeholder="you@example.com">
+      <label>Full Name</label>
+      <input type="text" name="customer_name" required>
 
-    <label>Phone Number</label>
-    <input type="text" name="phone" required>
+      <label>Email <span class="field-optional">(to receive order confirmation)</span></label>
+      <input type="email" name="email" placeholder="you@example.com">
 
-    <label>Delivery Address</label>
-    <textarea name="address" rows="3" required></textarea>
+      <label>Phone Number</label>
+      <input type="text" name="phone" required>
 
-    <label>Delivery Area</label>
-    <select name="delivery_area" id="delivery_area" onchange="updateTotal()">
-      <option value="inside_dhaka" data-charge="<%= deliveryCharges.inside_dhaka %>">Inside Dhaka (৳<%= deliveryCharges.inside_dhaka %>)</option>
-      <option value="outside_dhaka" data-charge="<%= deliveryCharges.outside_dhaka %>">Outside Dhaka (৳<%= deliveryCharges.outside_dhaka %>)</option>
-    </select>
+      <label>Delivery Address</label>
+      <textarea name="address" rows="3" required></textarea>
 
-    <label>Payment Method</label>
-    <select name="payment_method" id="payment_method" onchange="toggleTxnField()">
-      <option value="Cash on Delivery">Cash on Delivery</option>
-      <% paymentMethods.forEach(m => { %>
-        <option value="<%= m.method_name %>" data-number="<%= m.number || '' %>"><%= m.method_name %></option>
-      <% }) %>
-      <option value="Card">Card (Visa/Mastercard)</option>
-    </select>
-
-    <div id="payment-number-box" class="payment-number-box" style="display:none;">
-      <p>
-        Send Money to <strong id="payment-method-name"></strong> at this number:
-        <strong id="payment-number-display"></strong>
-        <button type="button" id="copy-btn" onclick="copyPaymentNumber()">Copy</button>
-      </p>
-      <p class="field-hint" style="margin:4px 0 0;">After sending money, write the Transaction ID you receive below — the order won't be confirmed without it.</p>
+      <label>Delivery Area</label>
+      <select name="delivery_area" id="delivery_area" onchange="updateTotal()">
+        <option value="inside_dhaka" data-charge="<%= deliveryCharges.inside_dhaka %>">Inside Dhaka (৳<%= deliveryCharges.inside_dhaka %>)</option>
+        <option value="outside_dhaka" data-charge="<%= deliveryCharges.outside_dhaka %>">Outside Dhaka (৳<%= deliveryCharges.outside_dhaka %>)</option>
+      </select>
     </div>
 
-    <div id="txn-field" style="display:none;">
-      <label id="txn-label">Transaction ID</label>
-      <input type="text" name="transaction_id" id="txn-input" placeholder="e.g. 8N7A2K9XYZ">
+    <div class="checkout-section">
+      <h4 class="checkout-section-title">💳 Payment</h4>
+
+      <label>Payment Method</label>
+      <select name="payment_method" id="payment_method" onchange="toggleTxnField()">
+        <option value="Cash on Delivery">Cash on Delivery</option>
+        <% paymentMethods.forEach(m => { %>
+          <option value="<%= m.method_name %>" data-number="<%= m.number || '' %>"><%= m.method_name %></option>
+        <% }) %>
+        <option value="Card">Card (Visa/Mastercard)</option>
+      </select>
+
+      <div id="payment-number-box" class="payment-number-box" style="display:none;">
+        <p>
+          Send Money to <strong id="payment-method-name"></strong> at this number:
+          <strong id="payment-number-display"></strong>
+          <button type="button" id="copy-btn" onclick="copyPaymentNumber()">Copy</button>
+        </p>
+        <p class="field-hint" style="margin:4px 0 0;">After sending money, write the Transaction ID you receive below — the order won't be confirmed without it.</p>
+      </div>
+
+      <div id="txn-field" style="display:none;">
+        <label id="txn-label">Transaction ID</label>
+        <input type="text" name="transaction_id" id="txn-input" placeholder="e.g. 8N7A2K9XYZ">
+      </div>
     </div>
 
-    <button type="submit" class="btn-primary">Place Order</button>
+    <button type="submit" class="btn-primary btn-place-order">Place Order — ৳<span id="btn-total-display"><%= total.toFixed(2) %></span></button>
   </form>
 </div>
 
@@ -77,6 +90,7 @@
 
     document.getElementById('delivery-display').textContent = charge.toFixed(2);
     document.getElementById('total-display').textContent = total.toFixed(2);
+    document.getElementById('btn-total-display').textContent = total.toFixed(2);
   }
 
   function toggleTxnField() {
