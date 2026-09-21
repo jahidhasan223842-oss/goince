@@ -5,7 +5,7 @@
 <% if (message) { %><p class="success-msg" style="text-align:left;"><%= message %></p><% } %>
 
 <form action="/admin/settings" method="POST" class="admin-form">
-  <label>Shop Phone Number (Live Chat er "Call" button e ei number e call hobe)</label>
+  <label>Shop Phone Number (this number will be called via the "Call" button in Live Chat)</label>
   <input type="text" name="shop_phone" value="<%= shopPhone %>" placeholder="+8801XXXXXXXXX" required>
 
   <label>Delivery Charge - Inside Dhaka (৳)</label>
@@ -13,6 +13,13 @@
 
   <label>Delivery Charge - Outside Dhaka (৳)</label>
   <input type="number" step="0.01" min="0" name="delivery_charge_outside" value="<%= deliveryChargeOutside %>" required>
+
+  <hr style="margin:20px 0;">
+  <h3>Mobile Banking Numbers</h3>
+  <p class="field-hint">
+    bKash/Nagad/Rocket numbers can now be Added/Edited/Deleted from a separate page —
+    go to the <a href="/admin/payment-methods">Payment Methods page</a>.
+  </p>
 
   <button type="submit" class="btn-primary">Save Settings</button>
 </form>

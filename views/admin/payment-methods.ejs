@@ -1,0 +1,58 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Payment Methods</h1>
+<p class="field-hint" style="margin-bottom:16px;">
+  Customers will see these methods at checkout (Cash on Delivery and Card always stay and don't need to be added separately).
+  You can Add/Edit/Delete/Turn on-off new bKash/Nagad numbers, Upay, or any other method right here.
+</p>
+
+<form action="/admin/payment-methods/add" method="POST" class="admin-form">
+  <label>Method Name</label>
+  <input type="text" name="method_name" placeholder="e.g. bKash, Nagad, Upay" required>
+
+  <label>Number</label>
+  <input type="text" name="number" placeholder="01XXXXXXXXX">
+
+  <button type="submit" class="btn-primary">Add Payment Method</button>
+</form>
+
+<h2 style="margin-top:30px;">All Payment Methods</h2>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead>
+    <tr><th>Method</th><th>Number</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    <% methods.forEach(m => { %>
+      <tr>
+        <td>
+          <form id="edit-form-<%= m.id %>" action="/admin/payment-methods/edit/<%= m.id %>" method="POST"></form>
+          <input type="text" name="method_name" value="<%= m.method_name %>" form="edit-form-<%= m.id %>" style="width:120px; padding:6px; border:1px solid #ccc; border-radius:4px;">
+        </td>
+        <td><input type="text" name="number" value="<%= m.number || '' %>" form="edit-form-<%= m.id %>" placeholder="01XXXXXXXXX" style="width:140px; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
+        <td>
+          <span class="status-badge <%= m.is_active ? 'status-delivered' : 'status-cancelled' %>">
+            <%= m.is_active ? 'Active' : 'Inactive' %>
+          </span>
+        </td>
+        <td style="white-space:nowrap;">
+          <button type="submit" form="edit-form-<%= m.id %>" class="link-btn-danger" style="color:#2196f3;">Save</button>
+          |
+          <form action="/admin/payment-methods/toggle/<%= m.id %>" method="POST" style="display:inline">
+            <button type="submit" class="link-btn-danger" style="color:#2196f3;"><%= m.is_active ? 'Deactivate' : 'Activate' %></button>
+          </form>
+          |
+          <form action="/admin/payment-methods/delete/<%= m.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');">
+            <button type="submit" class="link-btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (methods.length === 0) { %>
+      <tr><td colspan="4" style="text-align:center; color:#888;">No payment methods yet. Add one above.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+</div>
+
+<%- include('../partials/admin-footer') %>

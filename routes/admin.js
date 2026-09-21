@@ -699,6 +699,56 @@ router.post('/chats/:id/reply', requireAdmin, async (req, res) => {
   res.redirect('/admin/chats/' + req.params.id);
 });
 
+// ==================== PAYMENT METHODS (bKash / Nagad / Rocket / any new mobile banking option) ====================
+router.get('/payment-methods', requireAdmin, async (req, res) => {
+  try {
+    const [methods] = await db.query('SELECT * FROM payment_methods ORDER BY sort_order, id');
+    res.render('admin/payment-methods', { methods, siteName: 'Goince' });
+  } catch (err) {
+    console.error('Payment methods list error:', err);
+    res.status(500).send(`
+      <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
+        <h1>😕 Could Not Load Payment Methods</h1>
+        <p><strong>Error:</strong> ${err.sqlMessage || err.message}</p>
+        <p>The <code>sql/add_payment_methods.sql</code> file probably hasn't been run yet. Try this command:<br>
+        <code>mysql -u root -p goince_db &lt; sql/add_payment_methods.sql</code></p>
+        <a href="/admin/dashboard" style="color:#f0a500; font-weight:bold;">&larr; Back to Dashboard</a>
+      </div>
+    `);
+  }
+});
+
+router.post('/payment-methods/add', requireAdmin, async (req, res) => {
+  const methodName = (req.body.method_name || '').trim();
+  const number = (req.body.number || '').trim() || null;
+
+  if (methodName) {
+    const [[maxOrder]] = await db.query('SELECT COALESCE(MAX(sort_order), 0) AS m FROM payment_methods');
+    await db.query(
+      'INSERT INTO payment_methods (method_name, number, sort_order) VALUES (?, ?, ?)',
+      [methodName, number, maxOrder.m + 1]
+    );
+  }
+  res.redirect('/admin/payment-methods');
+});
+
+router.post('/payment-methods/edit/:id', requireAdmin, async (req, res) => {
+  const methodName = (req.body.method_name || '').trim();
+  const number = (req.body.number || '').trim() || null;
+  await db.query('UPDATE payment_methods SET method_name = ?, number = ? WHERE id = ?', [methodName, number, req.params.id]);
+  res.redirect('/admin/payment-methods');
+});
+
+router.post('/payment-methods/toggle/:id', requireAdmin, async (req, res) => {
+  await db.query('UPDATE payment_methods SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/payment-methods');
+});
+
+router.post('/payment-methods/delete/:id', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM payment_methods WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/payment-methods');
+});
+
 // ==================== SETTINGS ====================
 
 router.get('/settings', requireAdmin, async (req, res) => {

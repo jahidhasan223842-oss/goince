@@ -141,6 +141,10 @@ a { text-decoration: none; color: inherit; }
 .checkout-form { flex: 2; min-width: 280px; display: flex; flex-direction: column; gap: 10px; background: #fff; padding: 20px; border-radius: 8px; }
 .checkout-form label { font-weight: 600; margin-top: 8px; }
 .checkout-form input, .checkout-form textarea, .checkout-form select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+.payment-number-box { background: #fff8e6; border: 1px solid #f0a500; border-radius: 6px; padding: 10px 14px; font-size: 14px; }
+.payment-number-box #payment-number-display { color: #d99400; font-size: 16px; letter-spacing: 0.5px; }
+.payment-number-box #copy-btn { margin-left: 8px; padding: 4px 10px; font-size: 12px; border: 1px solid #f0a500; background: #fff; border-radius: 4px; cursor: pointer; }
+.payment-number-box #copy-btn:hover { background: #f0a500; color: #fff; }
 
 .order-success { text-align: center; padding: 60px 20px; }
 .order-success h1 { color: #4caf50; margin-bottom: 15px; }
@@ -194,6 +198,7 @@ a { text-decoration: none; color: inherit; }
 .admin-form { display: flex; flex-direction: column; gap: 10px; background: #fff; padding: 25px; border-radius: 8px; max-width: 500px; }
 .admin-form label { font-weight: 600; margin-top: 8px; }
 .admin-form input, .admin-form select, .admin-form textarea { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+.field-hint { margin: -4px 0 8px; font-size: 12px; color: #888; }
 .inline-form { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
 
 .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: #fff; }

@@ -6,7 +6,7 @@
 </div>
 
 <form method="GET" action="/admin/customers" class="admin-search-form">
-  <input type="text" name="q" value="<%= q || '' %>" placeholder="Name, email ba phone diye search koro...">
+  <input type="text" name="q" value="<%= q || '' %>" placeholder="Search by name, email or phone...">
   <button type="submit" class="btn-primary">Search</button>
   <% if (q) { %> <a href="/admin/customers">Clear</a> <% } %>
 </form>

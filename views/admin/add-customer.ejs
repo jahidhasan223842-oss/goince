@@ -17,7 +17,7 @@
   <label>Address</label>
   <textarea name="address" rows="3"><%= customer && customer.address ? customer.address : '' %></textarea>
 
-  <label><%= customer ? 'New Password (khali rakho change na korte chaile)' : 'Password' %></label>
+  <label><%= customer ? 'New Password (leave blank to keep unchanged)' : 'Password' %></label>
   <input type="password" name="password" <%= customer ? '' : 'required' %> minlength="6">
 
   <button type="submit" class="btn-primary"><%= customer ? 'Update Customer' : 'Add Customer' %></button>

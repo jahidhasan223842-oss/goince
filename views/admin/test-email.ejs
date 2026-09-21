@@ -1,16 +1,16 @@
 <%- include('../partials/admin-header') %>
 
 <h1>Test Email</h1>
-<p>Ei page diye check korte paro tomar Email setup thik moto kaj korche kina.</p>
+<p>Use this page to check whether your Email setup is working correctly.</p>
 
 <% if (result) { %>
   <% if (result.success) { %>
     <div style="background:#d4edda; color:#155724; padding:15px 20px; border-radius:8px; margin:15px 0;">
-      ✅ <strong>Shofol!</strong> Test email <%= testEmail %> te successfully pathano hoyeche. Inbox (ebong Spam folder) check koro.
+      ✅ <strong>Success!</strong> Test email was sent successfully to <%= testEmail %>. Check your Inbox (and Spam folder).
     </div>
   <% } else { %>
     <div style="background:#f8d7da; color:#721c24; padding:15px 20px; border-radius:8px; margin:15px 0;">
-      ❌ <strong>Email pathano jay ni.</strong><br>
+      ❌ <strong>Email could not be sent.</strong><br>
       <strong>Error:</strong> <%= result.error %><br>
       <% if (result.code) { %><strong>Code:</strong> <%= result.code %><br><% } %>
       <% if (result.response) { %><strong>Server Response:</strong> <%= result.response %><% } %>
@@ -19,8 +19,8 @@
 <% } %>
 
 <form action="/admin/test-email" method="POST" class="admin-form">
-  <label>Test Email pathate chao ei address e</label>
-  <input type="email" name="test_email" value="<%= testEmail %>" placeholder="tomar_nijer_email@gmail.com" required>
+  <label>Send the test email to this address</label>
+  <input type="email" name="test_email" value="<%= testEmail %>" placeholder="your_email@gmail.com" required>
   <button type="submit" class="btn-primary">Send Test Email</button>
 </form>
 

@@ -17,10 +17,14 @@
   </div>
 
   <form action="/checkout" method="POST" class="checkout-form">
+    <% if (typeof error !== 'undefined' && error) { %>
+      <p class="error-msg"><%= error %></p>
+    <% } %>
+
     <label>Full Name</label>
     <input type="text" name="customer_name" required>
 
-    <label>Email (Order confirmation pete)</label>
+    <label>Email (to receive order confirmation)</label>
     <input type="email" name="email" placeholder="you@example.com">
 
     <label>Phone Number</label>
@@ -38,10 +42,20 @@
     <label>Payment Method</label>
     <select name="payment_method" id="payment_method" onchange="toggleTxnField()">
       <option value="Cash on Delivery">Cash on Delivery</option>
-      <option value="bKash">bKash</option>
-      <option value="Nagad">Nagad</option>
+      <% paymentMethods.forEach(m => { %>
+        <option value="<%= m.method_name %>" data-number="<%= m.number || '' %>"><%= m.method_name %></option>
+      <% }) %>
       <option value="Card">Card (Visa/Mastercard)</option>
     </select>
+
+    <div id="payment-number-box" class="payment-number-box" style="display:none;">
+      <p>
+        Send Money to <strong id="payment-method-name"></strong> at this number:
+        <strong id="payment-number-display"></strong>
+        <button type="button" id="copy-btn" onclick="copyPaymentNumber()">Copy</button>
+      </p>
+      <p class="field-hint" style="margin:4px 0 0;">After sending money, write the Transaction ID you receive below — the order won't be confirmed without it.</p>
+    </div>
 
     <div id="txn-field" style="display:none;">
       <label id="txn-label">Transaction ID</label>
@@ -66,22 +80,52 @@
   }
 
   function toggleTxnField() {
-    const method = document.getElementById('payment_method').value;
+    const select = document.getElementById('payment_method');
+    const method = select.value;
+    const selectedOption = select.options[select.selectedIndex];
+    const number = selectedOption.dataset.number || '';
     const txnField = document.getElementById('txn-field');
     const txnLabel = document.getElementById('txn-label');
     const txnInput = document.getElementById('txn-input');
+    const numberBox = document.getElementById('payment-number-box');
+    const methodNameEl = document.getElementById('payment-method-name');
+    const numberDisplayEl = document.getElementById('payment-number-display');
 
     if (method === 'Cash on Delivery') {
       txnField.style.display = 'none';
+      numberBox.style.display = 'none';
+      txnInput.required = false;
     } else if (method === 'Card') {
       txnField.style.display = 'block';
+      numberBox.style.display = 'none';
       txnLabel.textContent = 'Note';
-      txnInput.placeholder = 'Card payment gateway shiggroi asche — ekhon COD e process hobe';
+      txnInput.placeholder = 'Card payment gateway coming soon — will be processed as COD for now';
+      txnInput.required = false;
     } else {
+      // bKash / Nagad / Rocket
       txnField.style.display = 'block';
-      txnLabel.textContent = 'Transaction ID (bKash/Nagad theke Send Money korar por je ID pao)';
+      txnLabel.textContent = 'Transaction ID (the ID you get after sending money via ' + method + ') *';
       txnInput.placeholder = 'e.g. 8N7A2K9XYZ';
+      txnInput.required = true;
+
+      if (number) {
+        methodNameEl.textContent = method;
+        numberDisplayEl.textContent = number;
+        numberBox.style.display = 'block';
+      } else {
+        numberBox.style.display = 'none';
+      }
     }
+  }
+
+  function copyPaymentNumber() {
+    const number = document.getElementById('payment-number-display').textContent;
+    navigator.clipboard.writeText(number).then(() => {
+      const btn = document.getElementById('copy-btn');
+      const oldText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = oldText; }, 1500);
+    });
   }
 </script>
 

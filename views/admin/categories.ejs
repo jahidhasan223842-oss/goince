@@ -6,7 +6,7 @@
   <label>Category Name</label>
   <input type="text" name="name" placeholder="e.g. Fashion, or Men's Shirt" required>
 
-  <label>Parent Category (khali rakhle eta Main category hobe)</label>
+  <label>Parent Category (leave blank to make this a Main Category)</label>
   <select name="parent_id">
     <option value="">-- None (Main Category) --</option>
     <% mainCategories.forEach(cat => { %>
@@ -19,7 +19,7 @@
 
 <div class="table-responsive">
 <table class="admin-table" style="margin-top:24px;">
-  <thead><tr><th>Name</th><th>Parent (jodi thake)</th><th>Products</th><th>Actions</th></tr></thead>
+  <thead><tr><th>Name</th><th>Parent (if any)</th><th>Products</th><th>Actions</th></tr></thead>
   <tbody>
     <% categories.forEach(cat => { %>
       <tr>
@@ -39,7 +39,7 @@
             </select>
             <button type="submit" style="padding:6px 12px; font-size:13px;">Save</button>
           </form>
-          <form action="/admin/categories/delete/<%= cat.id %>" method="POST" onsubmit="return confirm('Delete korle এই category er product gulo Uncategorized hoye jabe, ebong sub-category thakle shegulo o delete hobe. Sure?');">
+          <form action="/admin/categories/delete/<%= cat.id %>" method="POST" onsubmit="return confirm('Deleting this will make its products Uncategorized, and any sub-categories will also be deleted. Sure?');">
             <button type="submit" class="link-btn-danger">Delete</button>
           </form>
         </td>

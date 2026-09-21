@@ -45,7 +45,7 @@
 
 <h2 class="report-section-heading">🏆 Top Selling Products</h2>
 <% if (topProducts.length === 0) { %>
-  <p>Ei period-e kono product bikri hoyni.</p>
+  <p>No products sold in this period.</p>
 <% } else { %>
   <div class="table-responsive">
     <table class="admin-table">
@@ -67,7 +67,7 @@
 
 <h2 class="report-section-heading">🧾 Orders (<%= periodLabel %>)</h2>
 <% if (orders.length === 0) { %>
-  <p>Ei period-e kono order paoya jayni.</p>
+  <p>No orders found in this period.</p>
 <% } else { %>
   <div class="table-responsive">
     <table class="admin-table">
@@ -88,7 +88,7 @@
     </table>
   </div>
   <% if (orders.length === 20) { %>
-    <p class="report-note">Sudhu shobcheye recent 20 ta order dekhano hocche. Shob order dekhte <a href="/admin/orders">Orders page</a>-e jan.</p>
+    <p class="report-note">Only the most recent 20 orders are shown. Visit the <a href="/admin/orders">Orders page</a> to see all orders.</p>
   <% } %>
 <% } %>
 
