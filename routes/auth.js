@@ -30,18 +30,18 @@ router.post('/signup', async (req, res) => {
 
     // ---- Server-side validation ----
     if (!name || !email || !password) {
-      return res.render('auth/signup', { error: 'Shob field pouron koro (Name, Email, Password).', siteName: 'Goince' });
+      return res.render('auth/signup', { error: 'Please fill in all fields (Name, Email, Password).', siteName: 'Goince' });
     }
     if (!isValidEmail(email)) {
-      return res.render('auth/signup', { error: 'Shothik email address diyo (jemon: name@example.com).', siteName: 'Goince' });
+      return res.render('auth/signup', { error: 'Please enter a valid email address (e.g. name@example.com).', siteName: 'Goince' });
     }
     if (password.length < 6) {
-      return res.render('auth/signup', { error: 'Password kompokkhe 6 character howa lagbe.', siteName: 'Goince' });
+      return res.render('auth/signup', { error: 'Password must be at least 6 characters.', siteName: 'Goince' });
     }
 
     const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
-      return res.render('auth/signup', { error: 'Ei email diye already ekta account ache. Login koro.', siteName: 'Goince' });
+      return res.render('auth/signup', { error: 'An account with this email already exists. Please login.', siteName: 'Goince' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -57,13 +57,13 @@ router.post('/signup', async (req, res) => {
     } catch (dbErr) {
       // Race condition: 2 jon ekshathe same email diye signup korte gele eta dhorbe
       if (dbErr.code === 'ER_DUP_ENTRY') {
-        return res.render('auth/signup', { error: 'Ei email diye already ekta account ache. Login koro.', siteName: 'Goince' });
+        return res.render('auth/signup', { error: 'An account with this email already exists. Please login.', siteName: 'Goince' });
       }
       throw dbErr;
     }
   } catch (err) {
     console.error('Signup error:', err);
-    res.render('auth/signup', { error: 'Kichu ekta shomossha hoyeche, abar try koro.', siteName: 'Goince' });
+    res.render('auth/signup', { error: 'Something went wrong, please try again.', siteName: 'Goince' });
   }
 });
 
@@ -78,7 +78,7 @@ router.post('/login', async (req, res) => {
     email = (email || '').trim().toLowerCase();
 
     if (!email || !password) {
-      return res.render('auth/login', { error: 'Email ebong password ditei hobe.', siteName: 'Goince' });
+      return res.render('auth/login', { error: 'Please enter both email and password.', siteName: 'Goince' });
     }
 
     const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
@@ -86,25 +86,25 @@ router.post('/login', async (req, res) => {
     // Email na paoya gele o same generic message dekhai (security best practice —
     // "email exists but wrong password" alada bola thik na)
     if (rows.length === 0) {
-      return res.render('auth/login', { error: 'Email ba password vul hoyeche.', siteName: 'Goince' });
+      return res.render('auth/login', { error: 'Incorrect email or password.', siteName: 'Goince' });
     }
 
     const user = rows[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      return res.render('auth/login', { error: 'Email ba password vul hoyeche.', siteName: 'Goince' });
+      return res.render('auth/login', { error: 'Incorrect email or password.', siteName: 'Goince' });
     }
 
     // Admin je customer ke block kore rekheche, take login korte deya jabe na
     if (user.is_blocked) {
-      return res.render('auth/login', { error: 'Apnar account block kora hoyeche. Bistarito jante shop er sathe jogajog korun.', siteName: 'Goince' });
+      return res.render('auth/login', { error: 'Your account has been blocked. Please contact the shop for details.', siteName: 'Goince' });
     }
 
     // Session fixation attack theke bachte, login er por notun session id generate kora
     req.session.regenerate((err) => {
       if (err) {
         console.error('Session regenerate error:', err);
-        return res.render('auth/login', { error: 'Kichu ekta shomossha hoyeche, abar try koro.', siteName: 'Goince' });
+        return res.render('auth/login', { error: 'Something went wrong, please try again.', siteName: 'Goince' });
       }
       req.session.userId = user.id;
       req.session.userName = user.name;
@@ -112,7 +112,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error('Login error:', err);
-    res.render('auth/login', { error: 'Kichu ekta shomossha hoyeche, abar try koro.', siteName: 'Goince' });
+    res.render('auth/login', { error: 'Something went wrong, please try again.', siteName: 'Goince' });
   }
 });
 
@@ -134,14 +134,14 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
     if (!email) {
-      return res.render('auth/forgot-password', { error: 'Email ditei hobe.', message: null, siteName: 'Goince' });
+      return res.render('auth/forgot-password', { error: 'Please enter your email.', message: null, siteName: 'Goince' });
     }
 
     const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
 
     // User na paoya gelew "message" e shob shomoy same shafollo dekhabo
     // (security best practice — kono email account e ache ki nei eta bujhte deya thik na)
-    const genericMessage = 'Ei email diye ekta account thakle, password reset korar link pathano hoyeche. Email check koro.';
+    const genericMessage = 'If an account exists with this email, a password reset link has been sent. Please check your email.';
 
     if (rows.length > 0) {
       const user = rows[0];
@@ -162,7 +162,7 @@ router.post('/forgot-password', async (req, res) => {
         // (Production e email obosshoi setup kora uchit)
         return res.render('auth/forgot-password', {
           error: null,
-          message: `Email pathano jayni (email setup kora nei). Test korar jonno link: ${resetLink}`,
+          message: `Email could not be sent (email is not set up). For testing, use this link: ${resetLink}`,
           siteName: 'Goince'
         });
       }
@@ -171,7 +171,7 @@ router.post('/forgot-password', async (req, res) => {
     res.render('auth/forgot-password', { error: null, message: genericMessage, siteName: 'Goince' });
   } catch (err) {
     console.error('Forgot password error:', err);
-    res.render('auth/forgot-password', { error: 'Kichu ekta shomossha hoyeche.', message: null, siteName: 'Goince' });
+    res.render('auth/forgot-password', { error: 'Something went wrong.', message: null, siteName: 'Goince' });
   }
 });
 
@@ -181,7 +181,7 @@ router.get('/reset-password/:token', async (req, res) => {
     [req.params.token]
   );
   if (rows.length === 0) {
-    return res.render('auth/reset-password', { error: 'Link ta expire hoye geche ba shothik na. Abar try koro.', token: null, siteName: 'Goince' });
+    return res.render('auth/reset-password', { error: 'This link has expired or is invalid. Please try again.', token: null, siteName: 'Goince' });
   }
   res.render('auth/reset-password', { error: null, token: req.params.token, siteName: 'Goince' });
 });
@@ -191,10 +191,10 @@ router.post('/reset-password/:token', async (req, res) => {
     const { password, confirm_password } = req.body;
 
     if (!password || password.length < 6) {
-      return res.render('auth/reset-password', { error: 'Password kompokkhe 6 character howa lagbe.', token: req.params.token, siteName: 'Goince' });
+      return res.render('auth/reset-password', { error: 'Password must be at least 6 characters.', token: req.params.token, siteName: 'Goince' });
     }
     if (password !== confirm_password) {
-      return res.render('auth/reset-password', { error: 'Duto password mile ni.', token: req.params.token, siteName: 'Goince' });
+      return res.render('auth/reset-password', { error: 'The two passwords do not match.', token: req.params.token, siteName: 'Goince' });
     }
 
     const [rows] = await db.query(
@@ -202,7 +202,7 @@ router.post('/reset-password/:token', async (req, res) => {
       [req.params.token]
     );
     if (rows.length === 0) {
-      return res.render('auth/reset-password', { error: 'Link ta expire hoye geche. Abar Forgot Password theke try koro.', token: null, siteName: 'Goince' });
+      return res.render('auth/reset-password', { error: 'This link has expired. Please try again from Forgot Password.', token: null, siteName: 'Goince' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -211,10 +211,10 @@ router.post('/reset-password/:token', async (req, res) => {
       [hashedPassword, rows[0].id]
     );
 
-    res.render('auth/login', { error: null, message: 'Password shofolvabe change hoyeche! Ekhon login koro.', siteName: 'Goince' });
+    res.render('auth/login', { error: null, message: 'Password changed successfully! You can now login.', siteName: 'Goince' });
   } catch (err) {
     console.error('Reset password error:', err);
-    res.render('auth/reset-password', { error: 'Kichu ekta shomossha hoyeche.', token: req.params.token, siteName: 'Goince' });
+    res.render('auth/reset-password', { error: 'Something went wrong.', token: req.params.token, siteName: 'Goince' });
   }
 });
 
@@ -265,15 +265,15 @@ router.post('/account/profile', requireCustomer, async (req, res) => {
     const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
 
     if (!name || !email) {
-      return res.render('auth/profile', { user, error: 'Name ebong Email obosshoi thakte hobe.', message: null, siteName: 'Goince' });
+      return res.render('auth/profile', { user, error: 'Name and Email are required.', message: null, siteName: 'Goince' });
     }
     if (!isValidEmail(email)) {
-      return res.render('auth/profile', { user, error: 'Shothik email address diyo.', message: null, siteName: 'Goince' });
+      return res.render('auth/profile', { user, error: 'Please enter a valid email address.', message: null, siteName: 'Goince' });
     }
 
     const [existing] = await db.query('SELECT id FROM users WHERE email = ? AND id != ?', [email, req.session.userId]);
     if (existing.length > 0) {
-      return res.render('auth/profile', { user, error: 'Ei email diye onno ekta account already ache.', message: null, siteName: 'Goince' });
+      return res.render('auth/profile', { user, error: 'Another account already exists with this email.', message: null, siteName: 'Goince' });
     }
 
     await db.query(
@@ -283,7 +283,7 @@ router.post('/account/profile', requireCustomer, async (req, res) => {
     req.session.userName = name;
 
     const [[updatedUser]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-    res.render('auth/profile', { user: updatedUser, error: null, message: 'Profile shofolvabe update hoyeche!', siteName: 'Goince' });
+    res.render('auth/profile', { user: updatedUser, error: null, message: 'Profile updated successfully!', siteName: 'Goince' });
   } catch (err) {
     console.error('Profile update error:', err);
     res.status(500).send('Profile update korte problem hoyeche.');
@@ -298,19 +298,19 @@ router.post('/account/change-password', requireCustomer, async (req, res) => {
 
     const match = await bcrypt.compare(current_password || '', user.password);
     if (!match) {
-      return res.render('auth/profile', { user, error: 'Ekhonkar password vul hoyeche.', message: null, siteName: 'Goince' });
+      return res.render('auth/profile', { user, error: 'Your current password is incorrect.', message: null, siteName: 'Goince' });
     }
     if (!new_password || new_password.length < 6) {
-      return res.render('auth/profile', { user, error: 'Notun password kompokkhe 6 character howa lagbe.', message: null, siteName: 'Goince' });
+      return res.render('auth/profile', { user, error: 'New password must be at least 6 characters.', message: null, siteName: 'Goince' });
     }
     if (new_password !== confirm_new_password) {
-      return res.render('auth/profile', { user, error: 'Notun password mile ni.', message: null, siteName: 'Goince' });
+      return res.render('auth/profile', { user, error: 'New passwords do not match.', message: null, siteName: 'Goince' });
     }
 
     const hashedPassword = await bcrypt.hash(new_password, 10);
     await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
 
-    res.render('auth/profile', { user, error: null, message: 'Password shofolvabe change hoyeche!', siteName: 'Goince' });
+    res.render('auth/profile', { user, error: null, message: 'Password changed successfully!', siteName: 'Goince' });
   } catch (err) {
     console.error('Change password error:', err);
     res.status(500).send('Password change korte problem hoyeche.');
