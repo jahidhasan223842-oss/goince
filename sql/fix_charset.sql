@@ -1,34 +1,54 @@
--- Emoji (✅, 🎁, 👔, 💎, 🌙 ityadi) shothik vabe save korte, Database ebong
--- shob Table ke utf8mb4 charset e convert korte hobe. Age purono "utf8" charset
--- emoji (4-byte Unicode) support korto na, tai description e emoji thakle
--- "Incorrect string value" error diye Product Add/Update fail hoto.
+-- Ei script ta ekbar Import korle apnar database-e JOTO table ache
+-- (product_colors thakuk ba na thakuk, kono difference nei) shobgulo
+-- automatically utf8mb4-e convert hoye jabe. Kono table hardcode kora
+-- nei, tai "Table doesn't exist" error kokhono ashbe na.
 --
--- EI SCRIPT ta SAFE — kono Table/Column delete kore na, kono Data o mucbe na,
--- shudhu Encoding/Charset ta thik kore dey.
---
--- Command: mysql -u root -p goince_db < sql/fix_charset.sql
+-- Kono data muchbe na, shudhu encoding thik korbe (emoji shoho shob
+-- lekha shothikvabe save korte parben).
 
-ALTER TABLE categories CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE products CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE product_images CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE admins CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE users CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE orders CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE order_items CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE attributes CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE attribute_values CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE product_variants CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE product_variant_attributes CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE reviews CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE settings CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE chat_conversations CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE chat_messages CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE wishlist CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE coupons CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE product_colors CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE product_options CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE payment_methods CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+DROP PROCEDURE IF EXISTS convert_all_tables_to_utf8mb4;
 
--- Notun Table (jodi future e add hoy) o jate default e utf8mb4 e toiri hoy,
--- tar jonno pura Database-er (ekhon connect kora Database) default charset o palte dicchi
-ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+DELIMITER $$
+
+CREATE PROCEDURE convert_all_tables_to_utf8mb4()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE tbl_name VARCHAR(255);
+  DECLARE cur CURSOR FOR
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE';
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+  OPEN cur;
+
+  read_loop: LOOP
+    FETCH cur INTO tbl_name;
+    IF done THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET @stmt = CONCAT('ALTER TABLE `', tbl_name, '` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;');
+    PREPARE dynamic_stmt FROM @stmt;
+    EXECUTE dynamic_stmt;
+    DEALLOCATE PREPARE dynamic_stmt;
+  END LOOP;
+
+  CLOSE cur;
+END$$
+
+DELIMITER ;
+
+-- Procedure ta call kore shob table convert kore niলাম
+CALL convert_all_tables_to_utf8mb4();
+
+-- Kaj shesh hole procedure ta remove kore dilam, ar dorkar nei
+DROP PROCEDURE IF EXISTS convert_all_tables_to_utf8mb4;
+
+-- Database-er nijer default charset-o utf8mb4 kore dilam, jate
+-- bhobishyote je kono notun table automatically shothik charset pay
+SET @dbname = DATABASE();
+SET @alter_db_stmt = CONCAT('ALTER DATABASE `', @dbname, '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;');
+PREPARE alter_db FROM @alter_db_stmt;
+EXECUTE alter_db;
+DEALLOCATE PREPARE alter_db;
