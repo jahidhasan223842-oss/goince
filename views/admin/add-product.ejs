@@ -14,19 +14,19 @@
     <% }) %>
   </select>
 
-  <label>Short Description — A line or two about the product; this shows just below the title on the product page</label>
-  <textarea name="short_description" rows="2" maxlength="300" placeholder="e.g. 100% cotton comfortable t-shirt, perfect for everyday wear."><%= product && product.short_description ? product.short_description : '' %></textarea>
+  <label>Short Description — Ekta-dui line-e product-ta ki, ei ta product page-e title-r nichei dekhabe</label>
+  <textarea name="short_description" rows="2" maxlength="300" placeholder="Jemon: 100% cotton comfortable t-shirt, everyday wear-er jonno perfect."><%= product && product.short_description ? product.short_description : '' %></textarea>
 
-  <label>Long Description — Detailed writeup about the product; this shows in the "Product Details" section further down the page</label>
-  <textarea name="description" rows="6" placeholder="Write detailed information about the product — material, use-case, care instructions, or anything else the customer should know."><%= product ? product.description : '' %></textarea>
+  <label>Long Description — Product niye bistarito lekha, ei ta page-er niche "Product Details" section-e dekhabe. Markdown support kore: # Heading, ## Subheading, **bold**, * list item</label>
+  <textarea name="description" rows="6" placeholder="Product-ta niye vindin details lekhun - material, use-case, care instruction, ba jekono kichu customer jana dorkar."><%= product ? product.description : '' %></textarea>
 
-  <label>Specifications (one feature per line, e.g. Material: Cotton)</label>
+  <label>Specifications (ekta line e ekta feature, jemon: Material: Cotton)</label>
   <textarea name="specifications" rows="4" placeholder="Material: Cotton&#10;Weight: 200g&#10;Origin: Bangladesh"><%= product && product.specifications ? product.specifications : '' %></textarea>
 
-  <label>Regular Price (৳) — Optional, the product's actual/original price</label>
+  <label>Regular Price (৳) — Optional, product-er actual/original price</label>
   <input type="number" step="0.01" name="compare_at_price" value="<%= product && product.compare_at_price ? product.compare_at_price : '' %>">
 
-  <label>Selling Price (৳) — This is what the customer sees; the product will sell at this price on the website</label>
+  <label>Discount Price (৳) — Eita-i customer ke show hobe, website-e ei price-e product bikri hobe</label>
   <input type="number" step="0.01" name="price" value="<%= product ? product.price : '' %>" required>
 
   <label>Stock Quantity</label>
@@ -38,7 +38,7 @@
     <img src="/uploads/<%= product.image %>" class="admin-thumb" style="margin-top:10px;">
   <% } %>
 
-  <label>Gallery Images (extra photos, you can add several at once)</label>
+  <label>Gallery Images (aro extra chobi, ekbare kototuku o dite paro)</label>
   <input type="file" name="gallery" accept="image/*" multiple>
 
   <button type="submit" class="btn-primary"><%= product ? 'Update Product' : 'Add Product' %></button>
@@ -64,8 +64,8 @@
   <hr>
   <h3>Product Options<% if (options && options.length > 0) { %> — <%= options[0].option_label %><% } %></h3>
   <p style="font-size:13px; color:#888; margin-bottom:12px;">
-    You can add one type of option to this product — Color, Size, Weight (kg), or anything else (only one type per product).
-    If you add a photo, selecting that value will also change the main image; without a photo, it'll just show as a text/color swatch.
+    Ei product-e Color, Size, Weight (kg) — jekono ekta ধরনের option add korte parben (ekbare ekta product-e ekই ধরনের).
+    Chobi dile shei value select korle main image-o bodle jabe; na dile shudhu text/color swatch dekhabe.
   </p>
 
   <% if (options && options.length > 0) { %>
@@ -85,7 +85,7 @@
       <% }) %>
     </div>
   <% } else { %>
-    <p style="color:#888; font-size:13px; margin-bottom:16px;">No options added yet.</p>
+    <p style="color:#888; font-size:13px; margin-bottom:16px;">Ekhono kono option add kora hoyni.</p>
   <% } %>
 
   <form action="/admin/products/<%= product.id %>/options/add" method="POST" enctype="multipart/form-data" class="inline-form" style="flex-wrap:wrap;">
@@ -102,7 +102,7 @@
     <button type="submit">Add</button>
   </form>
 <% } else { %>
-  <p style="color:#888; font-size:13px; margin-top:20px;">After saving the product, you'll be able to add Options (Color/Size/Weight) from the edit page.</p>
+  <p style="color:#888; font-size:13px; margin-top:20px;">Product-ta save korar por, edit page theke Option (Color/Size/Weight) add korte parbe.</p>
 <% } %>
 
 <hr>

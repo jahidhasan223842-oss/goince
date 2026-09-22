@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const { marked } = require('marked');
 const { sendOrderConfirmation } = require('../config/email');
 
 // Settings table theke delivery charge load kora — admin panel theke change korle
@@ -18,11 +19,6 @@ async function getDeliveryCharges() {
     inside_dhaka: get('delivery_charge_inside', 60),
     outside_dhaka: get('delivery_charge_outside', 120)
   };
-}
-
-async function getPaymentMethods() {
-  const [rows] = await db.query('SELECT * FROM payment_methods WHERE is_active = 1 ORDER BY sort_order, id');
-  return rows;
 }
 
 // ---------- HOMEPAGE ----------
@@ -192,6 +188,11 @@ router.get('/product/:id', async (req, res) => {
 
     const deliveryCharges = await getDeliveryCharges();
 
+    // Long Description-e Admin jodi Markdown (#, ##, *, ** ityadi) use kore
+    // thaken, eta ekhane real HTML-e convert kore dilam jate website-e
+    // shothikvabe Heading/Bold/List hisebe dekhay, raw # * chinho na dekhiye
+    const descriptionHtml = product.description ? marked.parse(product.description) : '';
+
     res.render('product', {
       product,
       galleryImages,
@@ -207,6 +208,7 @@ router.get('/product/:id', async (req, res) => {
       reviewCount: avgRow.reviewCount,
       deliveryCharge: deliveryCharges.inside_dhaka,
       deliveryChargeOutside: deliveryCharges.outside_dhaka,
+      descriptionHtml,
       siteName: 'Goince'
     });
   } catch (err) {
@@ -520,8 +522,7 @@ router.get('/checkout', async (req, res) => {
   const deliveryCharges = await getDeliveryCharges();
   const deliveryCharge = deliveryCharges.inside_dhaka; // default, JS diye client-side update hobe
   const total = subtotal - discount + deliveryCharge;
-  const paymentMethods = await getPaymentMethods();
-  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, paymentMethods, error: null, siteName: 'Goince' });
+  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, siteName: 'Goince' });
 });
 
 // ---------- PLACE ORDER ----------
@@ -537,19 +538,6 @@ router.post('/checkout', async (req, res) => {
   const deliveryCharge = deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka;
   const total = subtotal - discount + deliveryCharge;
   const userId = req.session.userId || null;
-
-  // Orders paid via a mobile banking method (bKash/Nagad/Rocket/any method the admin
-  // added) require a Transaction ID before they can be confirmed — everything except
-  // Cash on Delivery and Card counts as "mobile banking" (based on active DB methods)
-  const activePaymentMethods = await getPaymentMethods();
-  const mobileMethodNames = activePaymentMethods.map(m => m.method_name);
-  if (mobileMethodNames.includes(payment_method) && !(transaction_id || '').trim()) {
-    return res.render('checkout', {
-      cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, paymentMethods: activePaymentMethods,
-      error: `Please enter the Transaction ID after paying via ${payment_method} — the order can only be confirmed once that's provided.`,
-      siteName: 'Goince'
-    });
-  }
 
   const connection = await db.getConnection();
   try {
