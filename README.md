@@ -105,8 +105,8 @@ Admin Panel ekhon phone-e "App"-er moto **Install** kora jay, ar notun Order asl
 **Setup (ekbar-i lagbe):**
 1. `.env` file e ei 3ta line add koro (key duita age theke generate kora, notun banano lagbe na):
 ```
-VAPID_PUBLIC_KEY=REMOVED_VAPID_KEY
-VAPID_PRIVATE_KEY=REMOVED_VAPID_KEY
+VAPID_PUBLIC_KEY=your_vapid_public_key_here
+VAPID_PRIVATE_KEY=your_vapid_private_key_here
 VAPID_SUBJECT=mailto:admin@goince.com
 ```
 2. Database-e notun table banao:
