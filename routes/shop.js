@@ -21,6 +21,14 @@ async function getDeliveryCharges() {
   };
 }
 
+// Admin-er "Payment Methods" page theke active (bKash/Nagad/Rocket/etc) gulo load kora
+async function getPaymentMethods() {
+  const [rows] = await db.query(
+    'SELECT method_name, number FROM payment_methods WHERE is_active = 1 ORDER BY sort_order, id'
+  );
+  return rows;
+}
+
 // ---------- HOMEPAGE ----------
 router.get('/', async (req, res) => {
   try {
@@ -522,7 +530,8 @@ router.get('/checkout', async (req, res) => {
   const deliveryCharges = await getDeliveryCharges();
   const deliveryCharge = deliveryCharges.inside_dhaka; // default, JS diye client-side update hobe
   const total = subtotal - discount + deliveryCharge;
-  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, siteName: 'Goince' });
+  const paymentMethods = await getPaymentMethods();
+  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, paymentMethods, error: null, siteName: 'Goince' });
 });
 
 // ---------- PLACE ORDER ----------
@@ -538,6 +547,19 @@ router.post('/checkout', async (req, res) => {
   const deliveryCharge = deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka;
   const total = subtotal - discount + deliveryCharge;
   const userId = req.session.userId || null;
+
+  // bKash/Nagad/Rocket (ba admin-er jog kora onno mobile banking method) e
+  // Transaction ID chara order confirm kora jabe na — Cash on Delivery/Card e lagbe na
+  const selectedMethod = payment_method || 'Cash on Delivery';
+  const needsTransactionId = selectedMethod !== 'Cash on Delivery' && selectedMethod !== 'Card';
+  if (needsTransactionId && !(transaction_id || '').trim()) {
+    const paymentMethods = await getPaymentMethods();
+    return res.render('checkout', {
+      cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, paymentMethods,
+      error: `Please enter the Transaction ID after sending money via ${selectedMethod} — the order can't be confirmed without it.`,
+      siteName: 'Goince'
+    });
+  }
 
   const connection = await db.getConnection();
   try {
