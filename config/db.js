@@ -11,6 +11,9 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  charset: 'utf8mb4', // Emoji (✅, 🎁, 👔 er moto 4-byte Unicode character) shothik vabe
+                       // save korte ei charset lagbe. Shudhu eta dile e hobe na — Database
+                       // ebong Table gulo o utf8mb4 e convert korte hobe (sql/fix_charset.sql dekho).
   decimalNumbers: true // Eta na dile price/compare_at_price-er moto DECIMAL column
                        // string hisebe ashe, tate boro/choto number compare bhul hoy
                        // (jemon "1200" ke "900"-er cheye choto mone hoy). Eta true dile
