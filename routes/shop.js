@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../config/db');
 const { marked } = require('marked');
 const { sendOrderConfirmation } = require('../config/email');
+const { notifyAdmins } = require('../config/push');
 
 // Settings table theke delivery charge load kora — admin panel theke change korle
 // ei function shathe shathe notun value niye ashbe (server restart lagbe na)
@@ -596,6 +597,13 @@ router.post('/checkout', async (req, res) => {
 
     // Order confirmation email pathano (background e, order response e delay hobe na)
     sendOrderConfirmation(email, { id: orderId, customer_name, items: cart, total: total.toFixed(2) });
+
+    // Admin-er phone/browser-e Push Notification (background e, response delay korbe na)
+    notifyAdmins(db, {
+      title: '🛒 নতুন অর্ডার এসেছে!',
+      body: `${customer_name} — ৳${total.toFixed(2)} (${selectedMethod})`,
+      url: `/admin/orders/${orderId}`
+    });
 
     res.render('order-success', { orderId, siteName: 'Goince' });
   } catch (err) {

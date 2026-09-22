@@ -98,6 +98,33 @@ EMAIL_PASS=your-app-password
 
 Eta set na korle, shob kichu normal kaj korbe, shudhu email pathabe na (kono error hobe na).
 
+## Admin Panel-ke "App" Banano (PWA) + Order Notification
+
+Admin Panel ekhon phone-e "App"-er moto **Install** kora jay, ar notun Order asle **Push Notification**-o pete paro — alada kono Android App banano lagbe na, ar Firebase-er moto external account-o lagbe na.
+
+**Setup (ekbar-i lagbe):**
+1. `.env` file e ei 3ta line add koro (key duita age theke generate kora, notun banano lagbe na):
+```
+VAPID_PUBLIC_KEY=REMOVED_VAPID_KEY
+VAPID_PRIVATE_KEY=REMOVED_VAPID_KEY
+VAPID_SUBJECT=mailto:admin@goince.com
+```
+2. Database-e notun table banao:
+```bash
+mysql -u root -p goince_db < sql/add_push_subscriptions.sql
+```
+3. `npm install` chalao (notun `web-push` package add hoyeche)
+4. Server restart koro
+
+**Phone-e install korte:**
+1. Phone-er Chrome browser diye Admin Panel-e login koro
+2. Chrome-er ⋮ menu theke **"Add to Home screen"** / **"Install app"** e click koro
+3. Ekhon Home Screen-e Goince-er icon soho ekta App-er moto thakbe, click korle full-screen e khulbe (browser address bar chara)
+4. Login korar por, "Notun Order asle notification pete chao?" — ei banner-e **"চালু করো"** button-e click korle Push Notification on hoye jabe
+5. Ekhon theke kono Customer Order dile, phone-e sathe sathe notification ashbe — click korle sei Order-er details page-e niye jabe
+
+Eta set na korle shob kichu age-r moto-i normal kaj korbe, shudhu notification pathabe na (kono error hobe na).
+
 ## Coupon Code Test Korte
 
 Schema file diye ekta test coupon already ache: **WELCOME10** (10% discount). Cart page theke likhe "Apply" dile discount kaj kore kina dekho.

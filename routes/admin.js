@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const upload = require('../config/upload');
+const { isConfigured: isPushConfigured } = require('../config/push');
 
 function requireAdmin(req, res, next) {
   if (req.session.isAdmin) return next();
@@ -912,6 +913,40 @@ router.get('/reports', requireAdmin, async (req, res) => {
     console.error(err);
     res.status(500).send('Report load korte problem hoyeche: ' + err.message);
   }
+});
+
+// ==================== PUSH NOTIFICATIONS (PWA) ====================
+// Admin panel-ke phone-e "App"-er moto install kore, notun Order asle
+// push notification pete ei 3ta route lage.
+
+router.get('/vapid-public-key', requireAdmin, (req, res) => {
+  res.json({ key: process.env.VAPID_PUBLIC_KEY || null, configured: isPushConfigured() });
+});
+
+router.post('/push-subscribe', requireAdmin, async (req, res) => {
+  const sub = req.body;
+  if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+    return res.status(400).json({ ok: false, error: 'Invalid subscription' });
+  }
+  try {
+    await db.query(
+      `INSERT INTO push_subscriptions (endpoint, p256dh, auth) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth)`,
+      [sub.endpoint, sub.keys.p256dh, sub.keys.auth]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Push subscribe error:', err);
+    res.status(500).json({ ok: false });
+  }
+});
+
+router.post('/push-unsubscribe', requireAdmin, async (req, res) => {
+  const { endpoint } = req.body;
+  if (endpoint) {
+    await db.query('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]).catch(() => {});
+  }
+  res.json({ ok: true });
 });
 
 module.exports = router;
