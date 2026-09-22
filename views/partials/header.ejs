@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= siteName %> - Online Shop</title>
+  <script>
+    (function () {
+      var t = localStorage.getItem('goince-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -25,6 +31,7 @@
           <a href="/login" class="btn-nav-outline">Login</a>
           <a href="/signup" class="btn-nav-solid">Sign Up</a>
         <% } %>
+        <button type="button" class="theme-toggle-btn" onclick="toggleGoinceTheme()" title="ডার্ক মোড">🌙</button>
       </nav>
     </div>
   </header>

@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin - <%= siteName %></title>
+  <script>
+    (function () {
+      var t = localStorage.getItem('goince-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body class="admin-body">
@@ -28,3 +34,4 @@
       </nav>
     </aside>
     <main class="admin-content">
+      <button type="button" class="theme-toggle-btn theme-toggle-btn-dark theme-toggle-fixed" onclick="toggleGoinceTheme()" title="ডার্ক মোড">🌙</button>
