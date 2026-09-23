@@ -920,6 +920,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
 // push notification pete ei 3ta route lage.
 
 router.get('/vapid-public-key', requireAdmin, (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json({ key: process.env.VAPID_PUBLIC_KEY || null, configured: isPushConfigured() });
 });
 

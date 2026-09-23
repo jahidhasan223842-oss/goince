@@ -103,10 +103,14 @@ Eta set na korle, shob kichu normal kaj korbe, shudhu email pathabe na (kono err
 Admin Panel ekhon phone-e "App"-er moto **Install** kora jay, ar notun Order asle **Push Notification**-o pete paro — alada kono Android App banano lagbe na, ar Firebase-er moto external account-o lagbe na.
 
 **Setup (ekbar-i lagbe):**
-1. `.env` file e ei 3ta line add koro (key duita age theke generate kora, notun banano lagbe na):
+1. Ei command diye nijer VAPID key generate koro (kono external account lagbe na):
+```bash
+node -e "const c=require('crypto');function b64(b){return b.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}function b64d(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Buffer.from(s,'base64')}const{publicKey,privateKey}=c.generateKeyPairSync('ec',{namedCurve:'prime256v1'});const p=publicKey.export({format:'jwk'});const s=privateKey.export({format:'jwk'});console.log('VAPID_PUBLIC_KEY='+b64(Buffer.concat([Buffer.from([4]),b64d(p.x),b64d(p.y)])));console.log('VAPID_PRIVATE_KEY='+s.d)"
 ```
-VAPID_PUBLIC_KEY=your_vapid_public_key_here
-VAPID_PRIVATE_KEY=your_vapid_private_key_here
+Output-e 2ta line ashbe, sheita `.env` file e copy-paste koro (⚠️ `.env.example` e na, ***nijer*** `.env` file e — `.env.example` Git-e commit hoy, GitHub-e Public thake, tai okhane real key kokhono rakhbe na):
+```
+VAPID_PUBLIC_KEY=<generate kora public key>
+VAPID_PRIVATE_KEY=<generate kora private key>
 VAPID_SUBJECT=mailto:admin@goince.com
 ```
 2. Database-e notun table banao:
