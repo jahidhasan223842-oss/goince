@@ -596,7 +596,23 @@ router.post('/checkout', async (req, res) => {
     req.session.coupon = null;
 
     // Order confirmation email pathano (background e, order response e delay hobe na)
-    sendOrderConfirmation(email, { id: orderId, customer_name, items: cart, total: total.toFixed(2) });
+    const siteUrl = `${req.protocol}://${req.get('host')}`;
+    sendOrderConfirmation(email, {
+      id: orderId,
+      customer_name,
+      phone,
+      address,
+      items: cart,
+      subtotal: subtotal.toFixed(2),
+      discount: discount.toFixed(2),
+      couponCode: coupon ? coupon.code : null,
+      deliveryCharge: deliveryCharge.toFixed(2),
+      total: total.toFixed(2),
+      paymentMethod: selectedMethod,
+      transactionId: transaction_id || null,
+      siteUrl,
+      shopPhone: res.locals.shopPhone
+    });
 
     // Admin-er phone/browser-e Push Notification (background e, response delay korbe na)
     notifyAdmins(db, {

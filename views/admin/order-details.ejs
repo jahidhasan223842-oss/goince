@@ -8,40 +8,50 @@
   </div>
 </div>
 
-<div id="invoice-print-area">
-  <div class="invoice-print-header only-print">
-    <h2><%= siteName %></h2>
-    <p>Invoice for Order #<%= order.id %></p>
+<div id="invoice-print-area" class="invoice-doc">
+  <div class="invoice-doc-header">
+    <div class="invoice-brand">
+      <img src="/icons/icon-512.png" alt="<%= siteName %>" class="invoice-logo">
+      <div>
+        <h2><%= siteName %></h2>
+        <p class="invoice-brand-tagline">Online Shop</p>
+      </div>
+    </div>
+    <div class="invoice-meta">
+      <h1>INVOICE</h1>
+      <p><span>Invoice No.</span> #<%= order.id %></p>
+      <p><span>Date</span> <%= new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) %></p>
+      <p class="only-print"><span>Status</span> <%= order.status %></p>
+    </div>
   </div>
+
+  <div class="invoice-divider"></div>
 
   <div class="invoice-box">
     <div class="invoice-grid">
       <div>
-        <h3>Customer Info</h3>
-        <p><strong>Name:</strong> <%= order.customer_name %></p>
-        <p><strong>Phone:</strong> <%= order.phone %></p>
-        <% if (order.email) { %><p><strong>Email:</strong> <%= order.email %></p><% } %>
-        <p><strong>Address:</strong> <%= order.address %></p>
+        <h3>Billed To</h3>
+        <p class="invoice-lead"><%= order.customer_name %></p>
+        <p><%= order.phone %></p>
+        <% if (order.email) { %><p><%= order.email %></p><% } %>
+        <p><%= order.address %></p>
       </div>
       <div>
-        <h3>Order Info</h3>
-        <p><strong>Order Date:</strong> <%= new Date(order.created_at).toLocaleString() %></p>
-        <p><strong>Payment Method:</strong> <%= order.payment_method %></p>
-        <p><strong>Payment Status:</strong>
+        <h3>Order Details</h3>
+        <p><span>Payment Method</span><%= order.payment_method %></p>
+        <p><span>Payment Status</span>
           <span class="status-badge <%= order.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= order.payment_status %></span>
         </p>
-        <% if (order.transaction_id) { %><p><strong>Transaction ID:</strong> <%= order.transaction_id %></p><% } %>
-        <% if (order.coupon_code) { %><p><strong>Coupon Used:</strong> <%= order.coupon_code %></p><% } %>
-        <% if (order.courier_name) { %><p><strong>Courier:</strong> <%= order.courier_name %></p><% } %>
-        <% if (order.tracking_number) { %><p><strong>Tracking No:</strong> <%= order.tracking_number %></p><% } %>
+        <% if (order.transaction_id) { %><p><span>Transaction ID</span><%= order.transaction_id %></p><% } %>
+        <% if (order.coupon_code) { %><p><span>Coupon Used</span><%= order.coupon_code %></p><% } %>
+        <% if (order.courier_name) { %><p><span>Courier</span><%= order.courier_name %></p><% } %>
+        <% if (order.tracking_number) { %><p><span>Tracking No.</span><%= order.tracking_number %></p><% } %>
       </div>
     </div>
   </div>
 
-  <h3 style="margin-top:28px;">Items</h3>
-  <div class="table-responsive">
-  <table class="admin-table">
-    <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
+  <table class="invoice-items-table">
+    <thead><tr><th>Product</th><th class="align-right">Price</th><th class="align-center">Qty</th><th class="align-right">Subtotal</th></tr></thead>
     <tbody>
       <% let subtotal = 0; %>
       <% items.forEach(item => {
@@ -49,15 +59,14 @@
            subtotal += lineTotal;
       %>
         <tr>
-          <td><%= item.product_name %><% if (item.variant_label) { %><br><span style="font-size:12px; color:#888;"><%= item.variant_label %></span><% } %></td>
-          <td>৳<%= Number(item.price).toFixed(2) %></td>
-          <td><%= item.quantity %></td>
-          <td>৳<%= lineTotal.toFixed(2) %></td>
+          <td><%= item.product_name %><% if (item.variant_label) { %><br><span class="invoice-item-variant"><%= item.variant_label %></span><% } %></td>
+          <td class="align-right">৳<%= Number(item.price).toFixed(2) %></td>
+          <td class="align-center"><%= item.quantity %></td>
+          <td class="align-right">৳<%= lineTotal.toFixed(2) %></td>
         </tr>
       <% }) %>
     </tbody>
   </table>
-  </div>
 
   <div class="invoice-total-box">
     <p><span>Subtotal</span><span>৳<%= subtotal.toFixed(2) %></span></p>
@@ -66,7 +75,12 @@
     <% } %>
     <p><span>Delivery Charge</span><span>৳<%= Number(order.delivery_charge || 0).toFixed(2) %></span></p>
     <p class="invoice-grand-total"><span>Total Paid</span><span>৳<%= Number(order.total_amount).toFixed(2) %></span></p>
-    <p class="payment-method-line"><span>Payment Method</span><span><%= order.payment_method %></span></p>
+  </div>
+
+  <div class="invoice-doc-footer">
+    <p class="invoice-thanks">Thank you for shopping with <%= siteName %>!</p>
+    <p class="invoice-contact">For any questions about this order, call us at <%= shopPhone %></p>
+    <p class="invoice-note only-print">This is a computer-generated invoice and does not require a signature.</p>
   </div>
 </div>
 

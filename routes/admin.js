@@ -456,7 +456,8 @@ router.get('/orders/:id', requireAdmin, async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/orders');
   const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
-  res.render('admin/order-details', { order, items, siteName: 'Goince' });
+  const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
+  res.render('admin/order-details', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
 });
 
 // ---------- UPDATE ORDER STATUS ----------
