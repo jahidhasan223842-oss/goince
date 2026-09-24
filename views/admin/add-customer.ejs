@@ -18,7 +18,10 @@
   <textarea name="address" rows="3"><%= customer && customer.address ? customer.address : '' %></textarea>
 
   <label><%= customer ? 'New Password (leave blank to keep unchanged)' : 'Password' %></label>
-  <input type="password" name="password" <%= customer ? '' : 'required' %> minlength="6">
+  <div class="password-wrapper">
+    <input type="password" name="password" id="customer-form-password" <%= customer ? '' : 'required' %> minlength="6">
+    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'customer-form-password')">Show</button>
+  </div>
 
   <button type="submit" class="btn-primary"><%= customer ? 'Update Customer' : 'Add Customer' %></button>
 </form>

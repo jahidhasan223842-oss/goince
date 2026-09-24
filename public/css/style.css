@@ -263,6 +263,16 @@ a { text-decoration: none; color: inherit; }
 .auth-box .error-msg { color: var(--danger); text-align: center; margin-bottom: 10px; }
 .auth-box .success-msg { color: var(--success); text-align: center; margin-bottom: 10px; }
 .auth-box .switch-link, .auth-switch { text-align: center; margin-top: 15px; }
+.password-wrapper { position: relative; display: flex; }
+.password-wrapper input { flex: 1; padding-right: 55px !important; }
+.password-toggle-btn {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+  padding: 6px 10px; color: var(--accent, #f0a500); line-height: 1;
+}
+.password-toggle-btn:hover { text-decoration: underline; }
+.remember-me-row { display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer; }
+.remember-me-row input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
 
 .account-orders-table { width: 100%; background: var(--surface); border-collapse: collapse; margin: 20px 0; }
 .account-orders-table th, .account-orders-table td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }

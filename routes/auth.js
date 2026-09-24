@@ -108,6 +108,15 @@ router.post('/login', async (req, res) => {
       }
       req.session.userId = user.id;
       req.session.userName = user.name;
+
+      // "Remember Me" checked -> stay logged in for 30 days; otherwise the
+      // session ends when the browser is closed (a normal session cookie)
+      if (req.body.remember_me) {
+        req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30; // 30 days
+      } else {
+        req.session.cookie.expires = false; // session cookie — expires when the browser closes
+      }
+
       res.redirect('/');
     });
   } catch (err) {

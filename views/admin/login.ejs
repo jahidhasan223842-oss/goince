@@ -20,7 +20,14 @@
       <label>Email</label>
       <input type="email" name="email" required>
       <label>Password</label>
-      <input type="password" name="password" required>
+      <div class="password-wrapper">
+        <input type="password" name="password" id="admin-password" required>
+        <button type="button" class="password-toggle-btn" onclick="var i=document.getElementById('admin-password'); var isHidden=i.type==='password'; i.type=isHidden?'text':'password'; this.textContent=isHidden?'Hide':'Show';">Show</button>
+      </div>
+      <label class="remember-me-row">
+        <input type="checkbox" name="remember_me" value="1">
+        Remember Me
+      </label>
       <button type="submit" class="btn-primary">Login</button>
     </form>
     <p class="switch-link"><a href="/admin/forgot-password">Forgot Password?</a></p>

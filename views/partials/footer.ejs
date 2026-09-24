@@ -88,5 +88,16 @@
       if (chatPanel.classList.contains('open')) loadWidgetMessages();
     }, 4000);
   </script>
+
+  <script>
+    // Shared "show/hide password" toggle used across Login, Signup, Reset Password, etc.
+    function togglePasswordVisibility(btn, inputId) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.textContent = isHidden ? 'Hide' : 'Show';
+    }
+  </script>
 </body>
 </html>

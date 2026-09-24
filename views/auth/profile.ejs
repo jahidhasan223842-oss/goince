@@ -26,13 +26,22 @@
   <h1>Change Password</h1>
   <form action="/account/change-password" method="POST">
     <label>Current Password</label>
-    <input type="password" name="current_password" required>
+    <div class="password-wrapper">
+      <input type="password" name="current_password" id="profile-pw-current" required>
+      <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'profile-pw-current')">Show</button>
+    </div>
 
     <label>New Password</label>
-    <input type="password" name="new_password" minlength="6" required>
+    <div class="password-wrapper">
+      <input type="password" name="new_password" id="profile-pw-new" minlength="6" required>
+      <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'profile-pw-new')">Show</button>
+    </div>
 
     <label>Confirm New Password</label>
-    <input type="password" name="confirm_new_password" minlength="6" required>
+    <div class="password-wrapper">
+      <input type="password" name="confirm_new_password" id="profile-pw-confirm" minlength="6" required>
+      <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'profile-pw-confirm')">Show</button>
+    </div>
 
     <button type="submit" class="btn-primary">Change Password</button>
   </form>

@@ -2,5 +2,15 @@
   </div>
   <script src="/js/theme.js"></script>
   <script src="/js/admin-push.js"></script>
+  <script>
+    // Shared "show/hide password" toggle, used on Add/Edit Customer etc.
+    function togglePasswordVisibility(btn, inputId) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.textContent = isHidden ? 'Hide' : 'Show';
+    }
+  </script>
 </body>
 </html>
