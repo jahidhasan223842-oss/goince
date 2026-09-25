@@ -143,4 +143,22 @@
   }
 </script>
 
+<!-- Google Analytics: begin_checkout event -->
+<script>
+  gtag('event', 'begin_checkout', {
+    currency: 'BDT',
+    value: <%= total %>,
+    items: [
+      <% cart.forEach(item => { %>
+      {
+        item_id: '<%= item.id %>',
+        item_name: <%- JSON.stringify(item.name) %>,
+        price: <%= item.price %>,
+        quantity: <%= item.quantity %>
+      },
+      <% }) %>
+    ]
+  });
+</script>
+
 <%- include('partials/footer') %>

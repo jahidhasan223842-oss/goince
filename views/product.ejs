@@ -257,4 +257,41 @@
   <% } %>
 </script>
 
+<!-- Google Analytics: view_item event -->
+<script>
+  gtag('event', 'view_item', {
+    currency: 'BDT',
+    value: <%= product.price %>,
+    items: [{
+      item_id: '<%= product.id %>',
+      item_name: <%- JSON.stringify(product.name) %>,
+      price: <%= product.price %>,
+      quantity: 1
+    }]
+  });
+</script>
+
+<!-- Google Analytics: add_to_cart event (form submit howar age fire hoy) -->
+<script>
+  (function () {
+    const cartForm = document.getElementById('add-to-cart-form');
+    if (cartForm) {
+      cartForm.addEventListener('submit', function () {
+        const qtyInput = document.getElementById('quantity');
+        const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+        gtag('event', 'add_to_cart', {
+          currency: 'BDT',
+          value: <%= product.price %> * qty,
+          items: [{
+            item_id: '<%= product.id %>',
+            item_name: <%- JSON.stringify(product.name) %>,
+            price: <%= product.price %>,
+            quantity: qty
+          }]
+        });
+      });
+    }
+  })();
+</script>
+
 <%- include('partials/footer') %>

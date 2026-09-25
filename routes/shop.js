@@ -621,7 +621,7 @@ router.post('/checkout', async (req, res) => {
       url: `/admin/orders/${orderId}`
     });
 
-    res.render('order-success', { orderId, siteName: 'Goince' });
+    res.render('order-success', { orderId, siteName: 'Goince', cart, total });
   } catch (err) {
     await connection.rollback();
     console.error(err);

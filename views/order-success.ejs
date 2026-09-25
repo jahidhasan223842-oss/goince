@@ -7,4 +7,23 @@
   <a href="/" class="btn-primary">Continue Shopping</a>
 </div>
 
+<!-- Google Analytics: purchase event -->
+<script>
+  gtag('event', 'purchase', {
+    transaction_id: '<%= orderId %>',
+    currency: 'BDT',
+    value: <%= total %>,
+    items: [
+      <% cart.forEach(item => { %>
+      {
+        item_id: '<%= item.id %>',
+        item_name: <%- JSON.stringify(item.name) %>,
+        price: <%= item.price %>,
+        quantity: <%= item.quantity %>
+      },
+      <% }) %>
+    ]
+  });
+</script>
+
 <%- include('partials/footer') %>
