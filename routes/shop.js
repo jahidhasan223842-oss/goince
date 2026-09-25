@@ -631,4 +631,33 @@ router.post('/checkout', async (req, res) => {
   }
 });
 
+// ---------- SITEMAP.XML (Google Search Console-er jonno) ----------
+router.get('/sitemap.xml', async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const [products] = await db.query('SELECT id, created_at FROM products');
+    const [categories] = await db.query('SELECT id FROM categories');
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+    xml += `  <url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n`;
+
+    categories.forEach(c => {
+      xml += `  <url><loc>${baseUrl}/?category=${c.id}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+    });
+
+    products.forEach(p => {
+      const lastmod = p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '';
+      xml += `  <url><loc>${baseUrl}/product/${p.id}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}<changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
+    });
+
+    xml += '</urlset>';
+    res.header('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Sitemap generate korte problem hoyeche.');
+  }
+});
+
 module.exports = router;
