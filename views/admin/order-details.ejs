@@ -20,7 +20,7 @@
     <div class="invoice-meta">
       <h1>INVOICE</h1>
       <p><span>Invoice No.</span> #<%= order.id %></p>
-      <p><span>Date</span> <%= new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) %></p>
+      <p><span>Date</span> <%= new Date(order.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></p>
       <p class="only-print"><span>Status</span> <%= order.status %></p>
     </div>
   </div>
