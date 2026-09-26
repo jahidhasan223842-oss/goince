@@ -631,6 +631,15 @@ router.post('/checkout', async (req, res) => {
   }
 });
 
+// ---------- STATIC POLICY PAGES (Google Merchant Center-er jonno dorkar) ----------
+router.get('/shipping-policy', (req, res) => {
+  res.render('shipping-policy', { siteName: 'Goince' });
+});
+
+router.get('/return-policy', (req, res) => {
+  res.render('return-policy', { siteName: 'Goince' });
+});
+
 // ---------- SITEMAP.XML (Google Search Console-er jonno) ----------
 router.get('/sitemap.xml', async (req, res) => {
   try {
@@ -641,6 +650,8 @@ router.get('/sitemap.xml', async (req, res) => {
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
     xml += `  <url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}/shipping-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}/return-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
 
     categories.forEach(c => {
       xml += `  <url><loc>${baseUrl}/?category=${c.id}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
