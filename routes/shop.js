@@ -640,6 +640,56 @@ router.get('/return-policy', (req, res) => {
   res.render('return-policy', { siteName: 'Goince' });
 });
 
+// ---------- PRODUCT FEED (Google Merchant Center-er jonno) ----------
+// Notun product add korle ba stock/price bodlale ei feed nijei update hobe,
+// Google প্রতিদিন eta re-fetch kore.
+router.get('/product-feed.xml', async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const [products] = await db.query('SELECT * FROM products');
+
+    const esc = (str) => String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n';
+    xml += '<channel>\n';
+    xml += `  <title>${esc('Goince Product Feed')}</title>\n`;
+    xml += `  <link>${baseUrl}</link>\n`;
+    xml += `  <description>${esc('Goince product feed for Google Merchant Center')}</description>\n`;
+
+    products.forEach(p => {
+      // Real chobi na thakle (no-image placeholder) feed theke bad rakhbo — Google
+      // generic/stock chobi pochondo kore na, real product image chara approve hoy na.
+      if (!p.image || p.image === 'no-image.png') return;
+
+      const rawDesc = p.short_description || (p.description || '').replace(/[#*_`>-]/g, '').slice(0, 500);
+      xml += '  <item>\n';
+      xml += `    <g:id>${p.id}</g:id>\n`;
+      xml += `    <g:title>${esc(p.name)}</g:title>\n`;
+      xml += `    <g:description>${esc(rawDesc)}</g:description>\n`;
+      xml += `    <g:link>${baseUrl}/product/${p.id}</g:link>\n`;
+      xml += `    <g:image_link>${baseUrl}/uploads/${esc(p.image)}</g:image_link>\n`;
+      xml += `    <g:availability>${p.stock > 0 ? 'in stock' : 'out of stock'}</g:availability>\n`;
+      xml += `    <g:price>${Number(p.price).toFixed(2)} BDT</g:price>\n`;
+      xml += '    <g:condition>new</g:condition>\n';
+      xml += '    <g:brand>Goince</g:brand>\n';
+      xml += '    <g:identifier_exists>no</g:identifier_exists>\n';
+      xml += '  </item>\n';
+    });
+
+    xml += '</channel>\n</rss>';
+    res.header('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Product feed generate korte problem hoyeche.');
+  }
+});
+
 // ---------- SITEMAP.XML (Google Search Console-er jonno) ----------
 router.get('/sitemap.xml', async (req, res) => {
   try {
