@@ -159,6 +159,13 @@
       <% }) %>
     ]
   });
+  fbq('track', 'InitiateCheckout', {
+    content_ids: [<% cart.forEach((item, i) => { %>'<%= item.id %>'<% if (i < cart.length - 1) { %>, <% } %><% }) %>],
+    content_type: 'product',
+    value: <%= total %>,
+    currency: 'BDT',
+    num_items: <%= cart.reduce((sum, item) => sum + item.quantity, 0) %>
+  });
 </script>
 
 <%- include('partials/footer') %>

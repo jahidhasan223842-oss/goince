@@ -24,6 +24,12 @@
       <% }) %>
     ]
   });
+  fbq('track', 'Purchase', {
+    content_ids: [<% cart.forEach((item, i) => { %>'<%= item.id %>'<% if (i < cart.length - 1) { %>, <% } %><% }) %>],
+    content_type: 'product',
+    value: <%= total %>,
+    currency: 'BDT'
+  });
 </script>
 
 <%- include('partials/footer') %>

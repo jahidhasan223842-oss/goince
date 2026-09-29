@@ -269,6 +269,12 @@
       quantity: 1
     }]
   });
+  fbq('track', 'ViewContent', {
+    content_ids: ['<%= product.id %>'],
+    content_type: 'product',
+    value: <%= product.price %>,
+    currency: 'BDT'
+  });
 </script>
 
 <!-- Google Analytics: add_to_cart event (form submit howar age fire hoy) -->
@@ -288,6 +294,12 @@
             price: <%= product.price %>,
             quantity: qty
           }]
+        });
+        fbq('track', 'AddToCart', {
+          content_ids: ['<%= product.id %>'],
+          content_type: 'product',
+          value: <%= product.price %> * qty,
+          currency: 'BDT'
         });
       });
     }
