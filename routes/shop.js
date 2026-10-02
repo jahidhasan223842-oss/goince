@@ -632,6 +632,14 @@ router.post('/checkout', async (req, res) => {
 });
 
 // ---------- STATIC POLICY PAGES (Google Merchant Center-er jonno dorkar) ----------
+router.get('/terms', (req, res) => {
+  res.render('terms', { siteName: 'Goince' });
+});
+
+router.get('/privacy-policy', (req, res) => {
+  res.render('privacy-policy', { siteName: 'Goince' });
+});
+
 router.get('/shipping-policy', (req, res) => {
   res.render('shipping-policy', { siteName: 'Goince' });
 });
@@ -701,6 +709,8 @@ router.get('/sitemap.xml', async (req, res) => {
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
     xml += `  <url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n`;
     xml += `  <url><loc>${baseUrl}/shipping-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}/terms</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}/privacy-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
     xml += `  <url><loc>${baseUrl}/return-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
 
     categories.forEach(c => {
