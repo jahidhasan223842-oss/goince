@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS products (
   stock INT DEFAULT 0,
   image VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  source_link VARCHAR(500) DEFAULT NULL,
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 );
 
