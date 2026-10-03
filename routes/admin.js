@@ -253,12 +253,12 @@ router.get('/products/add', requireAdmin, async (req, res) => {
 
 router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }]), async (req, res) => {
   try {
-    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id } = req.body;
+    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link } = req.body;
     const image = (req.files && req.files.image) ? req.files.image[0].filename : 'no-image.png';
 
     const [result] = await db.query(
-      'INSERT INTO products (category_id, name, description, short_description, specifications, price, compare_at_price, stock, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [category_id || null, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image]
+      'INSERT INTO products (category_id, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [category_id || null, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null]
     );
 
     // Gallery e extra images thakle shegulo product_images table e jog kora
@@ -293,19 +293,19 @@ router.get('/products/edit/:id', requireAdmin, async (req, res) => {
 
 router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }]), async (req, res) => {
   try {
-    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id } = req.body;
+    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link } = req.body;
     const id = req.params.id;
     const mainImage = (req.files && req.files.image) ? req.files.image[0].filename : null;
 
     if (mainImage) {
       await db.query(
-        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, image=? WHERE id=?',
-        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, mainImage, id]
+        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, image=?, source_link=? WHERE id=?',
+        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, mainImage, source_link || null, id]
       );
     } else {
       await db.query(
-        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=? WHERE id=?',
-        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, id]
+        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, source_link=? WHERE id=?',
+        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, source_link || null, id]
       );
     }
 
