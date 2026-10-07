@@ -13,6 +13,8 @@ const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 
+const helmet = require('helmet');
+
 const app = express();
 
 // ---------- Admin account DB-te seed kora (.env theke) ----------
@@ -49,6 +51,24 @@ app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// ---------- Security Headers (Helmet) ----------
+// contentSecurityPolicy off rakha hoyeche kaw Google Analytics, Facebook Pixel,
+// ebong EJS-er onek inline <script> block ache - CSP on thakle egulo block hoye
+// jete pare. Baki shob security header (clickjacking, MIME-sniffing protection
+// ityadi) thik-i thakbe.
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// ---------- HTTPS Force Redirect (SSL thik moto kaj korle-i .env e
+// FORCE_HTTPS=true kore চালু korben, nahole site বন্ধ হয়ে jete pare) ----------
+if (process.env.FORCE_HTTPS === 'true') {
+  app.use((req, res, next) => {
+    if (!req.secure) {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+}
+
 // ---------- Middleware ----------
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -59,7 +79,10 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'change_this_secret',
   resave: false,
   saveUninitialized: true,
-  cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 din
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24, // 1 din
+    secure: process.env.FORCE_HTTPS === 'true' // HTTPS chalu thakle-i cookie-o শুধু HTTPS-e jabe
+  }
 }));
 
 // ---------- Persistent Chat ID (long-lived cookie, session theke alada —
