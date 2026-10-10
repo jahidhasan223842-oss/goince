@@ -240,7 +240,12 @@ router.post('/inventory/update/:id', requireAdmin, async (req, res) => {
 // ---------- PRODUCT LIST ----------
 router.get('/products', requireAdmin, async (req, res) => {
   const [products] = await db.query(
-    'SELECT p.*, c.name AS category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id ORDER BY p.created_at DESC'
+    `SELECT p.*, c.name AS category_name,
+            (SELECT filename FROM product_videos WHERE product_id = p.id ORDER BY created_at DESC LIMIT 1) AS video_filename,
+            (SELECT id FROM product_videos WHERE product_id = p.id ORDER BY created_at DESC LIMIT 1) AS video_id
+     FROM products p
+     LEFT JOIN categories c ON p.category_id = c.id
+     ORDER BY p.created_at DESC`
   );
   res.render('admin/products', { products, siteName: 'Goince' });
 });
@@ -959,5 +964,105 @@ router.post('/push-unsubscribe', requireAdmin, async (req, res) => {
   }
   res.json({ ok: true });
 });
+// ---------- PRODUCT VIDEO (Reels / Shorts) ----------
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
+router.post('/products/:id/generate-video', requireAdmin, async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [productId]);
+    if (rows.length === 0) return res.status(404).json({ ok: false, error: 'Product not found' });
+
+    const product = rows[0];
+    const [gallery] = await db.query('SELECT image FROM product_images WHERE product_id = ?', [productId]);
+
+    const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
+    const images = [];
+    if (product.image && product.image !== 'no-image.png') {
+      const mainPath = path.join(uploadDir, product.image);
+      if (fs.existsSync(mainPath)) images.push(mainPath);
+    }
+    for (const g of gallery) {
+      const gPath = path.join(uploadDir, g.image);
+      if (fs.existsSync(gPath)) images.push(gPath);
+    }
+
+    if (images.length === 0) {
+      return res.status(400).json({ ok: false, error: 'No images found for this product. Upload at least one image first.' });
+    }
+
+    const videoDir = path.join(__dirname, '..', 'public', 'videos');
+    if (!fs.existsSync(videoDir)) fs.mkdirSync(videoDir, { recursive: true });
+    const filename = 'product-' + productId + '-' + Date.now() + '.mp4';
+    const outputPath = path.join(videoDir, filename);
+
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'generate_product_video.py');
+    const args = [
+      scriptPath,
+      '--product-id', String(productId),
+      '--images', images.join(','),
+      '--name', product.name || 'Product',
+      '--price', String(product.price || 0),
+      '--output', outputPath
+    ];
+    if (product.short_description) {
+      args.push('--short-desc', product.short_description.substring(0, 80));
+    }
+
+    const py = spawn('python3', args, { timeout: 120000 });
+
+    let stderr = '';
+    py.stderr.on('data', (data) => { stderr += data.toString(); });
+
+    py.on('close', async (code) => {
+      if (code === 0 && fs.existsSync(outputPath)) {
+        const [oldVideos] = await db.query('SELECT id, filename FROM product_videos WHERE product_id = ?', [productId]);
+        for (const ov of oldVideos) {
+          const oldPath = path.join(videoDir, ov.filename);
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+          await db.query('DELETE FROM product_videos WHERE id = ?', [ov.id]);
+        }
+        await db.query('INSERT INTO product_videos (product_id, filename) VALUES (?, ?)', [productId, filename]);
+        return res.json({ ok: true, filename, message: 'Video generated successfully!' });
+      } else {
+        console.error('Video generation failed:', stderr);
+        return res.status(500).json({ ok: false, error: 'Video generation failed. Check server logs. ' + (stderr.slice(-300) || '') });
+      }
+    });
+
+    py.on('error', (err) => {
+      console.error('Spawn error:', err);
+      res.status(500).json({ ok: false, error: 'Failed to start video generator. Is python3 + ffmpeg installed?' });
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/products/:id/video/download', requireAdmin, async (req, res) => {
+  const [rows] = await db.query(
+    'SELECT filename FROM product_videos WHERE product_id = ? ORDER BY created_at DESC LIMIT 1',
+    [req.params.id]
+  );
+  if (rows.length === 0) return res.status(404).send('No video found');
+  const filePath = path.join(__dirname, '..', 'public', 'videos', rows[0].filename);
+  if (!fs.existsSync(filePath)) return res.status(404).send('Video file missing');
+  res.download(filePath, rows[0].filename);
+});
+
+router.post('/products/:id/video/delete', requireAdmin, async (req, res) => {
+  const productId = req.params.id;
+  const [rows] = await db.query('SELECT id, filename FROM product_videos WHERE product_id = ?', [productId]);
+  const videoDir = path.join(__dirname, '..', 'public', 'videos');
+  for (const row of rows) {
+    const fp = path.join(videoDir, row.filename);
+    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    await db.query('DELETE FROM product_videos WHERE id = ?', [row.id]);
+  }
+  res.redirect('/admin/products');
+});
 module.exports = router;
