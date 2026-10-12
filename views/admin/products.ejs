@@ -8,7 +8,15 @@
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
-    <tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr>
+    <tr>
+      <th>Image</th>
+      <th>Name</th>
+      <th>Category</th>
+      <th>Price</th>
+      <th>Stock</th>
+      <th>Video</th>
+      <th>Actions</th>
+    </tr>
   </thead>
   <tbody>
     <% products.forEach(p => { %>
@@ -18,6 +26,22 @@
         <td><%= p.category_name || '-' %></td>
         <td>৳<%= p.price %></td>
         <td><%= p.stock %></td>
+        <td style="min-width:160px;">
+          <% if (p.video_filename) { %>
+            <span style="color:green; font-size:12px;">✓ Video Ready</span><br>
+            <a href="/admin/products/<%= p.id %>/video/download" class="btn-sm" style="margin-top:4px; display:inline-block;">Download</a>
+            <form action="/admin/products/<%= p.id %>/video/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this video?');">
+              <button type="submit" class="link-btn-danger" style="font-size:12px;">Delete</button>
+            </form>
+          <% } else { %>
+            <span style="color:#999; font-size:12px;">No video</span>
+          <% } %>
+          <br>
+          <button type="button" class="btn-sm generate-video-btn" data-id="<%= p.id %>" style="margin-top:6px; background:#e94560; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">
+            🎬 Generate Video
+          </button>
+          <span class="video-status" id="status-<%= p.id %>" style="font-size:11px; display:block; margin-top:4px;"></span>
+        </td>
         <td>
           <a href="/admin/products/edit/<%= p.id %>">Edit</a> |
           <form action="/admin/products/delete/<%= p.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');">
@@ -29,5 +53,41 @@
   </tbody>
 </table>
 </div>
+
+<script>
+document.querySelectorAll('.generate-video-btn').forEach(btn => {
+  btn.addEventListener('click', async function() {
+    const id = this.dataset.id;
+    const status = document.getElementById('status-' + id);
+    this.disabled = true;
+    this.textContent = '⏳ Generating...';
+    status.textContent = 'Please wait 15-40 seconds...';
+    status.style.color = '#666';
+
+    try {
+      const res = await fetch('/admin/products/' + id + '/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        status.textContent = '✅ ' + data.message;
+        status.style.color = 'green';
+        setTimeout(() => location.reload(), 1200);
+      } else {
+        status.textContent = '❌ ' + (data.error || 'Failed');
+        status.style.color = 'red';
+        this.disabled = false;
+        this.textContent = '🎬 Generate Video';
+      }
+    } catch (err) {
+      status.textContent = '❌ Network error';
+      status.style.color = 'red';
+      this.disabled = false;
+      this.textContent = '🎬 Generate Video';
+    }
+  });
+});
+</script>
 
 <%- include('../partials/admin-footer') %>
