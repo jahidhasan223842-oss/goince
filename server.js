@@ -56,7 +56,7 @@ app.set('views', path.join(__dirname, 'views'));
 // ebong EJS-er onek inline <script> block ache - CSP on thakle egulo block hoye
 // jete pare. Baki shob security header (clickjacking, MIME-sniffing protection
 // ityadi) thik-i thakbe.
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({ contentSecurityPolicy: false, hsts: false }));
 
 // ---------- HTTPS Force Redirect (SSL thik moto kaj korle-i .env e
 // FORCE_HTTPS=true kore চালু korben, nahole site বন্ধ হয়ে jete pare) ----------
