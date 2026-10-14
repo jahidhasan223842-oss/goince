@@ -17,6 +17,26 @@ const helmet = require('helmet');
 
 const app = express();
 
+// ---------- Auto-create tables needed by newer features ----------
+// Runs on every start and does nothing if the table already exists, so a new
+// feature's table never has to be created by hand on the live database.
+(async () => {
+  try {
+    const db = require('./config/db');
+    await db.query(`CREATE TABLE IF NOT EXISTS product_videos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      filename VARCHAR(255) NOT NULL,
+      duration_seconds DECIMAL(6,2) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+      INDEX idx_product_id (product_id)
+    )`);
+  } catch (err) {
+    console.error('Auto-create product_videos skipped (create it by hand with sql/add_product_videos.sql):', err.message);
+  }
+})();
+
 // ---------- Admin account DB-te seed kora (.env theke) ----------
 // Age Admin login shudhu .env-er ADMIN_EMAIL/ADMIN_PASSWORD diye hoto.
 // Forgot Password feature-er jonno DB-te thakte hobe (kokhono update

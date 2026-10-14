@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS products (
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS product_videos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  filename VARCHAR(255) NOT NULL,
+  duration_seconds DECIMAL(6,2) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  INDEX idx_product_id (product_id)
+);
+
 CREATE TABLE IF NOT EXISTS product_images (
   id INT AUTO_INCREMENT PRIMARY KEY,
   product_id INT NOT NULL,
