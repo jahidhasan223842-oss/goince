@@ -12,6 +12,7 @@
       <th>Image</th>
       <th>Name</th>
       <th>Category</th>
+      <th>Audience</th>
       <th>Price</th>
       <th>Stock</th>
       <th>Video</th>
@@ -24,6 +25,7 @@
         <td><img src="/uploads/<%= p.image %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"></td>
         <td><%= p.name %><% if (p.source_link) { %><br><a href="<%= p.source_link %>" target="_blank" style="font-size:11px; color:#888;">source ↗</a><% } %></td>
         <td><%= p.category_name || '-' %></td>
+        <td><%= p.target_audience && p.target_audience !== 'all' ? (p.target_audience.charAt(0).toUpperCase() + p.target_audience.slice(1)) : 'All / General' %></td>
         <td>৳<%= p.price %></td>
         <td><%= p.stock %></td>
         <td style="min-width:160px;">

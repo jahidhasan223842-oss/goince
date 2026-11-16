@@ -3,6 +3,41 @@
   <script src="/js/theme.js"></script>
   <script src="/js/admin-push.js"></script>
   <script>
+    // Admin theme and responsive navigation (kept in shared partial for every admin page).
+    function toggleGoinceTheme() {
+      const root = document.documentElement;
+      const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('goince-theme', next); } catch (e) {}
+      const themeButton = document.querySelector('.theme-toggle-fixed');
+      if (themeButton) {
+        themeButton.textContent = next === 'dark' ? '☀️' : '🌙';
+        themeButton.title = next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+      }
+    }
+    function toggleAdminSidebar() {
+      const isOpen = document.body.classList.toggle('admin-sidebar-open');
+      const menuButton = document.querySelector('.admin-sidebar-toggle');
+      if (menuButton) menuButton.setAttribute('aria-expanded', String(isOpen));
+    }
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        document.body.classList.remove('admin-sidebar-open');
+        const menuButton = document.querySelector('.admin-sidebar-toggle');
+        if (menuButton) menuButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.querySelectorAll('.admin-sidebar nav a').forEach(function (link) {
+      if (link.pathname === window.location.pathname) link.setAttribute('aria-current', 'page');
+      link.addEventListener('click', function () {
+        document.body.classList.remove('admin-sidebar-open');
+      });
+    });
+    const themeButton = document.querySelector('.theme-toggle-fixed');
+    if (themeButton) {
+      themeButton.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+    }
+
     // Shared "show/hide password" toggle, used on Add/Edit Customer etc.
     function togglePasswordVisibility(btn, inputId) {
       const input = document.getElementById(inputId);

@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <script>
     (function () {
-      var t = localStorage.getItem('goince-theme') || 'light';
+      var t = localStorage.getItem('goince-theme') || 'dark';
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
@@ -38,4 +38,5 @@
       </nav>
     </aside>
     <main class="admin-content">
+      <button type="button" class="admin-sidebar-toggle" onclick="toggleAdminSidebar()" aria-label="Toggle admin menu" aria-expanded="false">☰</button>
       <button type="button" class="theme-toggle-btn theme-toggle-btn-dark theme-toggle-fixed" onclick="toggleGoinceTheme()" title="ডার্ক মোড">🌙</button>

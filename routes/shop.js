@@ -36,15 +36,32 @@ router.get('/', async (req, res) => {
     const categoryId = req.query.category || '';
     const search = req.query.search || '';
     const sort = req.query.sort || 'newest';
+    const requestedAudience = String(req.query.audience || '').toLowerCase();
+    const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
 
     const [categories] = await db.query('SELECT * FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, name');
     const mainCategories = categories.filter(c => !c.parent_id);
+    const seasonalRoot = mainCategories.find(c => String(c.name).trim().toLowerCase() === 'seasonal products');
+    // Seasonal parent menu-te na dekhiye season-gulo direct dekhano
+    const displayCategories = mainCategories.flatMap(c => {
+      if (seasonalRoot && c.id === seasonalRoot.id) {
+        return categories
+          .filter(sub => sub.parent_id == seasonalRoot.id)
+          .map(sub => ({ ...sub, display_name: sub.name.replace(/ Collection$/i, ' Products') }));
+      }
+      return [c];
+    });
 
     // Selected category ta main category naki sub-category, ebong tar sub-category gulo ki ki eta ber kora
     let subCategories = [];
     let categoryIdsToFilter = [];
+    let isSeasonalCategory = false;
+    let selected = null;
     if (categoryId) {
-      const selected = categories.find(c => c.id == categoryId);
+      selected = categories.find(c => c.id == categoryId);
+      if (seasonalRoot && selected) {
+        isSeasonalCategory = selected.id == seasonalRoot.id || selected.parent_id == seasonalRoot.id;
+      }
       if (selected && !selected.parent_id) {
         // Main category select kora hoyeche — tar shob sub-category o filter e jog hobe
         subCategories = categories.filter(c => c.parent_id == categoryId);
@@ -53,7 +70,7 @@ router.get('/', async (req, res) => {
         // Sub-category select kora hoyeche, shudhu oi ta-i filter hobe
         categoryIdsToFilter = [categoryId];
         // Parent er sub-category list o dekhabo, jate navigation e context thake
-        subCategories = categories.filter(c => c.parent_id == selected.parent_id);
+        subCategories = seasonalRoot && selected.parent_id == seasonalRoot.id ? [] : categories.filter(c => c.parent_id == selected.parent_id);
       }
     }
 
@@ -63,10 +80,18 @@ router.get('/', async (req, res) => {
                LEFT JOIN reviews ON reviews.product_id = products.id
                WHERE 1=1`;
     const params = [];
+    const selectedAudience = isSeasonalCategory && allowedAudiences.includes(requestedAudience) ? requestedAudience : '';
 
     if (categoryIdsToFilter.length > 0) {
       sql += ` AND products.category_id IN (${categoryIdsToFilter.map(() => '?').join(',')})`;
       params.push(...categoryIdsToFilter);
+    }
+    if (selectedAudience) {
+      const audienceMatches = ['men', 'women'].includes(selectedAudience)
+        ? [selectedAudience, 'unisex', 'all']
+        : [selectedAudience, 'all'];
+      sql += ` AND products.target_audience IN (${audienceMatches.map(() => '?').join(', ')})`;
+      params.push(...audienceMatches);
     }
     if (search) {
       sql += ' AND products.name LIKE ?';
@@ -92,8 +117,11 @@ router.get('/', async (req, res) => {
       products,
       categories,
       mainCategories,
+      displayCategories,
       subCategories,
       selectedCategory: categoryId,
+      isSeasonalCategory,
+      selectedAudience,
       search,
       sort,
       siteName: 'Goince'

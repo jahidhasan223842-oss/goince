@@ -1,54 +1,122 @@
 <%- include('../partials/admin-header') %>
 
-<h1>Dashboard</h1>
-
-<div class="stat-cards">
-  <div class="stat-card">
-    <h3><%= totalProducts %></h3>
-    <p>Total Products</p>
+<% const money = (value) => Number(value || 0).toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); %>
+<% const pct = dashboard.revenueChange; %>
+<div class="analytics-header">
+  <div>
+    <p class="analytics-eyebrow">GOINCE ADMINISTRATION</p>
+    <h1>Dashboard Overview</h1>
+    <p class="analytics-subtitle">Your store performance at a glance.</p>
   </div>
-  <div class="stat-card">
-    <h3><%= totalOrders %></h3>
-    <p>Total Orders</p>
-  </div>
-  <div class="stat-card">
-    <h3>৳<%= totalRevenue %></h3>
-    <p>Total Revenue</p>
-  </div>
-  <div class="stat-card">
-    <h3><%= totalCustomers %></h3>
-    <p>Registered Customers</p>
-  </div>
+  <a class="analytics-report-link" href="/admin/reports">Open full reports <span aria-hidden="true">→</span></a>
 </div>
 
-<% if (lowStockCount > 0 || outOfStockCount > 0) { %>
-  <div class="stock-alert-box">
-    <p>⚠️ <strong><%= lowStockCount %></strong> product<%= lowStockCount != 1 ? 's are' : ' is' %> running low on stock (10 ba tar kom), <strong><%= outOfStockCount %></strong> product<%= outOfStockCount != 1 ? 's are' : ' is' %> completely out of stock.
-    <a href="/admin/inventory">View Inventory &rarr;</a></p>
+<form class="analytics-filter" method="GET" action="/admin/dashboard">
+  <div class="analytics-filter-presets" role="group" aria-label="Date range">
+    <button type="submit" name="range" value="7" class="analytics-filter-btn <%= dashboard.range === '7' ? 'is-active' : '' %>">7 days</button>
+    <button type="submit" name="range" value="30" class="analytics-filter-btn <%= dashboard.range === '30' ? 'is-active' : '' %>">30 days</button>
+    <button type="submit" name="range" value="90" class="analytics-filter-btn <%= dashboard.range === '90' ? 'is-active' : '' %>">90 days</button>
   </div>
-<% } %>
+  <label>From <input type="date" name="from" value="<%= dashboard.from %>" required></label>
+  <label>To <input type="date" name="to" value="<%= dashboard.to %>" required></label>
+  <button type="submit" name="range" value="custom" class="analytics-apply-btn">Apply dates</button>
+</form>
+<p class="analytics-period-note">Showing <strong><%= dashboard.from %></strong> to <strong><%= dashboard.to %></strong>. Sales figures exclude cancelled orders; collected revenue counts orders with a recognised paid status.</p>
 
-<h2>Recent Pending Orders</h2>
-<% if (pendingOrders.length === 0) { %>
-  <p>No pending orders right now.</p>
-<% } else { %>
-  <div class="table-responsive">
-  <table class="admin-table">
-    <thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead>
-    <tbody>
-      <% pendingOrders.forEach(o => { %>
-        <tr>
-          <td>#<%= o.id %></td>
-          <td><%= o.customer_name %></td>
-          <td><%= o.phone %></td>
-          <td>৳<%= o.total_amount %></td>
-          <td><%= new Date(o.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
-          <td><a href="/admin/orders/<%= o.id %>">View</a></td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-  </div>
-<% } %>
+<section class="analytics-kpi-grid" aria-label="Store metrics">
+  <article class="analytics-kpi kpi-revenue">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Sales revenue</span><span class="analytics-kpi-icon">৳</span></div>
+    <strong class="analytics-kpi-value">৳<%= money(dashboard.currentSummary.revenue) %></strong>
+    <span class="analytics-kpi-foot"><% if (pct === null) { %>No previous-period baseline<% } else { %><span class="<%= pct >= 0 ? 'trend-up' : 'trend-down' %>"><%= pct > 0 ? '↑' : pct < 0 ? '↓' : '→' %> <%= Math.abs(pct).toFixed(1) %>%</span> vs previous period<% } %></span>
+  </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Orders in period</span><span class="analytics-kpi-icon">▤</span></div>
+    <strong class="analytics-kpi-value"><%= Number(dashboard.currentSummary.ordersCount || 0).toLocaleString() %></strong>
+    <span class="analytics-kpi-foot">All non-cancelled orders</span>
+  </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Average order value</span><span class="analytics-kpi-icon">↗</span></div>
+    <strong class="analytics-kpi-value">৳<%= money(dashboard.currentSummary.avgOrderValue) %></strong>
+    <span class="analytics-kpi-foot">Average per qualifying order</span>
+  </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Collected revenue</span><span class="analytics-kpi-icon">✓</span></div>
+    <strong class="analytics-kpi-value">৳<%= money(dashboard.currentSummary.collectedRevenue) %></strong>
+    <span class="analytics-kpi-foot">Orders marked paid / verified</span>
+  </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">New customers</span><span class="analytics-kpi-icon">♙</span></div>
+    <strong class="analytics-kpi-value"><%= dashboard.newCustomers.toLocaleString() %></strong>
+    <span class="analytics-kpi-foot">Registered in selected period</span>
+  </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">All-time products</span><span class="analytics-kpi-icon">▦</span></div>
+    <strong class="analytics-kpi-value"><%= Number(totalProducts || 0).toLocaleString() %></strong>
+    <span class="analytics-kpi-foot">Products in catalogue</span>
+  </article>
+</section>
+
+<section class="analytics-main-grid">
+  <article class="analytics-panel analytics-chart-panel">
+    <div class="analytics-panel-heading">
+      <div><h2>Sales trend</h2><p>Daily revenue for the selected period</p></div>
+      <span class="analytics-panel-tag">BDT (৳)</span>
+    </div>
+    <% if (dashboard.salesTrend.every(row => Number(row.revenue) === 0)) { %>
+      <div class="analytics-empty"><span>▥</span><strong>No sales recorded in this period</strong><p>Try a different date range to view sales activity.</p></div>
+    <% } else { %>
+      <div class="analytics-chart" role="img" aria-label="Daily sales bar chart">
+        <% dashboard.salesTrend.forEach((point, index) => { %>
+          <div class="analytics-chart-column" title="<%= point.day %>: ৳<%= money(point.revenue) %>; <%= point.ordersCount %> orders">
+            <span class="analytics-bar-value"><%= Number(point.revenue) > 0 ? money(point.revenue) : '' %></span>
+            <div class="analytics-bar-track"><div class="analytics-bar" style="height:<%= Math.max(Number(point.revenue) > 0 ? 4 : 0, (Number(point.revenue) / dashboard.maxTrendRevenue) * 100) %>%"></div></div>
+            <% if (dashboard.salesTrend.length <= 14 || index === 0 || index === dashboard.salesTrend.length - 1 || index % Math.ceil(dashboard.salesTrend.length / 7) === 0) { %><span class="analytics-chart-label"><%= point.day.slice(5) %></span><% } else { %><span class="analytics-chart-label analytics-chart-label-hidden">.</span><% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+    <div class="analytics-chart-legend"><span class="analytics-legend-dot"></span> Sales revenue <span class="analytics-legend-note">Cancelled orders excluded</span></div>
+  </article>
+
+  <article class="analytics-panel">
+    <div class="analytics-panel-heading"><div><h2>Order status</h2><p>Orders created during this period</p></div></div>
+    <% if (dashboard.statusRows.length === 0) { %><div class="analytics-small-empty">No orders in this period.</div><% } else { %>
+      <div class="analytics-status-list">
+        <% dashboard.statusRows.forEach(item => { %>
+          <div class="analytics-status-row"><span class="analytics-status-dot status-<%= String(item.status || 'other').toLowerCase().replace(/[^a-z0-9]+/g, '-') %>"></span><span class="analytics-status-name"><%= item.status || 'Unknown' %></span><strong><%= Number(item.count).toLocaleString() %></strong></div>
+        <% }) %>
+      </div>
+    <% } %>
+    <div class="analytics-total-orders"><span>All-time orders</span><strong><%= Number(totalOrders || 0).toLocaleString() %></strong></div>
+  </article>
+</section>
+
+<section class="analytics-lower-grid">
+  <article class="analytics-panel">
+    <div class="analytics-panel-heading"><div><h2>Top-selling products</h2><p>Ranked by units sold in this period</p></div><a href="/admin/reports">Reports →</a></div>
+    <% if (dashboard.topProducts.length === 0) { %><div class="analytics-small-empty">No product sales in this period.</div><% } else { %>
+      <div class="table-responsive"><table class="admin-table analytics-table"><thead><tr><th>Product</th><th>Units sold</th><th>Revenue</th></tr></thead><tbody>
+      <% dashboard.topProducts.forEach((product, index) => { %><tr><td><span class="analytics-rank"><%= index + 1 %></span><strong><%= product.product_name %></strong></td><td><%= Number(product.unitsSold || 0).toLocaleString() %></td><td>৳<%= money(product.productRevenue) %></td></tr><% }) %>
+      </tbody></table></div>
+    <% } %>
+  </article>
+  <article class="analytics-panel">
+    <div class="analytics-panel-heading"><div><h2>Inventory alerts</h2><p>Keep best sellers available</p></div><a href="/admin/inventory">Manage →</a></div>
+    <div class="analytics-inventory-summary">
+      <div class="analytics-inventory-stat"><span class="inventory-icon inventory-low">!</span><div><strong><%= Number(lowStockCount || 0) %></strong><span>Low stock</span></div></div>
+      <div class="analytics-inventory-stat"><span class="inventory-icon inventory-out">×</span><div><strong><%= Number(outOfStockCount || 0) %></strong><span>Out of stock</span></div></div>
+    </div>
+    <% if (lowStockProducts.length > 0) { %><div class="analytics-low-stock-list"><% lowStockProducts.slice(0, 5).forEach(product => { %><div><span><%= product.name %></span><strong class="<%= Number(product.stock) === 0 ? 'stock-zero' : 'stock-low' %>"><%= Number(product.stock) %> left</strong></div><% }) %></div><% } else { %><div class="analytics-small-empty">No low-stock products. Inventory looks good.</div><% } %>
+  </article>
+</section>
+
+<section class="analytics-panel analytics-pending-panel">
+  <div class="analytics-panel-heading"><div><h2>Recent pending orders</h2><p>Orders that may need your attention</p></div><a href="/admin/orders">View all orders →</a></div>
+  <% if (pendingOrders.length === 0) { %><div class="analytics-small-empty">No pending orders right now.</div><% } else { %>
+    <div class="table-responsive"><table class="admin-table analytics-table"><thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead><tbody>
+      <% pendingOrders.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %></td><td><%= o.phone %></td><td>৳<%= money(o.total_amount) %></td><td><%= new Date(o.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
+    </tbody></table></div>
+  <% } %>
+</section>
 
 <%- include('../partials/admin-footer') %>

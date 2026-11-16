@@ -16,6 +16,11 @@
 
   <div class="product-info">
     <h1><%= product.name %></h1>
+    <% if (product.target_audience && product.target_audience !== 'all') { %>
+      <p style="display:inline-block; margin:0 0 10px; padding:4px 10px; border-radius:14px; background:var(--surface); border:1px solid var(--border-strong); font-size:12px;">
+        <%= product.target_audience === 'men' ? 'For Men' : product.target_audience === 'women' ? 'For Women' : product.target_audience === 'kids' ? 'For Kids' : 'Unisex' %>
+      </p>
+    <% } %>
     <% if (product.short_description) { %>
       <p class="short-description"><%= product.short_description %></p>
     <% } %>

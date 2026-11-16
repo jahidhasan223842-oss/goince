@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS products (
   id INT AUTO_INCREMENT PRIMARY KEY,
   category_id INT,
+  target_audience VARCHAR(20) NOT NULL DEFAULT 'all',
   name VARCHAR(255) NOT NULL,
   description TEXT,
   short_description VARCHAR(300) DEFAULT NULL,
@@ -191,6 +192,14 @@ CREATE TABLE IF NOT EXISTS coupons (
 
 -- Kichu shurur category (admin panel theke add/change korte paro)
 INSERT INTO categories (name) VALUES ('Fashion'), ('Electronics'), ('Food'), ('Others');
+
+-- Seasonal product grouping (Winter/Summer/Rainy collections)
+INSERT INTO categories (name) VALUES ('Seasonal Products');
+SET @seasonal_parent_id := LAST_INSERT_ID();
+INSERT INTO categories (name, parent_id) VALUES
+  ('Winter Collection', @seasonal_parent_id),
+  ('Summer Collection', @seasonal_parent_id),
+  ('Rainy Season Collection', @seasonal_parent_id);
 
 -- Ekta shurur test product
 INSERT INTO products (category_id, name, description, price, stock, image)

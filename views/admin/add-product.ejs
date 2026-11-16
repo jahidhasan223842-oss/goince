@@ -2,7 +2,7 @@
 
 <h1><%= product ? 'Edit Product' : 'Add New Product' %></h1>
 
-<form action="<%= product ? '/admin/products/edit/' + product.id : '/admin/products/add' %>" method="POST" enctype="multipart/form-data" class="admin-form">
+<form action="<%= product ? '/admin/products/edit/' + product.id : '/admin/products/add' %>" method="POST" enctype="multipart/form-data" class="admin-form" id="product-main-form">
   <label>Product Name</label>
   <input type="text" name="name" value="<%= product ? product.name : '' %>" required>
 
@@ -13,6 +13,16 @@
       <option value="<%= cat.id %>" <%= (product && product.category_id == cat.id) ? 'selected' : '' %>><%= cat.parent_id ? '— ' : '' %><%= cat.name %></option>
     <% }) %>
   </select>
+
+  <label>Target Audience (Seasonal Products)</label>
+  <select name="target_audience">
+    <option value="all" <%= !product || !product.target_audience || product.target_audience === 'all' ? 'selected' : '' %>>All / General</option>
+    <option value="men" <%= product && product.target_audience === 'men' ? 'selected' : '' %>>Men</option>
+    <option value="women" <%= product && product.target_audience === 'women' ? 'selected' : '' %>>Women</option>
+    <option value="kids" <%= product && product.target_audience === 'kids' ? 'selected' : '' %>>Kids</option>
+    <option value="unisex" <%= product && product.target_audience === 'unisex' ? 'selected' : '' %>>Unisex</option>
+  </select>
+  <small style="display:block; color:#888; margin-top:-8px; margin-bottom:12px;">Seasonal product hole Men/Women/Kids select korun. Home Decor ba general product-er jonno All / General rakhun.</small>
 
   <label>Short Description — Ekta-dui line-e product-ta ki, ei ta product page-e title-r nichei dekhabe</label>
   <textarea name="short_description" rows="2" maxlength="300" placeholder="Jemon: 100% cotton comfortable t-shirt, everyday wear-er jonno perfect."><%= product && product.short_description ? product.short_description : '' %></textarea>
@@ -44,6 +54,112 @@
   <label>Gallery Images (aro extra chobi, ekbare kototuku o dite paro)</label>
   <input type="file" name="gallery" accept="image/*" multiple>
 
+  <% if (!product) { %>
+    <hr>
+    <h3>Product Size Variants <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
+
+    <label for="size_type">Size Type</label>
+    <select id="size_type">
+      <option value="">-- Select Size Type --</option>
+      <option value="clothing">Clothing</option>
+      <option value="shoes">Shoes</option>
+      <option value="kids">Kids Clothing</option>
+      <option value="general">General</option>
+    </select>
+
+    <label style="margin-top:12px;">Available Sizes</label>
+    <div id="size_options" style="display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 14px;">
+      <small style="color:#888;">Size Type select korle available sizes dekhabe.</small>
+    </div>
+
+    <label>Custom Sizes</label>
+    <div id="add_custom_size_fields" style="display:grid;gap:8px;margin:8px 0;"></div>
+    <button type="button" id="add_custom_size_button" class="btn-secondary">+ Add Another Size</button>
+    <small style="display:block;color:#888;margin:8px 0 12px;">
+      Protiti custom size alada box-e likhun. Dorkar hole Remove korun.
+    </small>
+
+    <script>
+    (function () {
+      const presets = {
+        clothing: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', 'Free Size'],
+        shoes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
+        kids: [
+          '0-3 Months', '3-6 Months', '6-12 Months',
+          '1-2 Years', '2-3 Years', '3-4 Years',
+          '5-6 Years', '7-8 Years', '9-10 Years', '11-12 Years'
+        ],
+        general: ['Small', 'Medium', 'Large', 'Extra Large', 'One Size']
+      };
+
+      const typeSelect = document.getElementById('size_type');
+      const container = document.getElementById('size_options');
+
+      typeSelect.addEventListener('change', function () {
+        const sizes = presets[this.value] || [];
+
+        if (!sizes.length) {
+          container.innerHTML = '<small style="color:#888;">Size Type select korle available sizes dekhabe.</small>';
+          return;
+        }
+
+        container.innerHTML = sizes.map(function (size) {
+          const label = document.createElement('label');
+          label.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border:1px solid #ddd;border-radius:5px;font-size:13px;cursor:pointer;';
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.name = 'size_values';
+          checkbox.value = size;
+
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode(size));
+          return label;
+        }).reduce(function (fragment, label) {
+          fragment.appendChild(label);
+          return fragment;
+        }, document.createDocumentFragment());
+
+      });
+    })();
+    </script>
+    <script>
+    (function () {
+      const container = document.getElementById('add_custom_size_fields');
+      const addButton = document.getElementById('add_custom_size_button');
+
+      function addCustomField(value) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'custom_sizes';
+        input.placeholder = 'Example: 5XL or 48';
+        input.value = value || '';
+        input.style.flex = '1';
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Remove';
+        remove.className = 'link-btn-danger';
+        remove.addEventListener('click', function () {
+          row.remove();
+        });
+
+        row.append(input, remove);
+        container.appendChild(row);
+      }
+
+      addButton.addEventListener('click', function () {
+        addCustomField('');
+      });
+
+      addCustomField('');
+    })();
+    </script>
+  <% } %>
+
   <button type="submit" class="btn-primary"><%= product ? 'Update Product' : 'Add Product' %></button>
 </form>
 
@@ -65,47 +181,176 @@
 
 <% if (product) { %>
   <hr>
-  <h3>Product Options<% if (options && options.length > 0) { %> — <%= options[0].option_label %><% } %></h3>
-  <p style="font-size:13px; color:#888; margin-bottom:12px;">
-    Ei product-e Color, Size, Weight (kg) — jekono ekta ধরনের option add korte parben (ekbare ekta product-e ekই ধরনের).
-    Chobi dile shei value select korle main image-o bodle jabe; na dile shudhu text/color swatch dekhabe.
-  </p>
+  <% const currentOptionLabel = options && options.length ? String(options[0].option_label).toLowerCase() : ''; %>
 
-  <% if (options && options.length > 0) { %>
-    <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px;">
-      <% options.forEach(o => { %>
-        <div style="text-align:center; position:relative;">
-          <% if (o.image) { %>
-            <img src="/uploads/<%= o.image %>" class="admin-thumb" style="display:block; margin:0 auto 4px;">
-          <% } else if (o.color_hex) { %>
-            <span style="display:block; width:45px; height:45px; border-radius:4px; border:1px solid #ddd; background:<%= o.color_hex %>; margin:0 auto 4px;"></span>
-          <% } %>
-          <span style="font-size:12px; display:block;"><%= o.value_name %></span>
-          <form action="/admin/products/<%= product.id %>/options/delete/<%= o.id %>" method="POST" style="margin-top:4px;">
-            <button type="submit" class="link-btn-danger" style="font-size:11px;">Remove</button>
-          </form>
-        </div>
-      <% }) %>
+  <% if (!currentOptionLabel || currentOptionLabel === 'size') { %>
+    <h3>Product Size Variants</h3>
+    <p style="font-size:13px;color:#888;">Existing sizes selected thakbe. Checkbox diye add/remove kore Update Product korun.</p>
+
+    <input type="hidden" name="size_management" value="1" form="product-main-form">
+
+    <label for="edit_size_type">Size Type</label>
+    <select id="edit_size_type">
+      <option value="">-- Select Size Type --</option>
+      <option value="clothing">Clothing</option>
+      <option value="shoes">Shoes</option>
+      <option value="kids">Kids Clothing</option>
+      <option value="general">General</option>
+    </select>
+
+    <label style="margin-top:12px;">Available Sizes</label>
+    <div id="edit_size_options" style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 14px;">
+      <small style="color:#888;">Size Type select korun.</small>
     </div>
+
+    <label>Custom Sizes</label>
+    <div id="edit_custom_size_fields" style="display:grid;gap:8px;margin:8px 0;"></div>
+    <button type="button" id="edit_add_custom_size_button" class="btn-secondary">+ Add Another Size</button>
+    <small style="display:block;color:#888;margin:8px 0 12px;">
+      Protiti custom size alada box-e thakbe. Remove diye size bad dite parben.
+    </small>
+
+    <script>
+    (function () {
+      const presets = {
+        clothing: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', 'Free Size'],
+        shoes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
+        kids: [
+          '0-3 Months', '3-6 Months', '6-12 Months',
+          '1-2 Years', '2-3 Years', '3-4 Years',
+          '5-6 Years', '7-8 Years', '9-10 Years', '11-12 Years'
+        ],
+        general: ['Small', 'Medium', 'Large', 'Extra Large', 'One Size']
+      };
+
+      const existing = <%- JSON.stringify((options || []).filter(o => String(o.option_label).toLowerCase() === 'size').map(o => o.value_name)) %>;
+      const typeSelect = document.getElementById('edit_size_type');
+      const container = document.getElementById('edit_size_options');
+      const customContainer = document.getElementById('edit_custom_size_fields');
+      const addCustomButton = document.getElementById('edit_add_custom_size_button');
+
+      const bestType = Object.entries(presets)
+        .map(([type, sizes]) => ({
+          type,
+          score: existing.filter(value => sizes.includes(value)).length
+        }))
+        .sort((a, b) => b.score - a.score)[0];
+
+      if (bestType && bestType.score > 0) {
+        typeSelect.value = bestType.type;
+      }
+
+      function addCustomField(value) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'custom_sizes';
+        input.placeholder = 'Example: 5XL or 48';
+        input.value = value || '';
+        input.style.flex = '1';
+        input.setAttribute('form', 'product-main-form');
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Remove';
+        remove.className = 'link-btn-danger';
+        remove.addEventListener('click', function () {
+          row.remove();
+        });
+
+        row.append(input, remove);
+        customContainer.appendChild(row);
+      }
+
+      function renderSizes(type) {
+        const sizes = presets[type] || [];
+        container.innerHTML = '';
+
+        if (!sizes.length) {
+          container.innerHTML = '<small style="color:#888;">Size Type select korle available sizes dekhabe.</small>';
+        } else {
+          sizes.forEach(function (size) {
+            const label = document.createElement('label');
+            label.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border:1px solid #ddd;border-radius:5px;font-size:13px;cursor:pointer;';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.name = 'size_values';
+            checkbox.value = size;
+            checkbox.checked = existing.includes(size);
+            checkbox.setAttribute('form', 'product-main-form');
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(size));
+            container.appendChild(label);
+          });
+        }
+
+
+      }
+
+      typeSelect.addEventListener('change', function () {
+        renderSizes(this.value);
+      });
+
+      renderSizes(typeSelect.value);
+
+      const customValues = existing.filter(value =>
+        !(presets[typeSelect.value] || []).includes(value)
+      );
+
+      if (customValues.length) {
+        customValues.forEach(addCustomField);
+      } else {
+        addCustomField('');
+      }
+
+      addCustomButton.addEventListener('click', function () {
+        addCustomField('');
+      });
+    })();
+    </script>
+
   <% } else { %>
-    <p style="color:#888; font-size:13px; margin-bottom:16px;">Ekhono kono option add kora hoyni.</p>
+    <h3>Product Options — <%= options[0].option_label %></h3>
+    <p style="font-size:13px;color:#888;margin-bottom:12px;">
+      Existing Color / Weight options ekhane manage korun. Size editor egulor sathe mix hobe na.
+    </p>
+
+    <% if (options && options.length > 0) { %>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;">
+        <% options.forEach(o => { %>
+          <div style="text-align:center;position:relative;">
+            <% if (o.image) { %>
+              <img src="/uploads/<%= o.image %>" class="admin-thumb" style="display:block;margin:0 auto 4px;">
+            <% } else if (o.color_hex) { %>
+              <span style="display:block;width:45px;height:45px;border-radius:4px;border:1px solid #ddd;background:<%= o.color_hex %>;margin:0 auto 4px;"></span>
+            <% } %>
+            <span style="font-size:12px;display:block;"><%= o.value_name %></span>
+            <form action="/admin/products/<%= product.id %>/options/delete/<%= o.id %>" method="POST" style="margin-top:4px;">
+              <button type="submit" class="link-btn-danger" style="font-size:11px;">Remove</button>
+            </form>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <form action="/admin/products/<%= product.id %>/options/add" method="POST" enctype="multipart/form-data" class="inline-form" style="flex-wrap:wrap;">
+      <input type="text" name="value_name" placeholder="Value (e.g. Red / 1kg)" required>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:normal;">
+        <input type="checkbox" name="use_color_hex" value="1" onchange="document.getElementById('color_hex_input').style.display = this.checked ? 'inline-block' : 'none';">
+        Color swatch?
+      </label>
+      <input type="color" name="color_hex" id="color_hex_input" value="#f0a500" style="display:none;width:50px;height:38px;padding:2px;border:1px solid #ccc;border-radius:4px;">
+      <input type="file" name="option_image" accept="image/*" title="Optional: ei value-er product photo">
+      <button type="submit">Add</button>
+    </form>
   <% } %>
 
-  <form action="/admin/products/<%= product.id %>/options/add" method="POST" enctype="multipart/form-data" class="inline-form" style="flex-wrap:wrap;">
-    <% if (!options || options.length === 0) { %>
-      <input type="text" name="option_label" placeholder="Option name (Color / Size / Weight...)" required style="min-width:180px;">
-    <% } %>
-    <input type="text" name="value_name" placeholder="Value (e.g. Red / Large / 1kg)" required>
-    <label style="display:flex; align-items:center; gap:4px; font-size:12px; font-weight:normal;">
-      <input type="checkbox" name="use_color_hex" value="1" onchange="document.getElementById('color_hex_input').style.display = this.checked ? 'inline-block' : 'none';">
-      Color swatch?
-    </label>
-    <input type="color" name="color_hex" id="color_hex_input" value="#f0a500" style="display:none; width:50px; height:38px; padding:2px; border:1px solid #ccc; border-radius:4px;">
-    <input type="file" name="option_image" accept="image/*" title="Optional: ei value-er product photo">
-    <button type="submit">Add</button>
-  </form>
 <% } else { %>
-  <p style="color:#888; font-size:13px; margin-top:20px;">Product-ta save korar por, edit page theke Option (Color/Size/Weight) add korte parbe.</p>
+  <p style="color:#888;font-size:13px;margin-top:20px;">Product save korar por Edit page theke Size Variants, Color ba Weight options manage korte parben.</p>
 <% } %>
 
 <hr>

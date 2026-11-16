@@ -2,8 +2,8 @@
 
 <div class="category-bar">
   <a href="/" class="<%= !selectedCategory ? 'active' : '' %>">All</a>
-  <% mainCategories.forEach(cat => { %>
-    <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><%= cat.name %></a>
+  <% displayCategories.forEach(cat => { %>
+    <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><%= cat.display_name || cat.name %></a>
   <% }) %>
 </div>
 
@@ -11,7 +11,7 @@
   <div class="subcategory-bar">
     <span class="subcategory-label">In this category:</span>
     <% subCategories.forEach(sub => { %>
-      <a href="/?category=<%= sub.id %>&sort=<%= sort %>" class="<%= selectedCategory == sub.id ? 'active' : '' %>"><%= sub.name %></a>
+      <a href="/?category=<%= sub.id %>&sort=<%= sort %>" class="<%= selectedCategory == sub.id ? 'active' : '' %>"><%= sub.name.replace(/ Collection$/i, ' Products') %></a>
     <% }) %>
   </div>
 <% } %>
@@ -22,6 +22,16 @@
   <form action="/" method="GET" class="sort-form">
     <% if (selectedCategory) { %><input type="hidden" name="category" value="<%= selectedCategory %>"><% } %>
     <% if (search) { %><input type="hidden" name="search" value="<%= search %>"><% } %>
+    <% if (isSeasonalCategory) { %>
+      <label for="audience">Show:</label>
+      <select name="audience" id="audience" onchange="this.form.submit()">
+        <option value="" <%= !selectedAudience ? 'selected' : '' %>>All Audiences</option>
+        <option value="men" <%= selectedAudience === 'men' ? 'selected' : '' %>>Men</option>
+        <option value="women" <%= selectedAudience === 'women' ? 'selected' : '' %>>Women</option>
+        <option value="kids" <%= selectedAudience === 'kids' ? 'selected' : '' %>>Kids</option>
+        <option value="unisex" <%= selectedAudience === 'unisex' ? 'selected' : '' %>>Unisex</option>
+      </select>
+    <% } %>
     <label for="sort">Sort by:</label>
     <select name="sort" id="sort" onchange="this.form.submit()">
       <option value="newest" <%= sort === 'newest' ? 'selected' : '' %>>Newest</option>

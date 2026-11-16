@@ -184,34 +184,97 @@ router.post('/reset-password/:token', async (req, res) => {
   }
 });
 
-// ---------- DASHBOARD ----------
+// ---------- DASHBOARD / SALES ANALYTICS ----------
 router.get('/dashboard', requireAdmin, async (req, res) => {
   try {
+    // Use validated YYYY-MM-DD values only; all user values remain SQL parameters.
+    const validDate = (value) => {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const d = new Date(value + 'T00:00:00Z');
+      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+    };
+    const shiftDate = (value, days) => {
+      const d = new Date(value + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    };
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const range = ['7', '30', '90', 'custom'].includes(String(req.query.range)) ? String(req.query.range) : '30';
+    let from = shiftDate(todayStr, -(Number(range === '7' ? 7 : range === '90' ? 90 : 30) - 1));
+    let to = todayStr;
+    if (range === 'custom' && validDate(req.query.from) && validDate(req.query.to) && req.query.from <= req.query.to) {
+      from = req.query.from;
+      to = req.query.to;
+    }
+    // Keep charts readable and prevent an accidentally huge date range.
+    const spanDays = Math.floor((new Date(to + 'T00:00:00Z') - new Date(from + 'T00:00:00Z')) / 86400000) + 1;
+    if (spanDays > 366) from = shiftDate(to, -365);
+    const finalSpanDays = Math.floor((new Date(to + 'T00:00:00Z') - new Date(from + 'T00:00:00Z')) / 86400000) + 1;
+    const prevTo = shiftDate(from, -1);
+    const prevFrom = shiftDate(prevTo, -(finalSpanDays - 1));
+
     const [[{ totalProducts }]] = await db.query('SELECT COUNT(*) AS totalProducts FROM products');
     const [[{ totalOrders }]] = await db.query('SELECT COUNT(*) AS totalOrders FROM orders');
-    const [[{ totalRevenue }]] = await db.query(
-      "SELECT COALESCE(SUM(total_amount),0) AS totalRevenue FROM orders WHERE status != 'Cancelled'"
-    );
+    const [[{ totalRevenue }]] = await db.query("SELECT COALESCE(SUM(total_amount),0) AS totalRevenue FROM orders WHERE status != 'Cancelled'");
     const [[{ totalCustomers }]] = await db.query('SELECT COUNT(*) AS totalCustomers FROM users');
-    const [pendingOrders] = await db.query(
-      "SELECT * FROM orders WHERE status = 'Pending' ORDER BY created_at DESC LIMIT 5"
-    );
-
-    // Low stock (10 ba tar kom) ebong Out of stock product gulo dashboard e warning hishebe dekhano
-    const [lowStockProducts] = await db.query(
-      'SELECT * FROM products WHERE stock <= 10 ORDER BY stock ASC LIMIT 5'
-    );
+    const [pendingOrders] = await db.query("SELECT * FROM orders WHERE status = 'Pending' ORDER BY created_at DESC LIMIT 5");
+    const [lowStockProducts] = await db.query('SELECT * FROM products WHERE stock <= 10 ORDER BY stock ASC LIMIT 5');
     const [[{ lowStockCount }]] = await db.query('SELECT COUNT(*) AS lowStockCount FROM products WHERE stock <= 10 AND stock > 0');
     const [[{ outOfStockCount }]] = await db.query('SELECT COUNT(*) AS outOfStockCount FROM products WHERE stock = 0');
+
+    // Keep existing reporting semantics: all non-cancelled orders are counted as sales.
+    // Payment collection is shown separately to avoid treating unpaid COD as collected cash.
+    const [[currentSummary]] = await db.query(
+      `SELECT COUNT(*) AS ordersCount,
+              COALESCE(SUM(total_amount), 0) AS revenue,
+              COALESCE(AVG(total_amount), 0) AS avgOrderValue,
+              COALESCE(SUM(CASE WHEN LOWER(payment_status) IN ('paid','completed','verified','success') THEN total_amount ELSE 0 END), 0) AS collectedRevenue
+       FROM orders WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'Cancelled'`, [from, to]);
+    const [[previousSummary]] = await db.query(
+      `SELECT COUNT(*) AS ordersCount, COALESCE(SUM(total_amount), 0) AS revenue
+       FROM orders WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'Cancelled'`, [prevFrom, prevTo]);
+    const [[{ newCustomers }]] = await db.query(
+      'SELECT COUNT(*) AS newCustomers FROM users WHERE DATE(created_at) BETWEEN ? AND ?', [from, to]);
+    const [dailyRows] = await db.query(
+      `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, COALESCE(SUM(total_amount), 0) AS revenue, COUNT(*) AS ordersCount
+       FROM orders WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'Cancelled'
+       GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d') ORDER BY day ASC`, [from, to]);
+    const [topProducts] = await db.query(
+      `SELECT oi.product_name, SUM(oi.quantity) AS unitsSold,
+              SUM(oi.quantity * oi.price) AS productRevenue
+       FROM order_items oi JOIN orders o ON o.id = oi.order_id
+       WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'Cancelled'
+       GROUP BY oi.product_name ORDER BY unitsSold DESC LIMIT 5`, [from, to]);
+    const [statusRows] = await db.query(
+      `SELECT status, COUNT(*) AS count FROM orders
+       WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY status ORDER BY count DESC`, [from, to]);
+
+    const trendMap = new Map(dailyRows.map(row => [String(row.day).slice(0, 10), {
+      day: String(row.day).slice(0, 10), revenue: Number(row.revenue || 0), ordersCount: Number(row.ordersCount || 0)
+    }]));
+    const salesTrend = [];
+    for (let i = 0; i < finalSpanDays; i++) {
+      const day = shiftDate(from, i);
+      salesTrend.push(trendMap.get(day) || { day, revenue: 0, ordersCount: 0 });
+    }
+    const revenueChange = Number(previousSummary.revenue) > 0
+      ? ((Number(currentSummary.revenue) - Number(previousSummary.revenue)) / Number(previousSummary.revenue)) * 100
+      : (Number(currentSummary.revenue) > 0 ? null : 0);
 
     res.render('admin/dashboard', {
       totalProducts, totalOrders, totalRevenue, totalCustomers, pendingOrders,
       lowStockProducts, lowStockCount, outOfStockCount,
+      dashboard: {
+        range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
+        newCustomers: Number(newCustomers || 0), salesTrend, topProducts, statusRows,
+        revenueChange, maxTrendRevenue: Math.max(1, ...salesTrend.map(row => Number(row.revenue || 0)))
+      },
       siteName: 'Goince'
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Dashboard load korte problem hoyeche.');
+    console.error('Dashboard analytics error:', err);
+    res.status(500).send('Dashboard load korte problem hoyeche. Server log check korun.');
   }
 });
 
@@ -258,12 +321,14 @@ router.get('/products/add', requireAdmin, async (req, res) => {
 
 router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }]), async (req, res) => {
   try {
-    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link } = req.body;
+    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_values, custom_sizes } = req.body;
+    const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
+    const audience = allowedAudiences.includes(target_audience) ? target_audience : 'all';
     const image = (req.files && req.files.image) ? req.files.image[0].filename : 'no-image.png';
 
     const [result] = await db.query(
-      'INSERT INTO products (category_id, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [category_id || null, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null]
+      'INSERT INTO products (category_id, target_audience, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [category_id || null, audience, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null]
     );
 
     // Gallery e extra images thakle shegulo product_images table e jog kora
@@ -271,6 +336,29 @@ router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCo
       for (const file of req.files.gallery) {
         await db.query('INSERT INTO product_images (product_id, image) VALUES (?, ?)', [result.insertId, file.filename]);
       }
+    }
+
+    // Optional product sizes: presets + custom values
+    const selectedSizes = Array.isArray(size_values)
+      ? size_values
+      : (size_values ? [size_values] : []);
+
+    const customSizeValues = String(custom_sizes || '')
+      .split(/[,\r\n]+/)
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    const sizeValues = [...new Set(
+      [...selectedSizes, ...customSizeValues]
+        .map(value => String(value).trim())
+        .filter(Boolean)
+    )];
+
+    for (const value of sizeValues) {
+      await db.query(
+        'INSERT INTO product_options (product_id, option_label, value_name) VALUES (?, ?, ?)',
+        [result.insertId, 'Size', value]
+      );
     }
 
     res.redirect('/admin/products');
@@ -298,19 +386,21 @@ router.get('/products/edit/:id', requireAdmin, async (req, res) => {
 
 router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }]), async (req, res) => {
   try {
-    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link } = req.body;
+    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience } = req.body;
+    const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
+    const audience = allowedAudiences.includes(target_audience) ? target_audience : 'all';
     const id = req.params.id;
     const mainImage = (req.files && req.files.image) ? req.files.image[0].filename : null;
 
     if (mainImage) {
       await db.query(
-        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, image=?, source_link=? WHERE id=?',
-        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, mainImage, source_link || null, id]
+        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, target_audience=?, image=?, source_link=? WHERE id=?',
+        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, audience, mainImage, source_link || null, id]
       );
     } else {
       await db.query(
-        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, source_link=? WHERE id=?',
-        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, source_link || null, id]
+        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, target_audience=?, source_link=? WHERE id=?',
+        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, audience, source_link || null, id]
       );
     }
 
@@ -318,6 +408,46 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
     if (req.files && req.files.gallery) {
       for (const file of req.files.gallery) {
         await db.query('INSERT INTO product_images (product_id, image) VALUES (?, ?)', [id, file.filename]);
+      }
+    }
+
+    // Update Product Size Variants only when the Size editor was submitted
+    if (size_management === '1') {
+      const [existingSizeOption] = await db.query(
+        "SELECT option_label FROM product_options WHERE product_id = ? LIMIT 1",
+        [id]
+      );
+
+      // Never overwrite existing Color or Weight options
+      if (existingSizeOption.length === 0 ||
+          String(existingSizeOption[0].option_label).toLowerCase() === 'size') {
+
+        const selectedSizes = Array.isArray(size_values)
+          ? size_values
+          : (size_values ? [size_values] : []);
+
+        const customSizeValues = String(custom_sizes || '')
+          .split(/[,\r\n]+/)
+          .map(value => value.trim())
+          .filter(Boolean);
+
+        const finalSizes = [...new Set(
+          [...selectedSizes, ...customSizeValues]
+            .map(value => String(value).trim())
+            .filter(Boolean)
+        )];
+
+        await db.query(
+          "DELETE FROM product_options WHERE product_id = ? AND LOWER(option_label) = 'size'",
+          [id]
+        );
+
+        for (const value of finalSizes) {
+          await db.query(
+            'INSERT INTO product_options (product_id, option_label, value_name) VALUES (?, ?, ?)',
+            [id, 'Size', value]
+          );
+        }
       }
     }
 
