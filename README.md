@@ -55,8 +55,9 @@ Browser e jao: `http://localhost:3000`
 
 ### 6. Admin Panel
 `http://localhost:3000/admin/login`
-- Email: `admin@goince.com`
-- Password: `admin123`
+- Email / Password: `.env`-er `ADMIN_EMAIL` / `ADMIN_PASSWORD` diye prothom bar login koro.
+- **Security:** prothom login-er porei Admin Panel > Forgot Password diye ekta shokto (lomba, unique) password set koro. `admin123`-er moto shohoj password kokhono live-e rekho na — README-teo ar kono default password lekha nei.
+- `.env` file kokhono Git-e push koro na (eta `.gitignore`-e ache).
 
 ---
 
@@ -148,3 +149,15 @@ Schema file diye ekta test coupon already ache: **WELCOME10** (10% discount). Ca
 - **SMS Notification** — Paid SMS Gateway account lagbe (BD te: adnsms, elitbuzz, ityadi)
 
 Account paile bolo, integrate kore dibo.
+
+---
+
+## fix/complete-website branch-e ja bodlano hoyeche (2026-11-23)
+- **Security:** README theke default admin password sorano; `SESSION_SECRET` na thakle production-e server cholbe na; login/signup/checkout-e rate limiter jog.
+- **Trust:** About / Contact page, footer-e phone + quick links + trust badges, Order Success theke Track Order link.
+- **Checkout:** "Card" payment option sorano (gateway nei); Bangladeshi phone validation (server + form), vul payment method server-e block, phone normalize kore save.
+- **Homepage/SEO:** Hero + trust bar + Best Sellers, prottek product page-er alada title/meta description, `lang="bn"`, OG tags, sitemap-e notun page.
+- **Track Order:** `/track-order` — login chara Order ID + phone diye status, items, courier/tracking dekha jay.
+- **Delivery somoy milano:** Cart/Product-e age 3–5 din lekha chilo — ekhon Dhaka 1–2 din, baire 3–5 din (shipping policy-r sathe mil).
+- **Performance/Deploy:** bebohar na hoya 19MB music file sorano; `ecosystem.config.js` (PM2), `DEPLOY.md`, `sql/apply-all.sh` (shob migration ekbare) jog.
+- **Ja ekhono baki (icche kore kora hoyni):** CSRF token (shob form-e lagbe — alada boro kaj), courier API (Steadfast/Pathao) integration, real card gateway (SSLCommerz/ShurjoPay) — egulo-r jonno courier/gateway account lagbe.

@@ -1,6 +1,20 @@
 <%- include('partials/header') %>
 
-<div class="category-bar">
+<% if (!selectedCategory && !search) { %>
+<section class="hero">
+  <h1>Cash on Delivery — sara Bangladesh-e delivery</h1>
+  <p>Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery. Order korar age phone-e confirm kora hoy.</p>
+  <a href="#products" class="btn-primary hero-cta">Shop Now ↓</a>
+</section>
+<section class="trust-bar">
+  <div>✅ Cash on Delivery</div>
+  <div>🚚 Fast Delivery</div>
+  <div>🔄 24h Return <span>(defective / wrong product)</span></div>
+  <div>💬 WhatsApp Support</div>
+</section>
+<% } %>
+
+<div class="category-bar" id="products">
   <a href="/" class="<%= !selectedCategory ? 'active' : '' %>">All</a>
   <% displayCategories.forEach(cat => { %>
     <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><%= cat.display_name || cat.name %></a>
@@ -17,7 +31,7 @@
 <% } %>
 
 <div class="toolbar-row">
-  <h1 class="page-title">Welcome to <%= siteName %></h1>
+  <h1 class="page-title"><%= search ? 'Search results' : 'All Products' %></h1>
 
   <form action="/" method="GET" class="sort-form">
     <% if (selectedCategory) { %><input type="hidden" name="category" value="<%= selectedCategory %>"><% } %>
@@ -55,7 +69,7 @@
   %>
     <div class="product-card">
       <a href="/product/<%= p.id %>">
-        <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
+        <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
         <h3><%= p.name %></h3>
         <div class="price-row">
           <p class="price">৳<%= p.price %></p>
@@ -68,5 +82,20 @@
     </div>
   <% }) %>
 </div>
+
+<% if (typeof bestSellers !== 'undefined' && bestSellers && bestSellers.length > 0 && !selectedCategory && !search) { %>
+  <div class="section-heading"><h2>🔥 Best Sellers</h2></div>
+  <div class="product-grid">
+    <% bestSellers.forEach(p => { %>
+      <div class="product-card">
+        <a href="/product/<%= p.id %>">
+          <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
+          <h3><%= p.name %></h3>
+          <p class="price">৳<%= p.price %></p>
+        </a>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
 
 <%- include('partials/footer') %>

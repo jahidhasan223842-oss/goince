@@ -1,7 +1,28 @@
   </main>
   <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <h3><%= siteName %></h3>
+        <p>Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.</p>
+        <p>📞 <a href="tel:<%= shopPhone %>"><%= shopPhone %></a></p>
+      </div>
+      <div>
+        <h3>Quick Links</h3>
+        <p><a href="/about">About Us</a></p>
+        <p><a href="/contact">Contact Us</a></p>
+        <p><a href="/track-order">Track Order</a></p>
+        <p><a href="/cart">Cart</a></p>
+      </div>
+      <div>
+        <h3>Policies</h3>
+        <p><a href="/shipping-policy">Shipping Policy</a></p>
+        <p><a href="/return-policy">Return &amp; Refund Policy</a></p>
+        <p><a href="/terms">Terms &amp; Conditions</a></p>
+        <p><a href="/privacy-policy">Privacy Policy</a></p>
+      </div>
+    </div>
     <div class="container">
-      <p class="footer-policy-links"><a href="/shipping-policy">Shipping Policy</a> · <a href="/return-policy">Return &amp; Refund Policy</a> · <a href="/terms">Terms &amp; Conditions</a> · <a href="/privacy-policy">Privacy Policy</a></p>
+      <p class="footer-trust">✅ Cash on Delivery &nbsp;·&nbsp; 🚚 Fast Delivery &nbsp;·&nbsp; 🔄 24h Return (defective/wrong product) &nbsp;·&nbsp; 💬 WhatsApp Support</p>
       <p>&copy; <%= new Date().getFullYear() %> <%= siteName %>. All rights reserved.</p>
     </div>
   </footer>

@@ -1,0 +1,37 @@
+<%- include('partials/header') %>
+
+<div class="container policy-page">
+  <h1>Track Your Order</h1>
+  <p>Order ID ar order korar somoy deya phone number dao — login lagbe na.</p>
+
+  <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
+
+  <form action="/track-order" method="POST" class="admin-form" style="max-width:420px;">
+    <label>Order ID</label>
+    <input type="number" name="order_id" placeholder="jemon: 123" required>
+    <label>Phone Number</label>
+    <input type="tel" name="phone" placeholder="01XXXXXXXXX" required pattern="^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$" title="Bangladeshi mobile number dao — jemon 01XXXXXXXXX">
+    <button type="submit" class="btn-primary">Track Order</button>
+  </form>
+
+  <% if (order) { %>
+    <div class="track-result">
+      <h2>Order #<%= order.id %> — <%= order.status %></h2>
+      <p><strong>Customer:</strong> <%= order.customer_name %></p>
+      <p><strong>Payment:</strong> <%= order.payment_method %> (<%= order.payment_status %>)</p>
+      <p><strong>Total:</strong> ৳<%= Number(order.total_amount).toFixed(2) %> (delivery ৳<%= Number(order.delivery_charge).toFixed(2) %> soho)</p>
+      <% if (order.courier_name || order.tracking_number) { %>
+        <p><strong>Courier:</strong> <%= order.courier_name || '-' %> <%= order.tracking_number ? '— Tracking: ' + order.tracking_number : '' %></p>
+      <% } %>
+      <p><strong>Order date:</strong> <%= new Date(order.created_at).toLocaleDateString('en-GB') %></p>
+      <h3>Items</h3>
+      <ul>
+        <% items.forEach(it => { %>
+          <li><%= it.product_name %> × <%= it.quantity %> — ৳<%= (Number(it.price) * it.quantity).toFixed(2) %></li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>
