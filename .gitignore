@@ -3,3 +3,8 @@ node_modules/
 public/uploads/*
 !public/uploads/no-image.png
 *.log
+public/css/*.before-*
+routes/*.backup-*
+routes/*.before-*
+views/**/*.before-*
+views/**/*.backup-*
