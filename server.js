@@ -144,6 +144,11 @@ const SITE_SETTING_DEFAULTS = {
     const pmNames = pmCols.map(c => c.COLUMN_NAME);
     if (!pmNames.includes('payment_type')) await db.query("ALTER TABLE payment_methods ADD COLUMN payment_type VARCHAR(30) NOT NULL DEFAULT 'send_money'");
     if (!pmNames.includes('instructions')) await db.query('ALTER TABLE payment_methods ADD COLUMN instructions TEXT DEFAULT NULL');
+    // Courier API: consignment id + last-known delivery status on orders
+    const [oCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'");
+    const oNames = new Set(oCols.map(c => c.COLUMN_NAME));
+    if (!oNames.has('courier_consignment_id')) await db.query("ALTER TABLE orders ADD COLUMN courier_consignment_id VARCHAR(100) DEFAULT NULL");
+    if (!oNames.has('courier_status')) await db.query("ALTER TABLE orders ADD COLUMN courier_status VARCHAR(50) DEFAULT NULL");
     await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,

@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const { getCourierConfig, createConsignment, getTrackingStatus } = require('../lib/courier');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
@@ -873,7 +874,15 @@ router.get('/orders/:id', requireAdmin, async (req, res) => {
   if (!order) return res.redirect('/admin/orders');
   const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
   const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
-  res.render('admin/order-details', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
+  const courier = await getCourierConfig(db);
+  const courierMsg = req.query.courier === 'created' ? 'Consignment created with ' + (order.courier_name || 'the courier') + ' — tracking ' + (order.tracking_number || '') + '.' :
+    req.query.courier === 'failed' ? 'Courier API call failed — check the API keys in Settings > Courier API and try again.' :
+    req.query.courier === 'not-configured' ? 'Courier API is not configured yet — add the API keys in Settings > Courier API first.' :
+    req.query.courier === 'already' ? 'This order already has a consignment / tracking number.' :
+    req.query.courier === 'status-updated' ? 'Tracking status updated from the courier.' :
+    req.query.courier === 'status-failed' ? 'Could not fetch the tracking status — check the API keys and try again.' :
+    req.query.courier === 'no-consignment' ? 'This order has no consignment yet — create one first.' : null;
+  res.render('admin/order-details', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
 });
 
 // ---------- UPDATE ORDER STATUS ----------
@@ -898,6 +907,35 @@ router.post('/orders/:id/shipping', requireAdmin, async (req, res) => {
     [courier_name || null, tracking_number || null, req.params.id]
   );
   res.redirect('/admin/orders/' + req.params.id);
+});
+
+// ---------- CREATE COURIER CONSIGNMENT (Steadfast / Pathao API) ----------
+router.post('/orders/:id/create-consignment', requireAdmin, async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  if (order.courier_consignment_id || order.tracking_number) return res.redirect('/admin/orders/' + order.id + '?courier=already');
+  const config = await getCourierConfig(db);
+  if (!config.configured) return res.redirect('/admin/orders/' + order.id + '?courier=not-configured');
+  const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
+  const result = await createConsignment(order, items, config);
+  if (!result.ok) return res.redirect('/admin/orders/' + order.id + '?courier=failed');
+  await db.query(
+    'UPDATE orders SET courier_name = ?, tracking_number = ?, courier_consignment_id = ?, courier_status = ? WHERE id = ?',
+    [result.courierName, result.trackingNumber, result.consignmentId, result.status || null, order.id]
+  );
+  res.redirect('/admin/orders/' + order.id + '?courier=created');
+});
+
+// ---------- REFRESH TRACKING STATUS FROM COURIER ----------
+router.post('/orders/:id/refresh-tracking', requireAdmin, async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  if (!order.courier_consignment_id && !order.tracking_number) return res.redirect('/admin/orders/' + order.id + '?courier=no-consignment');
+  const config = await getCourierConfig(db);
+  const result = await getTrackingStatus(order, config);
+  if (!result.ok) return res.redirect('/admin/orders/' + order.id + '?courier=status-failed');
+  await db.query('UPDATE orders SET courier_status = ? WHERE id = ?', [result.status, order.id]);
+  res.redirect('/admin/orders/' + order.id + '?courier=status-updated');
 });
 
 // ---------- COUPONS LIST ----------
@@ -1215,7 +1253,7 @@ router.post('/delivery-zones/delete/:id', requireAdmin, async (req, res) => {
 
 router.get('/settings', requireAdmin, async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id')"
   );
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
@@ -1243,6 +1281,15 @@ router.get('/settings', requireAdmin, async (req, res) => {
     gatewayStoreId: get('gateway_store_id', ''),
     gatewayMode: get('gateway_mode', 'sandbox'),
     gatewayPasswordSet: !!get('gateway_store_password', ''),
+    courierProvider: get('courier_provider', 'none'),
+    courierEnabled: get('courier_enabled', '0'),
+    courierMode: get('courier_mode', 'sandbox'),
+    courierSteadfastKeySet: !!get('steadfast_api_key', ''),
+    courierPathaoSecretSet: !!get('pathao_client_secret', ''),
+    courierPathaoPasswordSet: !!get('pathao_password', ''),
+    pathaoClientId: get('pathao_client_id', ''),
+    pathaoUsername: get('pathao_username', ''),
+    pathaoStoreId: get('pathao_store_id', ''),
     logoUrl: get('logo_url', '/icons/icon-192.png'),
     faviconUrl: get('favicon_url', '/icons/icon-192.png'),
     ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
@@ -1288,6 +1335,12 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
     ['gateway_enabled', req.body.gateway_enabled === '1' ? '1' : '0'],
     ['gateway_store_id', (req.body.gateway_store_id || '').trim()],
     ['gateway_mode', req.body.gateway_mode === 'live' ? 'live' : 'sandbox'],
+    ['courier_provider', ['none', 'steadfast', 'pathao'].includes(req.body.courier_provider) ? req.body.courier_provider : 'none'],
+    ['courier_enabled', req.body.courier_enabled === '1' ? '1' : '0'],
+    ['courier_mode', req.body.courier_mode === 'live' ? 'live' : 'sandbox'],
+    ['pathao_client_id', (req.body.pathao_client_id || '').trim()],
+    ['pathao_username', (req.body.pathao_username || '').trim()],
+    ['pathao_store_id', (req.body.pathao_store_id || '').trim()],
     ['logo_url', logoUrl || '/icons/icon-192.png'],
     ['favicon_url', faviconUrl || '/icons/icon-192.png'],
     ['og_image_url', ogImageUrl || '/icons/icon-512.png']
@@ -1296,6 +1349,11 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
   if ((req.body.gateway_store_password || '').trim()) {
     settingsToSave.push(['gateway_store_password', (req.body.gateway_store_password || '').trim()]);
   }
+  // Same for courier secrets: blank keeps the saved one (they are never shown in the form)
+  if ((req.body.steadfast_api_key || '').trim()) settingsToSave.push(['steadfast_api_key', (req.body.steadfast_api_key || '').trim()]);
+  if ((req.body.steadfast_secret_key || '').trim()) settingsToSave.push(['steadfast_secret_key', (req.body.steadfast_secret_key || '').trim()]);
+  if ((req.body.pathao_client_secret || '').trim()) settingsToSave.push(['pathao_client_secret', (req.body.pathao_client_secret || '').trim()]);
+  if ((req.body.pathao_password || '').trim()) settingsToSave.push(['pathao_password', (req.body.pathao_password || '').trim()]);
 
   for (const [key, value] of settingsToSave) {
     await db.query(
@@ -1307,6 +1365,13 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const [[gwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'gateway_store_password'");
   const gatewayPasswordSet = !!(gwRow && gwRow.setting_value);
+  // Courier secrets: saved or just entered (never shown in the form)
+  const [[sfKeyRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'steadfast_api_key'");
+  const courierSteadfastKeySet = !!((req.body.steadfast_api_key || '').trim() || (sfKeyRow && sfKeyRow.setting_value));
+  const [[paSecRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'pathao_client_secret'");
+  const courierPathaoSecretSet = !!((req.body.pathao_client_secret || '').trim() || (paSecRow && paSecRow.setting_value));
+  const [[paPwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'pathao_password'");
+  const courierPathaoPasswordSet = !!((req.body.pathao_password || '').trim() || (paPwRow && paPwRow.setting_value));
   res.render('admin/settings', {
     shopPhone,
     deliveryChargeInside: safeInside,
@@ -1328,6 +1393,15 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
     gatewayStoreId: (req.body.gateway_store_id || '').trim(),
     gatewayMode: req.body.gateway_mode === 'live' ? 'live' : 'sandbox',
     gatewayPasswordSet,
+    courierProvider: ['none', 'steadfast', 'pathao'].includes(req.body.courier_provider) ? req.body.courier_provider : 'none',
+    courierEnabled: req.body.courier_enabled === '1' ? '1' : '0',
+    courierMode: req.body.courier_mode === 'live' ? 'live' : 'sandbox',
+    courierSteadfastKeySet,
+    courierPathaoSecretSet,
+    courierPathaoPasswordSet,
+    pathaoClientId: (req.body.pathao_client_id || '').trim(),
+    pathaoUsername: (req.body.pathao_username || '').trim(),
+    pathaoStoreId: (req.body.pathao_store_id || '').trim(),
     logoUrl: logoUrl || '/icons/icon-192.png',
     faviconUrl: faviconUrl || '/icons/icon-192.png',
     ogImageUrl: ogImageUrl || '/icons/icon-512.png',

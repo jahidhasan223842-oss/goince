@@ -22,6 +22,7 @@
       <p><strong>Total:</strong> ৳<%= Number(order.total_amount).toFixed(2) %> (delivery ৳<%= Number(order.delivery_charge).toFixed(2) %> soho)</p>
       <% if (order.courier_name || order.tracking_number) { %>
         <p><strong>Courier:</strong> <%= order.courier_name || '-' %> <%= order.tracking_number ? '— Tracking: ' + order.tracking_number : '' %></p>
+        <% if (order.courier_status) { %><p><strong>Delivery Status:</strong> <%= order.courier_status %></p><% } %>
       <% } %>
       <p><strong>Order date:</strong> <%= new Date(order.created_at).toLocaleDateString('en-GB') %></p>
       <h3>Items</h3>

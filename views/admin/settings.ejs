@@ -116,6 +116,38 @@
   <input type="password" name="gateway_store_password" placeholder="leave blank to keep the current one" autocomplete="new-password">
   <p class="field-hint">⚠️ To accept real payments through a gateway, you need a merchant account with the provider (SSLCommerz/ShurjoPay/bKash PGW). Saving the config here will show the option at checkout, but taking real payments also requires an API verification step for orders — that still needs to be set up with your merchant credentials.</p>
 
+  <hr style="margin:20px 0;">
+  <h3>🚚 Courier API (Steadfast / Pathao)</h3>
+  <p class="field-hint">With a courier connected, you can book a parcel from an order page in one click — the tracking number is saved on the order automatically. Without keys, the manual courier/tracking fields on the order page keep working as now. <strong>Steadfast has no sandbox</strong> — a live Steadfast key books real parcels. Pathao has a sandbox mode for testing.</p>
+  <label>Courier Provider</label>
+  <select name="courier_provider" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
+    <option value="none" <%= courierProvider === 'none' ? 'selected' : '' %>>— No courier API —</option>
+    <option value="steadfast" <%= courierProvider === 'steadfast' ? 'selected' : '' %>>Steadfast</option>
+    <option value="pathao" <%= courierProvider === 'pathao' ? 'selected' : '' %>>Pathao</option>
+  </select>
+  <label><input type="checkbox" name="courier_enabled" value="1" <%= courierEnabled === '1' ? 'checked' : '' %>> Enable courier API</label>
+  <label>Courier Mode</label>
+  <select name="courier_mode" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
+    <option value="sandbox" <%= courierMode === 'sandbox' ? 'selected' : '' %>>Sandbox (test — Pathao only)</option>
+    <option value="live" <%= courierMode === 'live' ? 'selected' : '' %>>Live (real parcels)</option>
+  </select>
+  <h4 style="margin-top:14px;">Steadfast — from the Steadfast merchant portal (API section)</h4>
+  <label>Steadfast API Key <%= courierSteadfastKeySet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="steadfast_api_key" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <label>Steadfast Secret Key <%= courierSteadfastKeySet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="steadfast_secret_key" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <h4 style="margin-top:14px;">Pathao — from the Pathao merchant panel (API credentials) + your store</h4>
+  <label>Pathao Client ID</label>
+  <input type="text" name="pathao_client_id" value="<%= pathaoClientId %>" placeholder="e.g. 7N1aMJQbWm">
+  <label>Pathao Client Secret <%= courierPathaoSecretSet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="pathao_client_secret" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <label>Pathao Username (your Pathao merchant login email)</label>
+  <input type="text" name="pathao_username" value="<%= pathaoUsername %>" placeholder="you@example.com">
+  <label>Pathao Password <%= courierPathaoPasswordSet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="pathao_password" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <label>Pathao Store ID</label>
+  <input type="text" name="pathao_store_id" value="<%= pathaoStoreId %>" placeholder="e.g. 149043">
+
   <button type="submit" class="btn-primary">Save Settings</button>
 </form>
 
