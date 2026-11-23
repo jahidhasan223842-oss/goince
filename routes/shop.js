@@ -280,6 +280,8 @@ router.get('/product/:id', async (req, res) => {
         id: v.id,
         sku: v.sku,
         price: v.price !== null ? Number(v.price) : Number(product.price),
+        compare_at_price: v.compare_at_price !== null && v.compare_at_price !== undefined ? Number(v.compare_at_price) : null,
+        image: v.image || null,
         stock: v.stock,
         attrs: variantAttrs.filter(va => va.variant_id === v.id),
         label: variantAttrs.filter(va => va.variant_id === v.id).map(va => `${va.attribute_name}: ${va.value}`).join(', ')
@@ -346,6 +348,7 @@ router.get('/product/:id', async (req, res) => {
     const descriptionHtml = product.description ? marked.parse(product.description) : '';
 
     res.render('product', {
+      notify: req.query.notify || null,
       pageTitle: product.meta_title || `${product.name} - Goince`,
       metaDescription: (product.meta_description || product.short_description || product.name).slice(0, 160),
       product,
@@ -384,6 +387,26 @@ router.post('/product/:id/review', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('Review submit korte problem hoyeche.');
+  }
+});
+
+// ---------- NOTIFY ME (stock asle janano) ----------
+router.post('/product/:id/notify-me', async (req, res) => {
+  const phone = normalizeBdPhone(req.body.phone || '');
+  if (!isValidBdPhone(req.body.phone || '')) {
+    return res.redirect('/product/' + req.params.id + '?notify=invalid');
+  }
+  try {
+    const [[p]] = await db.query('SELECT id, stock FROM products WHERE id = ?', [req.params.id]);
+    if (!p) return res.status(404).send('Product not found');
+    if (p.stock > 0) return res.redirect('/product/' + req.params.id);
+    await db.query(
+      'INSERT INTO stock_alerts (product_id, phone) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM stock_alerts WHERE product_id = ? AND phone = ? AND notified = 0)',
+      [req.params.id, phone, req.params.id, phone]
+    );
+    res.redirect('/product/' + req.params.id + '?notify=ok');
+  } catch (e) {
+    res.redirect('/product/' + req.params.id + '?notify=error');
   }
 });
 
@@ -546,13 +569,17 @@ router.post('/cart/update/:cartKey', async (req, res) => {
   if (item) {
     let newQty = Math.max(1, parseInt(req.body.quantity) || 1);
 
-    // Stock er beshi order kora theke atkano (variant thakle variant stock, na hole product stock)
-    if (item.variantId) {
-      const [rows] = await db.query('SELECT stock FROM product_variants WHERE id = ?', [item.variantId]);
-      if (rows.length > 0) newQty = Math.min(newQty, rows[0].stock);
-    } else {
-      const [rows] = await db.query('SELECT stock FROM products WHERE id = ?', [item.id]);
-      if (rows.length > 0) newQty = Math.min(newQty, rows[0].stock);
+    // Stock er beshi order kora theke atkano — kintu Pre-order (backorder) thakle
+    // stock-er beshi-o newa jabe
+    const [[prodRow]] = await db.query('SELECT allow_backorder FROM products WHERE id = ?', [item.id]);
+    if (!(prodRow && prodRow.allow_backorder)) {
+      if (item.variantId) {
+        const [rows] = await db.query('SELECT stock FROM product_variants WHERE id = ?', [item.variantId]);
+        if (rows.length > 0) newQty = Math.min(newQty, rows[0].stock);
+      } else {
+        const [rows] = await db.query('SELECT stock FROM products WHERE id = ?', [item.id]);
+        if (rows.length > 0) newQty = Math.min(newQty, rows[0].stock);
+      }
     }
     item.quantity = Math.max(1, newQty);
   }
@@ -773,10 +800,20 @@ router.post('/checkout', async (req, res) => {
           'UPDATE product_variants SET stock = GREATEST(0, stock - ?) WHERE id = ?',
           [item.quantity, item.variantId]
         );
+        const [[vs]] = await connection.query('SELECT stock FROM product_variants WHERE id = ?', [item.variantId]);
+        await connection.query(
+          'INSERT INTO stock_history (product_id, variant_id, change_qty, stock_after, reason) VALUES (?, ?, ?, ?, ?)',
+          [item.id, item.variantId, -item.quantity, vs ? vs.stock : 0, 'order']
+        );
       } else {
         await connection.query(
           'UPDATE products SET stock = GREATEST(0, stock - ?) WHERE id = ?',
           [item.quantity, item.id]
+        );
+        const [[ps]] = await connection.query('SELECT stock FROM products WHERE id = ?', [item.id]);
+        await connection.query(
+          'INSERT INTO stock_history (product_id, variant_id, change_qty, stock_after, reason) VALUES (?, ?, ?, ?, ?)',
+          [item.id, null, -item.quantity, ps ? ps.stock : 0, 'order']
         );
       }
     }

@@ -106,6 +106,39 @@ const SITE_SETTING_DEFAULTS = {
     if (!oiCols.map(c => c.COLUMN_NAME).includes('cost_price')) {
       await db.query('ALTER TABLE order_items ADD COLUMN cost_price DECIMAL(10,2) DEFAULT NULL');
     }
+    // Inventory & Variants advanced fields (PR #8)
+    const [pCols2] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'");
+    const pNames2 = new Set(pCols2.map(c => c.COLUMN_NAME));
+    for (const [col, def] of [
+      ['allow_backorder', 'TINYINT(1) NOT NULL DEFAULT 0'],
+      ['delivery_time', 'VARCHAR(100) DEFAULT NULL'],
+      ['barcode', 'VARCHAR(100) DEFAULT NULL']
+    ]) if (!pNames2.has(col)) await db.query(`ALTER TABLE products ADD COLUMN ${col} ${def}`);
+    const [vCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants'");
+    const vNames = new Set(vCols.map(c => c.COLUMN_NAME));
+    for (const [col, def] of [
+      ['image', 'VARCHAR(255) DEFAULT NULL'],
+      ['compare_at_price', 'DECIMAL(10,2) DEFAULT NULL'],
+      ['barcode', 'VARCHAR(100) DEFAULT NULL']
+    ]) if (!vNames.has(col)) await db.query(`ALTER TABLE product_variants ADD COLUMN ${col} ${def}`);
+    await db.query(`CREATE TABLE IF NOT EXISTS stock_alerts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      phone VARCHAR(20) NOT NULL,
+      notified TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS stock_history (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      variant_id INT DEFAULT NULL,
+      change_qty INT NOT NULL,
+      stock_after INT NOT NULL,
+      reason VARCHAR(50) NOT NULL DEFAULT 'manual',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )`);
     // payment_methods-e payment type + instructions column (purono table-e na thakle jog kora)
     const [pmCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_methods'");
     const pmNames = pmCols.map(c => c.COLUMN_NAME);

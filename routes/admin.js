@@ -41,6 +41,9 @@ function parseProductAdvanced(body) {
     cod_allowed: body.cod_allowed === '0' ? 0 : 1,
     low_stock_threshold: parseInt(body.low_stock_threshold, 10) || 5,
     slug: slugify(body.slug || body.name || ''),
+    barcode: (body.barcode || '').trim() || null,
+    delivery_time: (body.delivery_time || '').trim() || null,
+    allow_backorder: body.allow_backorder === '1' ? 1 : 0,
     meta_title: (body.meta_title || '').trim() || null,
     meta_description: (body.meta_description || '').trim() || null,
     image_alt: (body.image_alt || '').trim() || null
@@ -373,9 +376,10 @@ router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCo
     const image = (req.files && req.files.image) ? req.files.image[0].filename : 'no-image.png';
 
     const [result] = await db.query(
-      'INSERT INTO products (category_id, target_audience, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link, sku, cost_price, brand, tags, weight_kg, status, scheduled_at, is_featured, is_new, free_shipping, cod_allowed, low_stock_threshold, slug, meta_title, meta_description, image_alt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [category_id || null, audience, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null, adv.sku, adv.cost_price, adv.brand, adv.tags, adv.weight_kg, adv.status, adv.scheduled_at, adv.is_featured, adv.is_new, adv.free_shipping, adv.cod_allowed, adv.low_stock_threshold, adv.slug, adv.meta_title, adv.meta_description, adv.image_alt]
+      'INSERT INTO products (category_id, target_audience, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link, sku, cost_price, brand, tags, weight_kg, status, scheduled_at, is_featured, is_new, free_shipping, cod_allowed, low_stock_threshold, slug, meta_title, meta_description, image_alt, barcode, delivery_time, allow_backorder) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [category_id || null, audience, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null, adv.sku, adv.cost_price, adv.brand, adv.tags, adv.weight_kg, adv.status, adv.scheduled_at, adv.is_featured, adv.is_new, adv.free_shipping, adv.cod_allowed, adv.low_stock_threshold, adv.slug, adv.meta_title, adv.meta_description, adv.image_alt, adv.barcode, adv.delivery_time, adv.allow_backorder]
     );
+    await logStockChange(result.insertId, null, stock || 0, stock || 0, 'new product');
     // Product video (thakle)
     if (req.files && req.files.video) {
       await db.query('INSERT INTO product_videos (product_id, filename) VALUES (?, ?)', [result.insertId, req.files.video[0].filename]);
@@ -447,9 +451,11 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
     const audience = allowedAudiences.includes(target_audience) ? target_audience : 'all';
     const id = req.params.id;
     const mainImage = (req.files && req.files.image) ? req.files.image[0].filename : null;
+    // Stock history-r jonno purono stock age-i niye rakha (UPDATE-er pore ar pawa jabe na)
+    const [[oldP]] = await db.query('SELECT stock FROM products WHERE id = ?', [id]);
 
-    const advValues = [adv.sku, adv.cost_price, adv.brand, adv.tags, adv.weight_kg, adv.status, adv.scheduled_at, adv.is_featured, adv.is_new, adv.free_shipping, adv.cod_allowed, adv.low_stock_threshold, adv.slug, adv.meta_title, adv.meta_description, adv.image_alt];
-    const advSet = 'sku=?, cost_price=?, brand=?, tags=?, weight_kg=?, status=?, scheduled_at=?, is_featured=?, is_new=?, free_shipping=?, cod_allowed=?, low_stock_threshold=?, slug=?, meta_title=?, meta_description=?, image_alt=?';
+    const advValues = [adv.sku, adv.cost_price, adv.brand, adv.tags, adv.weight_kg, adv.status, adv.scheduled_at, adv.is_featured, adv.is_new, adv.free_shipping, adv.cod_allowed, adv.low_stock_threshold, adv.slug, adv.meta_title, adv.meta_description, adv.image_alt, adv.barcode, adv.delivery_time, adv.allow_backorder];
+    const advSet = 'sku=?, cost_price=?, brand=?, tags=?, weight_kg=?, status=?, scheduled_at=?, is_featured=?, is_new=?, free_shipping=?, cod_allowed=?, low_stock_threshold=?, slug=?, meta_title=?, meta_description=?, image_alt=?, barcode=?, delivery_time=?, allow_backorder=?';
     if (mainImage) {
       await db.query(
         'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, target_audience=?, image=?, source_link=?, ' + advSet + ' WHERE id=?',
@@ -465,6 +471,14 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
       await db.query('INSERT INTO product_videos (product_id, filename) VALUES (?, ?)', [id, req.files.video[0].filename]);
     }
     await saveRelatedProducts(id, req.body.related_ids);
+    // Stock bodlale history-te likha + stock asle Notify Me list-ke janano
+    const newStock = parseInt(stock, 10) || 0;
+    if (oldP && newStock !== oldP.stock) {
+      await logStockChange(id, null, newStock - oldP.stock, newStock, 'manual');
+      if (oldP.stock <= 0 && newStock > 0) {
+        await db.query('UPDATE stock_alerts SET notified = 1 WHERE product_id = ? AND notified = 0', [id]);
+      }
+    }
 
     // New gallery images are added alongside the existing ones (they are not removed)
     if (req.files && req.files.gallery) {
@@ -524,6 +538,154 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
       </div>
     `);
   }
+});
+
+// ---------- STOCK HISTORY (ke, kokhon stock bodlalo — tar hisab) ----------
+async function logStockChange(productId, variantId, changeQty, stockAfter, reason) {
+  try {
+    await db.query(
+      'INSERT INTO stock_history (product_id, variant_id, change_qty, stock_after, reason) VALUES (?, ?, ?, ?, ?)',
+      [productId, variantId || null, changeQty, stockAfter, reason || 'manual']
+    );
+  } catch (e) { /* history na likhte parle asol kaj thambe na */ }
+}
+
+// ---------- ATTRIBUTES (Size / Color ityadi) ----------
+router.get('/attributes', requireAdmin, async (req, res) => {
+  const [attrs] = await db.query('SELECT * FROM attributes ORDER BY name');
+  for (const a of attrs) {
+    const [vals] = await db.query('SELECT * FROM attribute_values WHERE attribute_id = ? ORDER BY value', [a.id]);
+    a.values = vals;
+  }
+  res.render('admin/attributes', { attributes: attrs, siteName: 'Goince' });
+});
+router.post('/attributes/add', requireAdmin, async (req, res) => {
+  const name = (req.body.name || '').trim();
+  if (name) { try { await db.query('INSERT INTO attributes (name) VALUES (?)', [name]); } catch (e) {} }
+  res.redirect('/admin/attributes');
+});
+router.post('/attributes/delete/:id', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM attributes WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/attributes');
+});
+router.post('/attributes/:id/values/add', requireAdmin, async (req, res) => {
+  const value = (req.body.value || '').trim();
+  if (value) { try { await db.query('INSERT INTO attribute_values (attribute_id, value) VALUES (?, ?)', [req.params.id, value]); } catch (e) {} }
+  res.redirect('/admin/attributes');
+});
+router.post('/attribute-values/delete/:id', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM attribute_values WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/attributes');
+});
+
+// ---------- PRODUCT VARIANTS MANAGER ----------
+router.get('/products/:id/variants', requireAdmin, async (req, res) => {
+  const [[product]] = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+  if (!product) return res.redirect('/admin/products');
+  const [attrs] = await db.query('SELECT * FROM attributes ORDER BY name');
+  for (const a of attrs) {
+    const [vals] = await db.query('SELECT * FROM attribute_values WHERE attribute_id = ? ORDER BY value', [a.id]);
+    a.values = vals;
+  }
+  const [variants] = await db.query('SELECT * FROM product_variants WHERE product_id = ? ORDER BY id', [req.params.id]);
+  const selectedValueIds = new Set();
+  for (const v of variants) {
+    const [links] = await db.query(
+      `SELECT av.id AS value_id, av.value, a.name AS attribute_name FROM product_variant_attributes pva
+       JOIN attribute_values av ON pva.attribute_value_id = av.id
+       JOIN attributes a ON av.attribute_id = a.id WHERE pva.variant_id = ?`,
+      [v.id]
+    );
+    v.label = links.map(l => `${l.attribute_name}: ${l.value}`).join(', ');
+    links.forEach(l => selectedValueIds.add(l.value_id));
+  }
+  res.render('admin/product-variants', { product, attributes: attrs, variants, selectedValueIds, siteName: 'Goince' });
+});
+router.post('/products/:id/variants/sync', requireAdmin, async (req, res) => {
+  const productId = req.params.id;
+  const [attrs] = await db.query('SELECT * FROM attributes ORDER BY name');
+  // prottek attribute theke tick kora value gulo
+  const picked = [];
+  for (const a of attrs) {
+    let vals = req.body['attr_' + a.id];
+    if (!vals) continue;
+    if (!Array.isArray(vals)) vals = [vals];
+    const ids = vals.map(v => parseInt(v, 10)).filter(v => !isNaN(v));
+    if (ids.length) picked.push(ids);
+  }
+  // Kichu tick na korle shob variant muche jabe, notun kichu banano hobe na
+  if (picked.length === 0) {
+    await db.query('DELETE FROM product_variants WHERE product_id = ?', [productId]);
+    return res.redirect('/admin/products/' + productId + '/variants');
+  }
+  // Cartesian product: Size x Color ityadi — shob combination
+  let combos = [[]];
+  for (const ids of picked) {
+    const next = [];
+    for (const c of combos) for (const id of ids) next.push([...c, id]);
+    combos = next;
+  }
+  const [existing] = await db.query('SELECT * FROM product_variants WHERE product_id = ?', [productId]);
+  const existingMap = new Map();
+  for (const v of existing) {
+    const [links] = await db.query('SELECT attribute_value_id FROM product_variant_attributes WHERE variant_id = ?', [v.id]);
+    const key = links.map(l => l.attribute_value_id).sort((a, b) => a - b).join(',');
+    existingMap.set(key, v.id);
+  }
+  const wanted = new Set();
+  for (const combo of combos) {
+    const key = [...combo].sort((a, b) => a - b).join(',');
+    wanted.add(key);
+    if (!existingMap.has(key)) {
+      const [r] = await db.query('INSERT INTO product_variants (product_id, stock) VALUES (?, 0)', [productId]);
+      for (const vid of combo) {
+        await db.query('INSERT INTO product_variant_attributes (variant_id, attribute_value_id) VALUES (?, ?)', [r.insertId, vid]);
+      }
+    }
+  }
+  // ar dorkar nei emon combination muche fela
+  for (const [key, vid] of existingMap) {
+    if (!wanted.has(key)) await db.query('DELETE FROM product_variants WHERE id = ?', [vid]);
+  }
+  res.redirect('/admin/products/' + productId + '/variants');
+});
+router.post('/products/:id/variants/:vid/update', requireAdmin, upload.single('image'), async (req, res) => {
+  const stock = parseInt(req.body.stock, 10) || 0;
+  const price = req.body.price === '' || req.body.price == null ? null : parseFloat(req.body.price);
+  const compareAt = req.body.compare_at_price === '' || req.body.compare_at_price == null ? null : parseFloat(req.body.compare_at_price);
+  const barcode = (req.body.barcode || '').trim() || null;
+  const [[old]] = await db.query('SELECT * FROM product_variants WHERE id = ? AND product_id = ?', [req.params.vid, req.params.id]);
+  if (!old) return res.redirect('/admin/products/' + req.params.id + '/variants');
+  const image = req.file ? req.file.filename : old.image;
+  await db.query(
+    'UPDATE product_variants SET stock = ?, price = ?, compare_at_price = ?, barcode = ?, image = ? WHERE id = ?',
+    [stock, isNaN(price) ? null : price, isNaN(compareAt) ? null : compareAt, barcode, image, req.params.vid]
+  );
+  if (stock !== old.stock) await logStockChange(req.params.id, req.params.vid, stock - old.stock, stock, 'variant');
+  res.redirect('/admin/products/' + req.params.id + '/variants');
+});
+router.post('/products/:id/variants/delete/:vid', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM product_variants WHERE id = ? AND product_id = ?', [req.params.vid, req.params.id]);
+  res.redirect('/admin/products/' + req.params.id + '/variants');
+});
+
+// ---------- STOCK HISTORY + STOCK ALERTS ----------
+router.get('/products/:id/stock-history', requireAdmin, async (req, res) => {
+  const [[product]] = await db.query('SELECT id, name FROM products WHERE id = ?', [req.params.id]);
+  if (!product) return res.redirect('/admin/products');
+  const [rows] = await db.query('SELECT * FROM stock_history WHERE product_id = ? ORDER BY created_at DESC LIMIT 100', [req.params.id]);
+  res.render('admin/stock-history', { product, rows, siteName: 'Goince' });
+});
+router.get('/stock-alerts', requireAdmin, async (req, res) => {
+  const [alerts] = await db.query(
+    `SELECT sa.*, p.name AS product_name, p.stock FROM stock_alerts sa
+     JOIN products p ON p.id = sa.product_id ORDER BY sa.created_at DESC LIMIT 200`
+  );
+  res.render('admin/stock-alerts', { alerts, siteName: 'Goince' });
+});
+router.post('/stock-alerts/:id/done', requireAdmin, async (req, res) => {
+  await db.query('UPDATE stock_alerts SET notified = 1 WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/stock-alerts');
 });
 
 // ---------- DUPLICATE PRODUCT ----------

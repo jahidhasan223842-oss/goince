@@ -1,0 +1,26 @@
+<%- include('../partials/admin-header') %>
+<div class="admin-page-header">
+  <h1>🔔 Stock Alerts — "Notify Me" Requests</h1>
+  <a href="/admin/products">&larr; Back to Products</a>
+</div>
+<p style="color:#666;">Customers who asked to be told when an out-of-stock product is back. When you restock a product, its pending requests are marked as ready — call or message them.</p>
+<% if (alerts.length === 0) { %>
+  <p>No requests yet.</p>
+<% } else { %>
+<div class="table-responsive"><table class="admin-table">
+  <thead><tr><th>Product</th><th>Phone</th><th>Requested</th><th>Stock Now</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    <% alerts.forEach(a => { %>
+      <tr>
+        <td><%= a.product_name %></td>
+        <td><a href="tel:<%= a.phone %>"><%= a.phone %></a></td>
+        <td><%= new Date(a.created_at).toLocaleString('en-GB') %></td>
+        <td><%= a.stock %></td>
+        <td><%= a.notified ? '✅ Ready to contact' : '⏳ Waiting for stock' %></td>
+        <td><% if (!a.notified && a.stock > 0) { %><form action="/admin/stock-alerts/<%= a.id %>/done" method="POST" style="display:inline;"><button type="submit" class="btn-primary" style="padding:4px 10px;">Mark Contacted</button></form><% } %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table></div>
+<% } %>
+<%- include('../partials/admin-footer') %>
