@@ -9,7 +9,7 @@
 <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
 
 <h2 style="margin-bottom:12px;">Add Staff Account</h2>
-<form action="/admin/staff/add" method="POST" class="admin-form" style="max-width:520px;">
+<form action="/admin/staff/add" method="POST" class="admin-form" style="max-width:520px;"><%- include('../partials/csrf-field') %>
   <label>Email</label>
   <input type="email" name="email" required placeholder="staff@example.com">
   <label>Password</label>
@@ -39,7 +39,7 @@
             <% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %>
               <span style="color:#999;">—</span>
             <% } else { %>
-              <form action="/admin/staff/<%= a.id %>/role" method="POST" class="inline-form">
+              <form action="/admin/staff/<%= a.id %>/role" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
                 <select name="role">
                   <option value="owner" <%= a.role === 'owner' ? 'selected' : '' %>>Owner</option>
                   <option value="manager" <%= a.role === 'manager' ? 'selected' : '' %>>Manager</option>
@@ -50,7 +50,7 @@
             <% } %>
           </td>
           <td>
-            <form action="/admin/staff/<%= a.id %>/reset-password" method="POST" class="inline-form">
+            <form action="/admin/staff/<%= a.id %>/reset-password" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
               <input type="password" name="new_password" required minlength="6" placeholder="New password" style="width:130px;">
               <button type="submit" class="btn-primary" style="padding:4px 10px;">Reset</button>
             </form>
@@ -59,7 +59,7 @@
             <% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %>
               <span style="color:#999;">—</span>
             <% } else { %>
-              <form action="/admin/staff/<%= a.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this admin account?');">
+              <form action="/admin/staff/<%= a.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this admin account?');"><%- include('../partials/csrf-field') %>
                 <button type="submit" class="link-btn-danger">Delete</button>
               </form>
             <% } %>

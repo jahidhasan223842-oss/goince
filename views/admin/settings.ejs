@@ -153,7 +153,7 @@
 
 <h3 style="margin-top:28px;">🔑 Change Admin Password</h3>
 <% if (typeof pwMessage !== 'undefined' && pwMessage) { %><p class="success-msg" style="text-align:left;"><%= pwMessage %></p><% } %>
-<form action="/admin/settings/change-password" method="POST" class="admin-form">
+<form action="/admin/settings/change-password" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
   <label>Current Password</label>
   <input type="password" name="current_password" required autocomplete="current-password">
   <label>New Password (at least 6 characters)</label>
