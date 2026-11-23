@@ -42,21 +42,29 @@
   <label>Category</label>
   <select name="category_id">
     <option value="">-- Select Category --</option>
-    <% categories.filter(c => !c.parent_id).forEach(mc => { %>
-    <optgroup label="<%= mc.name %>">
-      <option value="<%= mc.id %>" <%= (product && product.category_id == mc.id) ? 'selected' : '' %>><%= mc.name %></option>
-      <% categories.filter(c => c.parent_id == mc.id).forEach(sub => { %>
-      <option value="<%= sub.id %>" <%= (product && product.category_id == sub.id) ? 'selected' : '' %>>— <%= sub.name %></option>
+    <% if (typeof categoryGroups !== 'undefined' && categoryGroups.length) { %>
+      <% categoryGroups.forEach(g => { %>
+      <optgroup label="<%= g.label %>">
+        <% g.options.forEach(o => { %><option value="<%= o.id %>" <%= (product && product.category_id == o.id) ? 'selected' : '' %>><%= '— '.repeat(o.depth) %><%= o.name %></option><% }) %>
+      </optgroup>
       <% }) %>
-    </optgroup>
-    <% }) %>
-    <% const orphanSubs = categories.filter(c => c.parent_id && !categories.some(m => !m.parent_id && m.id == c.parent_id)); %>
-    <% if (orphanSubs.length) { %>
-    <optgroup label="Other">
-      <% orphanSubs.forEach(sub => { %>
-      <option value="<%= sub.id %>" <%= (product && product.category_id == sub.id) ? 'selected' : '' %>>— <%= sub.name %></option>
+    <% } else { %>
+      <% categories.filter(c => !c.parent_id).forEach(mc => { %>
+      <optgroup label="<%= mc.name %>">
+        <option value="<%= mc.id %>" <%= (product && product.category_id == mc.id) ? 'selected' : '' %>><%= mc.name %></option>
+        <% categories.filter(c => c.parent_id == mc.id).forEach(sub => { %>
+        <option value="<%= sub.id %>" <%= (product && product.category_id == sub.id) ? 'selected' : '' %>>— <%= sub.name %></option>
+        <% }) %>
+      </optgroup>
       <% }) %>
-    </optgroup>
+      <% const orphanSubs = categories.filter(c => c.parent_id && !categories.some(m => !m.parent_id && m.id == c.parent_id)); %>
+      <% if (orphanSubs.length) { %>
+      <optgroup label="Other">
+        <% orphanSubs.forEach(sub => { %>
+        <option value="<%= sub.id %>" <%= (product && product.category_id == sub.id) ? 'selected' : '' %>>— <%= sub.name %></option>
+        <% }) %>
+      </optgroup>
+      <% } %>
     <% } %>
   </select>
 
@@ -740,8 +748,8 @@
   <input type="text" name="name" placeholder="New category name" required>
   <select name="parent_id">
     <option value="">-- Main Category --</option>
-    <% categories.filter(c => !c.parent_id).forEach(mc => { %>
-      <option value="<%= mc.id %>">Sub-category of: <%= mc.name %></option>
+    <% (typeof categoryFlat !== 'undefined' ? categoryFlat : categories).forEach(c => { %>
+      <option value="<%= c.id %>">Sub-category of: <%= '— '.repeat(c.depth || 0) %><%= c.name %></option>
     <% }) %>
   </select>
   <button type="submit">Add Category</button>

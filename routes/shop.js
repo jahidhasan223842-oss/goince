@@ -5,6 +5,7 @@ const db = require('../config/db');
 const { marked } = require('marked');
 const { sendOrderConfirmation } = require('../config/email');
 const { notifyAdmins } = require('../config/push');
+const { buildCategoryTree, ancestorChain, visibleSubtreeIds, isEffectivelyVisible } = require('../lib/categories');
 
 // Settings table theke delivery charge load kora — admin panel theke change korle
 // ei function shathe shathe notun value niye ashbe (server restart lagbe na)
@@ -91,9 +92,12 @@ router.get('/', async (req, res) => {
     const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
 
     const [categories] = await db.query('SELECT * FROM categories ORDER BY is_featured DESC, sort_order ASC, id ASC');
-    // Website-e shudhu visible category dekhabe (hidden gulo admin-e thakbe,
-    // direct link-e khola geleo bar-e dekhabe na). Featured age, tarpor sort order.
-    const visibleCategories = categories.filter(c => c.is_visible !== 0);
+    // Website-e shudhu visible category dekhabe: ekta category tokhon-i
+    // dekhabe jokhon se nije ar tar shob ancestor visible (lib/categories.js
+    // dekhun — hide korle puro subtree navigation theke lukay). Featured
+    // age, tarpor sort order.
+    const { byId } = buildCategoryTree(categories);
+    const visibleCategories = categories.filter(c => isEffectivelyVisible(byId, c.id));
     const mainCategories = visibleCategories.filter(c => !c.parent_id);
     const seasonalRoot = mainCategories.find(c => String(c.name).trim().toLowerCase() === 'seasonal products');
     // Seasonal parent menu-te na dekhiye season-gulo direct dekhano
@@ -111,22 +115,21 @@ router.get('/', async (req, res) => {
     let categoryIdsToFilter = [];
     let isSeasonalCategory = false;
     let selected = null;
+    let breadcrumb = [];
     if (categoryId) {
       selected = categories.find(c => c.id == categoryId);
-      if (seasonalRoot && selected) {
-        isSeasonalCategory = selected.id == seasonalRoot.id || selected.parent_id == seasonalRoot.id;
-      }
-      if (selected && !selected.parent_id) {
-        // Main category select kora hoyeche — tar shob sub-category o filter e jog hobe
-        // (lukano sub-category-r product-o parent-e dekhabe — lukano shudhu bar theke)
-        const allSubs = categories.filter(c => c.parent_id == categoryId);
-        subCategories = visibleCategories.filter(c => c.parent_id == categoryId);
-        categoryIdsToFilter = [categoryId, ...allSubs.map(c => c.id)];
-      } else if (selected) {
-        // Sub-category select kora hoyeche, shudhu oi ta-i filter hobe
-        categoryIdsToFilter = [categoryId];
-        // Parent er sub-category list o dekhabo, jate navigation e context thake
-        subCategories = seasonalRoot && selected.parent_id == seasonalRoot.id ? [] : visibleCategories.filter(c => c.parent_id == selected.parent_id);
+      if (selected) {
+        breadcrumb = ancestorChain(byId, selected.id);
+        if (seasonalRoot) {
+          // Seasonal tree-r jekono level-e thakle audience filter cholbe
+          isSeasonalCategory = breadcrumb.some(b => b.id == seasonalRoot.id);
+        }
+        // Jekono level-er category select korle tar shob sub-category
+        // (joto govir-e hok) filter-e jog hobe, kintu lukano (hidden)
+        // sub-category-r product parent-e dekhabe na — lukano shudhu bar
+        // theke noy, listing thekeo bad jay.
+        subCategories = categories.filter(c => c.parent_id == selected.id && c.is_visible !== 0);
+        categoryIdsToFilter = visibleSubtreeIds(byId, selected.id);
       }
     }
 
@@ -219,14 +222,20 @@ router.get('/', async (req, res) => {
       minPrice: isNaN(minPrice) ? '' : minPrice,
       maxPrice: isNaN(maxPrice) ? '' : maxPrice,
       bestSellers,
-      pageTitle: search ? `Search: ${search} - Goince` : 'Goince - Online Shop | Cash on Delivery in Bangladesh',
-      metaDescription: 'Goince - Bangladesh-er online shop. Cash on Delivery, Dhaka-r vitore 1-2 din, Dhaka-r baire 3-5 dine delivery.',
+      pageTitle: search
+        ? `Search: ${search} - Goince`
+        : (selected ? (selected.meta_title || `${selected.name} - Goince`) : 'Goince - Online Shop | Cash on Delivery in Bangladesh'),
+      metaDescription: search
+        ? 'Goince - Bangladesh-er online shop. Cash on Delivery, Dhaka-r vitore 1-2 din, Dhaka-r baire 3-5 dine delivery.'
+        : (selected ? (selected.meta_description || selected.description || 'Goince - Bangladesh-er online shop. Cash on Delivery, Dhaka-r vitore 1-2 din, Dhaka-r baire 3-5 dine delivery.') : 'Goince - Bangladesh-er online shop. Cash on Delivery, Dhaka-r vitore 1-2 din, Dhaka-r baire 3-5 dine delivery.'),
       products,
       categories,
       mainCategories,
       displayCategories,
       subCategories,
       selectedCategory: categoryId,
+      selectedCategoryObj: selected,
+      breadcrumb,
       isSeasonalCategory,
       selectedAudience,
       search,

@@ -892,9 +892,20 @@ a { text-decoration: none; color: inherit; }
 .cat-list .cat-row { border: 1px solid var(--border); border-radius: 8px; }
 .cat-group { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .cat-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; flex-wrap: wrap; background: var(--surface); }
-.cat-sub-row { border-top: 1px solid var(--border); padding-left: 44px; background: var(--bg); }
-.cat-children { border-top: 1px solid var(--border); }
+.cat-sub-row { border-top: 1px solid var(--border); background: var(--bg); }
+/* Deeper levels indent further: every nested .cat-children adds padding,
+   so level 3 sits further in than level 2, and so on. */
+.cat-children { border-top: 1px solid var(--border); padding-left: 20px; }
+.cat-children > .cat-group { margin: 8px 0; }
 .cat-children.collapsed { display: none; }
+/* Hidden categories are dimmed so they stand out as "not on the website". */
+.cat-hidden { opacity: 0.62; }
+.badge-hidden { background: #fdecea; color: #b3261e; }
+.cat-check { flex: 0 0 auto; width: 16px; height: 16px; cursor: pointer; }
+.cat-bulk-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 16px 0 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.cat-bulk-bar button { padding: 6px 12px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; }
+.cat-bulk-bar button:hover { background: var(--bg-hover); }
+.cat-bulk-count { color: var(--text-muted); font-size: 13px; }
 .cat-chevron { background: none; border: none; cursor: pointer; font-size: 14px; line-height: 1; color: var(--text); padding: 6px; border-radius: 4px; }
 .cat-chevron:hover { background: var(--bg-hover); }
 .cat-thumb-wrap { flex: 0 0 auto; }
@@ -902,12 +913,16 @@ a { text-decoration: none; color: inherit; }
 .cat-counts { white-space: nowrap; font-size: 13px; }
 .cat-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .cat-actions button[disabled] { opacity: 0.35; cursor: not-allowed; }
-.cat-empty-sub { padding: 10px 12px 12px 44px; color: var(--text-muted); font-size: 13px; }
+.cat-empty-sub { padding: 10px 12px 12px; color: var(--text-muted); font-size: 13px; }
 .cat-tree-btn { background: var(--surface); border: 1px solid var(--border-strong); color: var(--text); padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 13px; }
 .cat-tree-btn:hover { background: var(--bg-hover); }
+/* Shop category page: breadcrumb path + category description. */
+.breadcrumb { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
+.breadcrumb a { text-decoration: underline; }
+.cat-desc { color: var(--text-muted); margin: 0 0 12px; max-width: 720px; }
 @media (max-width: 700px) {
-  .cat-sub-row { padding-left: 24px; }
-  .cat-empty-sub { padding-left: 24px; }
+  .cat-children { padding-left: 12px; }
+  .cat-empty-sub { padding-left: 12px; }
   .cat-actions { margin-left: 0; }
   .cat-info { flex-basis: 100%; }
 }

@@ -52,8 +52,14 @@
   </div>
 <% } %>
 
+<% if (typeof breadcrumb !== 'undefined' && breadcrumb && breadcrumb.length > 1) { %>
+  <nav class="breadcrumb" aria-label="Category path">
+    <a href="/">Home</a><% breadcrumb.forEach((b, i) => { %> › <% if (i < breadcrumb.length - 1) { %><a href="/?category=<%= b.id %>"><%= b.name %></a><% } else { %><span><%= b.name %></span><% } %><% }) %>
+  </nav>
+<% } %>
+
 <div class="toolbar-row">
-  <h1 class="page-title"><%= search ? 'Search results' : 'All Products' %></h1>
+  <h1 class="page-title"><% if (typeof selectedCategoryObj !== 'undefined' && selectedCategoryObj) { %><%= selectedCategoryObj.name %><% } else { %><%= search ? 'Search results' : 'All Products' %><% } %></h1>
 
   <form action="/" method="GET" class="sort-form">
     <% if (selectedCategory) { %><input type="hidden" name="category" value="<%= selectedCategory %>"><% } %>
@@ -82,6 +88,10 @@
     </select>
   </form>
 </div>
+
+<% if (typeof selectedCategoryObj !== 'undefined' && selectedCategoryObj && selectedCategoryObj.description) { %>
+  <p class="cat-desc"><%= selectedCategoryObj.description %></p>
+<% } %>
 
 <div class="product-grid">
   <% if (products.length === 0) { %>
