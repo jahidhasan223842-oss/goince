@@ -62,6 +62,47 @@
       </form>
       <nav class="main-nav">
         <a href="/">Home</a>
+        <% /* Header mega menu: shob category ek jaygay — desktop-e hover/click-e
+              khole, mobile-e ☰ button-e khole ar accordion hishebe cholbe.
+              menuCategories server.js-er global middleware theke ashe, tai
+              shob page-e (homepage, product, cart, checkout) thake. */ %>
+        <div class="mega-menu-wrap">
+          <button type="button" class="mega-menu-btn" id="mega-menu-btn" aria-haspopup="true" aria-expanded="false" aria-controls="mega-menu-panel">Categories <span class="mega-caret" aria-hidden="true">▾</span></button>
+          <button type="button" class="mega-menu-btn-mobile" id="mega-menu-btn-mobile" aria-haspopup="true" aria-expanded="false" aria-controls="mega-menu-panel">☰ Categories</button>
+          <div class="mega-menu-panel" id="mega-menu-panel">
+            <% if (typeof menuCategories !== 'undefined' && menuCategories && menuCategories.length) { %>
+              <div class="mega-menu-grid">
+                <% menuCategories.forEach(function (cat) { %>
+                  <div class="mega-col" data-cat-id="<%= cat.id %>">
+                    <div class="mega-col-head">
+                      <a class="mega-col-title" href="/?category=<%= cat.id %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="mega-col-thumb"><% } %><span><%= cat.name %></span><span class="mega-count">(<%= cat.totalProductCount %>)</span></a>
+                      <% if (cat.children && cat.children.length) { %><button type="button" class="mega-col-toggle" aria-expanded="false" aria-label="Show sub-categories of <%= cat.name %>">▸</button><% } %>
+                    </div>
+                    <% if (cat.children && cat.children.length) { %>
+                      <ul class="mega-col-list">
+                        <% cat.children.forEach(function (sub) { %>
+                          <li>
+                            <a href="/?category=<%= sub.id %>"><%= sub.name %> <span class="mega-count">(<%= sub.totalProductCount %>)</span></a>
+                            <% if (sub.children && sub.children.length) { %>
+                              <ul class="mega-sub-list">
+                                <% sub.children.forEach(function (g) { %>
+                                  <li><a href="/?category=<%= g.id %>"><%= g.name %> <span class="mega-count">(<%= g.totalProductCount %>)</span></a></li>
+                                <% }) %>
+                              </ul>
+                            <% } %>
+                          </li>
+                        <% }) %>
+                      </ul>
+                    <% } %>
+                  </div>
+                <% }) %>
+              </div>
+              <div class="mega-menu-footer"><a href="/">View all products →</a></div>
+            <% } else { %>
+              <p class="mega-menu-empty">No categories yet.</p>
+            <% } %>
+          </div>
+        </div>
         <a href="/cart">Cart <% if (cartCount > 0) { %><span class="badge"><%= cartCount %></span><% } %></a>
         <% if (userName) { %>
           <a href="/wishlist">Wishlist</a>

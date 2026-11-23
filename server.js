@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const path = require('path');
 
 const { csrfProtection } = require('./lib/csrf');
+const { buildMenuTree } = require('./lib/categories');
 
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
@@ -377,9 +378,26 @@ app.use(async (req, res, next) => {
     if (!res.locals.siteSettings.og_image_url) res.locals.siteSettings.og_image_url = SITE_SETTING_DEFAULTS.og_image_url;
     if (!res.locals.siteSettings.hero_title) res.locals.siteSettings.hero_title = SITE_SETTING_DEFAULTS.hero_title;
     if (!res.locals.siteSettings.hero_subtitle) res.locals.siteSettings.hero_subtitle = SITE_SETTING_DEFAULTS.hero_subtitle;
+
+    // Header mega menu: visible category tree (featured-first), shob page-e
+    // available thakbe — header partial shob shop page-e include hoy, kintu
+    // shob route category data pathay na, tai ekhane ekbar query kora hoy.
+    // Ekta choto query (categories table + per-category product count).
+    try {
+      const [catRows] = await db.query(
+        `SELECT categories.*, COUNT(products.id) AS product_count
+         FROM categories
+         LEFT JOIN products ON products.category_id = categories.id
+         GROUP BY categories.id
+         ORDER BY categories.is_featured DESC, categories.sort_order ASC, categories.id ASC`);
+      res.locals.menuCategories = buildMenuTree(catRows);
+    } catch (menuErr) {
+      res.locals.menuCategories = [];
+    }
   } catch (err) {
     res.locals.shopPhone = process.env.SHOP_PHONE || '+8801XXXXXXXXX';
     res.locals.siteSettings = { ...SITE_SETTING_DEFAULTS };
+    res.locals.menuCategories = [];
   }
 
   next();
