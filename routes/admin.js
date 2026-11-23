@@ -871,8 +871,8 @@ router.post('/payment-methods/add', requireAdmin, async (req, res) => {
   if (methodName) {
     const [[maxOrder]] = await db.query('SELECT COALESCE(MAX(sort_order), 0) AS m FROM payment_methods');
     await db.query(
-      'INSERT INTO payment_methods (method_name, number, sort_order) VALUES (?, ?, ?)',
-      [methodName, number, maxOrder.m + 1]
+      'INSERT INTO payment_methods (method_name, number, payment_type, instructions, sort_order) VALUES (?, ?, ?, ?, ?)',
+      [methodName, number, (req.body.payment_type || 'send_money'), (req.body.instructions || '').trim() || null, maxOrder.m + 1]
     );
   }
   res.redirect('/admin/payment-methods');
@@ -881,7 +881,7 @@ router.post('/payment-methods/add', requireAdmin, async (req, res) => {
 router.post('/payment-methods/edit/:id', requireAdmin, async (req, res) => {
   const methodName = (req.body.method_name || '').trim();
   const number = (req.body.number || '').trim() || null;
-  await db.query('UPDATE payment_methods SET method_name = ?, number = ? WHERE id = ?', [methodName, number, req.params.id]);
+  await db.query('UPDATE payment_methods SET method_name = ?, number = ?, payment_type = ?, instructions = ? WHERE id = ?', [methodName, number, (req.body.payment_type || 'send_money'), (req.body.instructions || '').trim() || null, req.params.id]);
   res.redirect('/admin/payment-methods');
 });
 
@@ -895,12 +895,48 @@ router.post('/payment-methods/delete/:id', requireAdmin, async (req, res) => {
   res.redirect('/admin/payment-methods');
 });
 
+// ==================== DELIVERY ZONES ====================
+router.get('/delivery-zones', requireAdmin, async (req, res) => {
+  const [zones] = await db.query('SELECT * FROM delivery_zones ORDER BY sort_order, id');
+  res.render('admin/delivery-zones', { zones, siteName: 'Goince' });
+});
+router.post('/delivery-zones/add', requireAdmin, async (req, res) => {
+  const name = (req.body.name || '').trim();
+  const charge = parseFloat(req.body.charge);
+  const deliveryTime = (req.body.delivery_time || '').trim() || null;
+  if (name && !isNaN(charge)) {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now();
+    const [[maxOrder]] = await db.query('SELECT COALESCE(MAX(sort_order), 0) AS m FROM delivery_zones');
+    await db.query('INSERT INTO delivery_zones (name, slug, charge, delivery_time, sort_order) VALUES (?, ?, ?, ?, ?)',
+      [name, slug, charge, deliveryTime, maxOrder.m + 1]);
+  }
+  res.redirect('/admin/delivery-zones');
+});
+router.post('/delivery-zones/edit/:id', requireAdmin, async (req, res) => {
+  const name = (req.body.name || '').trim();
+  const charge = parseFloat(req.body.charge);
+  const deliveryTime = (req.body.delivery_time || '').trim() || null;
+  if (name && !isNaN(charge)) {
+    await db.query('UPDATE delivery_zones SET name = ?, charge = ?, delivery_time = ? WHERE id = ?', [name, charge, deliveryTime, req.params.id]);
+  }
+  res.redirect('/admin/delivery-zones');
+});
+router.post('/delivery-zones/toggle/:id', requireAdmin, async (req, res) => {
+  await db.query('UPDATE delivery_zones SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/delivery-zones');
+});
+router.post('/delivery-zones/delete/:id', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM delivery_zones WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/delivery-zones');
+});
+
 // ==================== SETTINGS ====================
 
 router.get('/settings', requireAdmin, async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode')"
   );
+  const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
     const found = rows.find(r => r.setting_key === key);
     return found ? found.setting_value : fallback;
@@ -914,6 +950,19 @@ router.get('/settings', requireAdmin, async (req, res) => {
     announcementText: get('announcement_text', ''),
     shopAddress: get('shop_address', ''),
     facebookUrl: get('facebook_url', ''),
+    heroProductId: get('hero_product_id', ''),
+    footerAbout: get('footer_about', ''),
+    shopEmail: get('shop_email', ''),
+    footerHours: get('footer_hours', ''),
+    youtubeUrl: get('youtube_url', ''),
+    instagramUrl: get('instagram_url', ''),
+    paymentMode: get('payment_mode', 'manual'),
+    gatewayProvider: get('gateway_provider', 'none'),
+    gatewayEnabled: get('gateway_enabled', '0'),
+    gatewayStoreId: get('gateway_store_id', ''),
+    gatewayMode: get('gateway_mode', 'sandbox'),
+    gatewayPasswordSet: !!get('gateway_store_password', ''),
+    products,
     message: null,
     siteName: 'Goince'
   });
@@ -936,8 +985,23 @@ router.post('/settings', requireAdmin, async (req, res) => {
     ['hero_subtitle', (req.body.hero_subtitle || '').trim()],
     ['announcement_text', (req.body.announcement_text || '').trim()],
     ['shop_address', (req.body.shop_address || '').trim()],
-    ['facebook_url', (req.body.facebook_url || '').trim()]
+    ['facebook_url', (req.body.facebook_url || '').trim()],
+    ['hero_product_id', (req.body.hero_product_id || '').trim()],
+    ['footer_about', (req.body.footer_about || '').trim()],
+    ['shop_email', (req.body.shop_email || '').trim()],
+    ['footer_hours', (req.body.footer_hours || '').trim()],
+    ['youtube_url', (req.body.youtube_url || '').trim()],
+    ['instagram_url', (req.body.instagram_url || '').trim()],
+    ['payment_mode', ['manual', 'gateway', 'both'].includes(req.body.payment_mode) ? req.body.payment_mode : 'manual'],
+    ['gateway_provider', ['none', 'sslcommerz', 'shurjopay', 'bkash'].includes(req.body.gateway_provider) ? req.body.gateway_provider : 'none'],
+    ['gateway_enabled', req.body.gateway_enabled === '1' ? '1' : '0'],
+    ['gateway_store_id', (req.body.gateway_store_id || '').trim()],
+    ['gateway_mode', req.body.gateway_mode === 'live' ? 'live' : 'sandbox']
   ];
+  // Gateway password khali rakhle purono-ta-i thakbe (form-e kokhono dekhano hoy na)
+  if ((req.body.gateway_store_password || '').trim()) {
+    settingsToSave.push(['gateway_store_password', (req.body.gateway_store_password || '').trim()]);
+  }
 
   for (const [key, value] of settingsToSave) {
     await db.query(
@@ -946,6 +1010,9 @@ router.post('/settings', requireAdmin, async (req, res) => {
     );
   }
 
+  const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
+  const [[gwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'gateway_store_password'");
+  const gatewayPasswordSet = !!(gwRow && gwRow.setting_value);
   res.render('admin/settings', {
     shopPhone,
     deliveryChargeInside: safeInside,
@@ -955,6 +1022,19 @@ router.post('/settings', requireAdmin, async (req, res) => {
     announcementText: (req.body.announcement_text || '').trim(),
     shopAddress: (req.body.shop_address || '').trim(),
     facebookUrl: (req.body.facebook_url || '').trim(),
+    heroProductId: (req.body.hero_product_id || '').trim(),
+    footerAbout: (req.body.footer_about || '').trim(),
+    shopEmail: (req.body.shop_email || '').trim(),
+    footerHours: (req.body.footer_hours || '').trim(),
+    youtubeUrl: (req.body.youtube_url || '').trim(),
+    instagramUrl: (req.body.instagram_url || '').trim(),
+    paymentMode: ['manual', 'gateway', 'both'].includes(req.body.payment_mode) ? req.body.payment_mode : 'manual',
+    gatewayProvider: ['none', 'sslcommerz', 'shurjopay', 'bkash'].includes(req.body.gateway_provider) ? req.body.gateway_provider : 'none',
+    gatewayEnabled: req.body.gateway_enabled === '1' ? '1' : '0',
+    gatewayStoreId: (req.body.gateway_store_id || '').trim(),
+    gatewayMode: req.body.gateway_mode === 'live' ? 'live' : 'sandbox',
+    gatewayPasswordSet,
+    products,
     message: 'Settings update hoyeche! Homepage/footer-e shathe shathe dekhabe.',
     siteName: 'Goince'
   });

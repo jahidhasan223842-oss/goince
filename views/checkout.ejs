@@ -42,11 +42,12 @@
       <label>Delivery Address</label>
       <textarea name="address" rows="3" required></textarea>
 
-      <p class="field-hint">📦 Inside Dhaka: 1–2 din, Outside Dhaka: 3–5 din. Order korar age phone-e confirm kora hobe.</p>
+      <p class="field-hint">📦 Order korar age phone-e confirm kora hobe. Zone onujayi delivery charge ar somoy bodle jabe.</p>
       <label>Delivery Area</label>
       <select name="delivery_area" id="delivery_area" onchange="updateTotal()">
-        <option value="inside_dhaka" data-charge="<%= deliveryCharges.inside_dhaka %>">Inside Dhaka (৳<%= deliveryCharges.inside_dhaka %>)</option>
-        <option value="outside_dhaka" data-charge="<%= deliveryCharges.outside_dhaka %>">Outside Dhaka (৳<%= deliveryCharges.outside_dhaka %>)</option>
+        <% (typeof deliveryZones !== 'undefined' && deliveryZones.length ? deliveryZones : [{slug:'inside_dhaka',name:'Inside Dhaka',charge:deliveryCharges.inside_dhaka,delivery_time:'1-2 din'},{slug:'outside_dhaka',name:'Outside Dhaka',charge:deliveryCharges.outside_dhaka,delivery_time:'3-5 din'}]).forEach(z => { %>
+          <option value="<%= z.slug %>" data-charge="<%= z.charge %>"><%= z.name %> (৳<%= z.charge %><% if (z.delivery_time) { %> · <%= z.delivery_time %><% } %>)</option>
+        <% }) %>
       </select>
     </div>
 
@@ -55,19 +56,30 @@
 
       <label>Payment Method</label>
       <select name="payment_method" id="payment_method" onchange="toggleTxnField()">
-        <option value="Cash on Delivery">Cash on Delivery</option>
-        <% paymentMethods.forEach(m => { %>
-          <option value="<%= m.method_name %>" data-number="<%= m.number || '' %>"><%= m.method_name %></option>
-        <% }) %>
+        <% if (!gateway || gateway.mode !== 'gateway' || !gateway.configured) { %>
+          <option value="Cash on Delivery">Cash on Delivery</option>
+        <% } %>
+        <% if (!gateway || gateway.mode !== 'gateway' || !gateway.configured) { %>
+          <% paymentMethods.forEach(m => { %>
+            <option value="<%= m.method_name %>" data-number="<%= m.number || '' %>" data-type="<%= m.payment_type || 'send_money' %>" data-instructions="<%= (m.instructions || '').replace(/"/g, '&quot;') %>"><%= m.method_name %> — <%= {send_money:'Send Money',cash_out:'Cash Out',payment:'Payment',agent:'Agent Banking',bank:'Bank Transfer'}[m.payment_type || 'send_money'] || 'Send Money' %></option>
+          <% }) %>
+        <% } %>
+        <% if (gateway && gateway.configured && (gateway.mode === 'gateway' || gateway.mode === 'both')) { %>
+          <option value="Online Payment (Gateway)" data-gateway="1">💳 Online Payment — <%= {sslcommerz:'SSLCommerz',shurjopay:'ShurjoPay',bkash:'bKash PGW'}[gateway.provider] || 'Gateway' %> (Card / bKash / Nagad)</option>
+        <% } %>
       </select>
 
       <div id="payment-number-box" class="payment-number-box" style="display:none;">
         <p>
-          Send Money to <strong id="payment-method-name"></strong> at this number:
+          <span id="payment-type-label">Send Money</span> to <strong id="payment-method-name"></strong> at this number:
           <strong id="payment-number-display"></strong>
           <button type="button" id="copy-btn" onclick="copyPaymentNumber()">Copy</button>
         </p>
+        <p class="field-hint" id="payment-instructions" style="margin:4px 0 0;"></p>
         <p class="field-hint" style="margin:4px 0 0;">After sending money, write the Transaction ID you receive below — the order won't be confirmed without it.</p>
+      </div>
+      <div id="gateway-box" class="payment-number-box" style="display:none;">
+        <p>💳 Online payment-e gele card / bKash / Nagad diye pay korte parbe — Transaction ID lagbe na.</p>
       </div>
 
       <div id="txn-field" style="display:none;">
@@ -106,9 +118,16 @@
     const methodNameEl = document.getElementById('payment-method-name');
     const numberDisplayEl = document.getElementById('payment-number-display');
 
+    var gatewayBox = document.getElementById('gateway-box');
     if (method === 'Cash on Delivery') {
       txnField.style.display = 'none';
       numberBox.style.display = 'none';
+      if (gatewayBox) gatewayBox.style.display = 'none';
+      txnInput.required = false;
+    } else if (selectedOption.dataset.gateway === '1') {
+      txnField.style.display = 'none';
+      numberBox.style.display = 'none';
+      if (gatewayBox) gatewayBox.style.display = 'block';
       txnInput.required = false;
     } else {
       // bKash / Nagad / Rocket
@@ -117,6 +136,11 @@
       txnInput.placeholder = 'e.g. 8N7A2K9XYZ';
       txnInput.required = true;
 
+      var typeLabels = { send_money: 'Send Money', cash_out: 'Cash Out', payment: 'Payment', agent: 'Agent Banking', bank: 'Bank Transfer' };
+      document.getElementById('payment-type-label').textContent = typeLabels[selectedOption.dataset.type || 'send_money'] || 'Send Money';
+      var instr = selectedOption.dataset.instructions || '';
+      document.getElementById('payment-instructions').textContent = instr;
+      if (gatewayBox) gatewayBox.style.display = 'none';
       if (number) {
         methodNameEl.textContent = method;
         numberDisplayEl.textContent = number;

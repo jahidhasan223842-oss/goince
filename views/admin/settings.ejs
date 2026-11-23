@@ -16,6 +16,21 @@
   <label>Facebook Page URL (footer-e link dekhabe — khali rakhle dekhabe na)</label>
   <input type="url" name="facebook_url" value="<%= facebookUrl %>" placeholder="https://www.facebook.com/goince">
 
+  <label>YouTube Channel URL (footer-e link dekhabe)</label>
+  <input type="url" name="youtube_url" value="<%= youtubeUrl %>" placeholder="https://www.youtube.com/@goince">
+
+  <label>Instagram URL (footer-e link dekhabe)</label>
+  <input type="url" name="instagram_url" value="<%= instagramUrl %>" placeholder="https://www.instagram.com/goince">
+
+  <label>Shop Email (footer-e dekhabe)</label>
+  <input type="email" name="shop_email" value="<%= shopEmail %>" placeholder="support@goince.com">
+
+  <label>Opening Hours (footer-e dekhabe)</label>
+  <input type="text" name="footer_hours" value="<%= footerHours %>" placeholder="jemon: Sat–Thu, 9 AM – 9 PM">
+
+  <label>Footer About Text (footer-er Goince lekha)</label>
+  <textarea name="footer_about" rows="2" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);"><%= footerAbout %></textarea>
+
   <hr style="margin:20px 0;">
   <h3>🎉 Homepage — Hero &amp; Announcement</h3>
   <label>Announcement Bar (sob page-er upore choto line — khali rakhle bar-ta thakbe na)</label>
@@ -27,6 +42,12 @@
   <label>Hero Subtitle (hero title-r nicher choto lekha)</label>
   <input type="text" name="hero_subtitle" value="<%= heroSubtitle %>" placeholder="Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.">
 
+  <label>Hero Banner-er Product (banner-e je product-er photo dekhabe — khali rakhle Best Seller dekhabe)</label>
+  <select name="hero_product_id" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
+    <option value="">— Best Seller (auto) —</option>
+    <% products.forEach(p => { %><option value="<%= p.id %>" <%= String(heroProductId) === String(p.id) ? 'selected' : '' %>><%= p.name %></option><% }) %>
+  </select>
+
   <hr style="margin:20px 0;">
   <h3>🚚 Delivery Charge</h3>
   <label>Delivery Charge - Inside Dhaka (৳)</label>
@@ -34,6 +55,7 @@
 
   <label>Delivery Charge - Outside Dhaka (৳)</label>
   <input type="number" step="0.01" min="0" name="delivery_charge_outside" value="<%= deliveryChargeOutside %>" required>
+  <p class="field-hint">Notun zone add korte ba zone-er charge bodlate <a href="/admin/delivery-zones">Delivery Zones page-e</a> jao — checkout-e customer okhan thekei zone beche nebe.</p>
 
   <hr style="margin:20px 0;">
   <h3>Mobile Banking Numbers</h3>
@@ -41,6 +63,34 @@
     bKash/Nagad/Rocket numbers can now be Added/Edited/Deleted from a separate page —
     go to the <a href="/admin/payment-methods">Payment Methods page</a>.
   </p>
+
+  <hr style="margin:20px 0;">
+  <h3>💳 Payment Gateway (Online Payment API)</h3>
+  <p class="field-hint">Gateway connect korle customer card/bKash/Nagad diye online-e pay korte parbe. <strong>Manual</strong> mane sudhu COD + bKash/Nagad number (ekhon jemon cholche). <strong>Gateway</strong> mane sudhu online payment — manual method bondho thakbe. <strong>Both</strong> mane duitai dekhabe. Gateway off thakle website-e kothao dekhabe na.</p>
+  <label>Payment Mode</label>
+  <select name="payment_mode" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
+    <option value="manual" <%= paymentMode === 'manual' ? 'selected' : '' %>>Manual only (COD + bKash/Nagad number)</option>
+    <option value="gateway" <%= paymentMode === 'gateway' ? 'selected' : '' %>>Gateway only (online payment)</option>
+    <option value="both" <%= paymentMode === 'both' ? 'selected' : '' %>>Both (manual + gateway)</option>
+  </select>
+  <label>Gateway Provider</label>
+  <select name="gateway_provider" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
+    <option value="none" <%= gatewayProvider === 'none' ? 'selected' : '' %>>— No gateway —</option>
+    <option value="sslcommerz" <%= gatewayProvider === 'sslcommerz' ? 'selected' : '' %>>SSLCommerz</option>
+    <option value="shurjopay" <%= gatewayProvider === 'shurjopay' ? 'selected' : '' %>>ShurjoPay</option>
+    <option value="bkash" <%= gatewayProvider === 'bkash' ? 'selected' : '' %>>bKash PGW</option>
+  </select>
+  <label><input type="checkbox" name="gateway_enabled" value="1" <%= gatewayEnabled === '1' ? 'checked' : '' %>> Gateway enable koro</label>
+  <label>Gateway Mode</label>
+  <select name="gateway_mode" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
+    <option value="sandbox" <%= gatewayMode === 'sandbox' ? 'selected' : '' %>>Sandbox (test)</option>
+    <option value="live" <%= gatewayMode === 'live' ? 'selected' : '' %>>Live (asol taka)</option>
+  </select>
+  <label>Store ID / Merchant ID (gateway-er account theke pabe)</label>
+  <input type="text" name="gateway_store_id" value="<%= gatewayStoreId %>" placeholder="jemon: goince001">
+  <label>Store Password / API Key <%= gatewayPasswordSet ? '(ekta save kora ache — bodlate chaile notun-ta likho, na chaile khali rakho)' : '(ekhono deya hoyni)' %></label>
+  <input type="password" name="gateway_store_password" placeholder="khali rakhle purono-ta-i thakbe" autocomplete="new-password">
+  <p class="field-hint">⚠️ Gateway-er asol taka lenden chalu korte provider-er merchant account lagbe (SSLCommerz/ShurjoPay/bKash PGW). Ekhane config save korle checkout-e option-ta asbe, kintu asol payment neyar jonno provider-er API diye order verify korar kaj-ta alada ekta step — credential pele janio, ami connect kore dibo.</p>
 
   <button type="submit" class="btn-primary">Save Settings</button>
 </form>

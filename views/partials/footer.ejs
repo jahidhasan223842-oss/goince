@@ -3,10 +3,12 @@
     <div class="container footer-grid">
       <div>
         <h3><%= siteName %></h3>
-        <p>Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.</p>
+        <p><%= (typeof siteSettings !== 'undefined' && siteSettings.footer_about) ? siteSettings.footer_about : 'Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.' %></p>
         <p>📞 <a href="tel:<%= shopPhone %>"><%= shopPhone %></a></p>
+        <% if (typeof siteSettings !== 'undefined' && siteSettings.shop_email) { %><p>✉️ <a href="mailto:<%= siteSettings.shop_email %>"><%= siteSettings.shop_email %></a></p><% } %>
         <% if (typeof siteSettings !== 'undefined' && siteSettings.shop_address) { %><p>📍 <%= siteSettings.shop_address %></p><% } %>
-        <% if (typeof siteSettings !== 'undefined' && siteSettings.facebook_url) { %><p>📘 <a href="<%= siteSettings.facebook_url %>" target="_blank" rel="noopener">Facebook Page</a></p><% } %>
+        <% if (typeof siteSettings !== 'undefined' && siteSettings.footer_hours) { %><p>🕒 <%= siteSettings.footer_hours %></p><% } %>
+        <% if (typeof siteSettings !== 'undefined' && (siteSettings.facebook_url || siteSettings.youtube_url || siteSettings.instagram_url)) { %><p><% if (siteSettings.facebook_url) { %>📘 <a href="<%= siteSettings.facebook_url %>" target="_blank" rel="noopener">Facebook</a> &nbsp;<% } %><% if (siteSettings.youtube_url) { %>▶️ <a href="<%= siteSettings.youtube_url %>" target="_blank" rel="noopener">YouTube</a> &nbsp;<% } %><% if (siteSettings.instagram_url) { %>📸 <a href="<%= siteSettings.instagram_url %>" target="_blank" rel="noopener">Instagram</a><% } %></p><% } %>
       </div>
       <div>
         <h3>Quick Links</h3>

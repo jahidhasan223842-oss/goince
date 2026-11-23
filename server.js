@@ -19,13 +19,24 @@ const app = express();
 
 // Site settings (Admin > Settings theke bodlano jay): hero, announcement,
 // address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
-const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url'];
+const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode'];
 const SITE_SETTING_DEFAULTS = {
   hero_title: 'Cash on Delivery — sara Bangladesh-e delivery',
   hero_subtitle: 'Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery. Order korar age phone-e confirm kora hoy.',
   announcement_text: '',
   shop_address: '',
-  facebook_url: ''
+  facebook_url: '',
+  hero_product_id: '',
+  footer_about: 'Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.',
+  shop_email: '',
+  footer_hours: '',
+  youtube_url: '',
+  instagram_url: '',
+  payment_mode: 'manual',
+  gateway_provider: 'none',
+  gateway_enabled: '0',
+  gateway_store_id: '',
+  gateway_mode: 'sandbox'
 };
 
 // ---------- Auto-create tables needed by newer features ----------
@@ -34,6 +45,29 @@ const SITE_SETTING_DEFAULTS = {
 (async () => {
   try {
     const db = require('./config/db');
+    await db.query(`CREATE TABLE IF NOT EXISTS delivery_zones (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      slug VARCHAR(100) NOT NULL UNIQUE,
+      charge DECIMAL(10,2) NOT NULL DEFAULT 0,
+      delivery_time VARCHAR(100) DEFAULT NULL,
+      is_active TINYINT(1) DEFAULT 1,
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    // Purono inside/outside delivery charge theke prothombar zone seed kora
+    const [[{ zoneCount }]] = await db.query('SELECT COUNT(*) AS zoneCount FROM delivery_zones');
+    if (zoneCount === 0) {
+      const [srows] = await db.query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('delivery_charge_inside', 'delivery_charge_outside')");
+      const get = (k, fb) => { const r = srows.find(x => x.setting_key === k); return r ? parseFloat(r.setting_value) || fb : fb; };
+      await db.query('INSERT INTO delivery_zones (name, slug, charge, delivery_time, sort_order) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)',
+        ['Inside Dhaka', 'inside_dhaka', get('delivery_charge_inside', 60), '1-2 din', 1, 'Outside Dhaka', 'outside_dhaka', get('delivery_charge_outside', 120), '3-5 din', 2]);
+    }
+    // payment_methods-e payment type + instructions column (purono table-e na thakle jog kora)
+    const [pmCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_methods'");
+    const pmNames = pmCols.map(c => c.COLUMN_NAME);
+    if (!pmNames.includes('payment_type')) await db.query("ALTER TABLE payment_methods ADD COLUMN payment_type VARCHAR(30) NOT NULL DEFAULT 'send_money'");
+    if (!pmNames.includes('instructions')) await db.query('ALTER TABLE payment_methods ADD COLUMN instructions TEXT DEFAULT NULL');
     await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,

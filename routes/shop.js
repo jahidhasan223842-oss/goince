@@ -25,10 +25,46 @@ async function getDeliveryCharges() {
 // Admin-er "Payment Methods" page theke active (bKash/Nagad/Rocket/etc) gulo load kora
 async function getPaymentMethods() {
   const [rows] = await db.query(
-    'SELECT method_name, number FROM payment_methods WHERE is_active = 1 ORDER BY sort_order, id'
+    'SELECT method_name, number, payment_type, instructions FROM payment_methods WHERE is_active = 1 ORDER BY sort_order, id'
   );
   return rows;
 }
+
+// Delivery zone (Inside Dhaka / Outside Dhaka / nijer jog kora zone) —
+// Admin > Delivery Zones theke add/edit kora jay; table khali thakle purono
+// inside/outside charge diye fallback
+async function getDeliveryZones() {
+  try {
+    const [rows] = await db.query('SELECT * FROM delivery_zones WHERE is_active = 1 ORDER BY sort_order, id');
+    if (rows.length) return rows.map(r => ({ id: r.id, name: r.name, slug: r.slug, charge: parseFloat(r.charge), delivery_time: r.delivery_time || '' }));
+  } catch (e) {}
+  const c = await getDeliveryCharges();
+  return [
+    { id: 0, name: 'Inside Dhaka', slug: 'inside_dhaka', charge: c.inside_dhaka, delivery_time: '1-2 din' },
+    { id: 0, name: 'Outside Dhaka', slug: 'outside_dhaka', charge: c.outside_dhaka, delivery_time: '3-5 din' }
+  ];
+}
+
+// Payment gateway config (Admin > Settings): gateway chalale manual method
+// off kora jay, na chalale gateway website-e dekhabei na
+async function getGatewayConfig() {
+  const [rows] = await db.query(
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode')"
+  );
+  const get = (k, fb) => { const r = rows.find(x => x.setting_key === k); return r ? r.setting_value : fb; };
+  const provider = get('gateway_provider', 'none');
+  const enabled = get('gateway_enabled', '0') === '1' && provider !== 'none';
+  const storeId = get('gateway_store_id', '');
+  return {
+    mode: get('payment_mode', 'manual'),
+    provider,
+    enabled,
+    // Gateway sotti cholbe sudhu jodi enable kora + store ID deya thake
+    configured: enabled && storeId.length > 0,
+    mode_label: get('gateway_mode', 'sandbox')
+  };
+}
+const GATEWAY_LABELS = { sslcommerz: 'SSLCommerz', shurjopay: 'ShurjoPay', bkash: 'bKash PGW' };
 
 // Bangladeshi mobile number: 01XXXXXXXXX ba +8801XXXXXXXXX — 013-019 diye shuru hote hobe
 function normalizeBdPhone(raw) {
@@ -151,7 +187,18 @@ router.get('/', async (req, res) => {
       } catch (e) { bestSellers = []; }
     }
 
+    // Hero banner-er product: Admin > Settings theke jeta beche deya, na thakle Best Seller
+    let heroProduct = (typeof bestSellers !== 'undefined' && bestSellers.length) ? bestSellers[0] : null;
+    try {
+      const [[heroRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'hero_product_id'");
+      const heroId = heroRow ? parseInt(heroRow.setting_value, 10) : NaN;
+      if (!isNaN(heroId)) {
+        const [[hp]] = await db.query('SELECT * FROM products WHERE id = ?', [heroId]);
+        if (hp) heroProduct = hp;
+      }
+    } catch (e) {}
     res.render('index', {
+      heroProduct,
       variantProductIds: [...variantProductIds],
       optionProductIds: [...optionProductIds],
       minPrice: isNaN(minPrice) ? '' : minPrice,
@@ -603,11 +650,13 @@ router.get('/checkout', async (req, res) => {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const coupon = req.session.coupon || null;
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
+  const deliveryZones = await getDeliveryZones();
   const deliveryCharges = await getDeliveryCharges();
-  const deliveryCharge = deliveryCharges.inside_dhaka; // default, JS diye client-side update hobe
+  const deliveryCharge = deliveryZones.length ? deliveryZones[0].charge : deliveryCharges.inside_dhaka;
   const total = subtotal - discount + deliveryCharge;
   const paymentMethods = await getPaymentMethods();
-  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, paymentMethods, error: null, siteName: 'Goince' });
+  const gateway = await getGatewayConfig();
+  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, error: null, siteName: 'Goince' });
 });
 
 // ---------- PLACE ORDER ----------
@@ -616,38 +665,50 @@ router.post('/checkout', async (req, res) => {
   if (cart.length === 0) return res.redirect('/cart');
 
   const { customer_name, email, phone, address, payment_method, transaction_id, delivery_area } = req.body;
+  const deliveryZones = await getDeliveryZones();
   const deliveryCharges = await getDeliveryCharges();
   const paymentMethods = await getPaymentMethods();
+  const gateway = await getGatewayConfig();
+  const zone = deliveryZones.find(z => z.slug === delivery_area) || deliveryZones[0];
+  const defaultCharge = zone ? zone.charge : deliveryCharges.inside_dhaka;
+  const renderCheckoutError = (msg) => {
+    const _coupon = req.session.coupon || null;
+    const _sub0 = cart.reduce((s, it) => s + it.price * it.quantity, 0);
+    const _disc0 = _coupon ? (_sub0 * _coupon.discount_percent / 100) : 0;
+    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: defaultCharge, total: _sub0 - _disc0 + defaultCharge, paymentMethods, gateway, error: msg, siteName: 'Goince' });
+  };
+  // Gateway option: sudhu jodi gateway enable + configure kora thake
+  const gatewayMethodName = 'Online Payment (Gateway)';
   const allowedMethods = ['Cash on Delivery', ...paymentMethods.map(m => m.method_name)];
+  if (gateway.configured && (gateway.mode === 'gateway' || gateway.mode === 'both')) allowedMethods.push(gatewayMethodName);
+  // Gateway mode-e manual method (COD chara) off thake
+  if (gateway.mode === 'gateway' && gateway.configured) {
+    const idx = allowedMethods.indexOf('Cash on Delivery');
+    if (idx >= 0) allowedMethods.splice(idx, 1);
+  }
   const selectedMethod = payment_method || 'Cash on Delivery';
-  // Card gateway nei — keu form bodle 'Card' pathaleo seta COD hishebe noy, error hobe
-  const _coupon = req.session.coupon || null;
-  const _sub0 = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const _disc0 = _coupon ? (_sub0 * _coupon.discount_percent / 100) : 0;
   if (!allowedMethods.includes(selectedMethod)) {
-    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryCharge: deliveryCharges.inside_dhaka, total: _sub0 - _disc0 + deliveryCharges.inside_dhaka, paymentMethods, error: 'Invalid payment method.', siteName: 'Goince' });
+    return renderCheckoutError('Invalid payment method.');
+  }
+  if (selectedMethod === gatewayMethodName && !gateway.configured) {
+    return renderCheckoutError('Online payment ekhono setup kora hoyni — Cash on Delivery ba bKash/Nagad diye order koro.');
   }
   if (!customer_name || !address || !isValidBdPhone(phone)) {
-    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryCharge: deliveryCharges.inside_dhaka, total: _sub0 - _disc0 + deliveryCharges.inside_dhaka, paymentMethods, error: 'Sothik naam, thikana ar Bangladeshi mobile number (01XXXXXXXXX) dao.', siteName: 'Goince' });
+    return renderCheckoutError('Sothik naam, thikana ar Bangladeshi mobile number (01XXXXXXXXX) dao.');
   }
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const coupon = req.session.coupon || null;
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
-  const deliveryCharge = deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka;
+  const deliveryCharge = zone ? zone.charge : (deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka);
   const normalizedPhone = normalizeBdPhone(phone);
   const total = subtotal - discount + deliveryCharge;
   const userId = req.session.userId || null;
 
   // bKash/Nagad/Rocket (ba admin-er jog kora onno mobile banking method) e
   // Transaction ID chara order confirm kora jabe na — Cash on Delivery-e lagbe na
-  const needsTransactionId = selectedMethod !== 'Cash on Delivery';
+  const needsTransactionId = selectedMethod !== 'Cash on Delivery' && selectedMethod !== gatewayMethodName;
   if (needsTransactionId && !(transaction_id || '').trim()) {
-    const paymentMethods = await getPaymentMethods();
-    return res.render('checkout', {
-      cart, subtotal, coupon, discount, deliveryCharges, deliveryCharge, total, paymentMethods,
-      error: `Please enter the Transaction ID after sending money via ${selectedMethod} — the order can't be confirmed without it.`,
-      siteName: 'Goince'
-    });
+    return renderCheckoutError(`Please enter the Transaction ID after sending money via ${selectedMethod} — the order can't be confirmed without it.`);
   }
 
   const connection = await db.getConnection();
