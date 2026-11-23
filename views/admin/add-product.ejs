@@ -52,8 +52,75 @@
     <img src="/uploads/<%= product.image %>" class="admin-thumb" style="margin-top:10px;">
   <% } %>
 
-  <label>Gallery Images (additional photos; you can add several at once)</label>
-  <input type="file" name="gallery" accept="image/*" multiple>
+  <label>Gallery Images — add many photos at once (up to 10)</label>
+  <div id="gallery-dropzone" style="border:2px dashed #bbb; border-radius:8px; padding:20px; text-align:center; cursor:pointer; background:var(--surface);">
+    <p style="margin:0 0 8px; font-size:16px;">📷 Drag &amp; drop photos here, or</p>
+    <button type="button" class="btn-primary" onclick="document.getElementById('gallery-input').click()">+ Choose Photos</button>
+    <p id="gallery-count" style="margin:10px 0 0; font-size:13px; color:#888;">No photos selected yet — you can select many at once (Ctrl/Cmd + click, or drag several files).</p>
+  </div>
+  <input type="file" id="gallery-input" name="gallery" accept="image/*" multiple style="display:none;">
+  <div id="gallery-preview" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;"></div>
+  <script>
+    // Multi-photo gallery picker: choose/drop many photos, preview them, remove any before saving
+    (function () {
+      var input = document.getElementById('gallery-input');
+      var zone = document.getElementById('gallery-dropzone');
+      var preview = document.getElementById('gallery-preview');
+      var countEl = document.getElementById('gallery-count');
+      var files = [];
+      var MAX_PHOTOS = 10;
+      function syncInput() {
+        var dt = new DataTransfer();
+        files.forEach(function (f) { dt.items.add(f); });
+        input.files = dt.files;
+        countEl.textContent = files.length === 0
+          ? 'No photos selected yet — you can select many at once (Ctrl/Cmd + click, or drag several files).'
+          : files.length + ' photo' + (files.length > 1 ? 's' : '') + ' selected (max ' + MAX_PHOTOS + ') — click ✕ on a photo to remove it.';
+      }
+      function render() {
+        preview.innerHTML = '';
+        files.forEach(function (f, i) {
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'position:relative; width:90px; height:90px;';
+          var img = document.createElement('img');
+          img.src = URL.createObjectURL(f);
+          img.style.cssText = 'width:90px; height:90px; object-fit:cover; border-radius:6px; border:1px solid #ccc;';
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = '✕';
+          btn.title = 'Remove this photo';
+          btn.style.cssText = 'position:absolute; top:-8px; right:-8px; width:22px; height:22px; border-radius:50%; border:none; background:#d62839; color:#fff; cursor:pointer; font-size:12px;';
+          btn.onclick = function () { files.splice(i, 1); syncInput(); render(); };
+          wrap.appendChild(img); wrap.appendChild(btn);
+          preview.appendChild(wrap);
+        });
+      }
+      function addFiles(list) {
+        var added = 0;
+        Array.prototype.forEach.call(list, function (f) {
+          if (files.length >= MAX_PHOTOS) return;
+          if (!f.type || f.type.indexOf('image/') !== 0) return;
+          files.push(f); added++;
+        });
+        if (added === 0 && list.length > 0 && files.length >= MAX_PHOTOS) {
+          alert('Maximum ' + MAX_PHOTOS + ' gallery photos at a time.');
+        }
+        syncInput(); render();
+      }
+      input.addEventListener('change', function () {
+        var chosen = Array.prototype.slice.call(input.files);
+        input.value = ''; // clear first, so the same photos can be picked again
+        addFiles(chosen); // addFiles -> syncInput() puts them back into input.files
+      });
+      zone.addEventListener('click', function (e) { if (e.target === zone || e.target.tagName === 'P') input.click(); });
+      zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.style.borderColor = '#f0a500'; zone.style.background = '#fff8e6'; });
+      zone.addEventListener('dragleave', function () { zone.style.borderColor = '#bbb'; zone.style.background = ''; });
+      zone.addEventListener('drop', function (e) {
+        e.preventDefault(); zone.style.borderColor = '#bbb'; zone.style.background = '';
+        if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+      });
+    })();
+  </script>
 
   <label>Product Video (optional — shows on the product page)</label>
   <input type="file" name="video" accept="video/*">
