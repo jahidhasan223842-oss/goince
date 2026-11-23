@@ -26,6 +26,11 @@
   <% if (category.image_url) { %><p class="field-hint">Current image: <a href="<%= category.image_url %>" target="_blank"><img src="<%= category.image_url %>" class="admin-thumb" style="vertical-align:middle;" onerror="this.src='/uploads/no-image.png'"></a> (leave empty to keep it)</p><% } %>
   <label>Or image link (URL)</label>
   <input type="text" name="image_url" value="<%= category.image_url || '' %>" placeholder="https://...">
+  <label>Banner — upload a new wide image (shown at the top of this category's shop page)</label>
+  <input type="file" name="banner" accept="image/*">
+  <% if (category.banner_url) { %><p class="field-hint">Current banner: <a href="<%= category.banner_url %>" target="_blank"><img src="<%= category.banner_url %>" style="max-width:320px; border-radius:8px; vertical-align:middle;" onerror="this.src='/uploads/no-image.png'"></a> (leave empty to keep it)</p><% } %>
+  <label>Or banner link (URL) — wide image, 1200×400 recommended</label>
+  <input type="text" name="banner_url" value="<%= category.banner_url || '' %>" placeholder="https://...">
   <label>Description (optional — shown under the category name)</label>
   <textarea name="description" rows="2" placeholder="What is this category about?"><%= category.description || '' %></textarea>
   <h4 style="margin:18px 0 4px;">🔍 SEO (Google)</h4>

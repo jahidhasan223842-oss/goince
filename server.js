@@ -179,7 +179,8 @@ const SITE_SETTING_DEFAULTS = {
       ['is_featured', 'TINYINT(1) NOT NULL DEFAULT 0'],
       ['slug', 'VARCHAR(150) DEFAULT NULL'],
       ['meta_title', 'VARCHAR(255) DEFAULT NULL'],
-      ['meta_description', 'TEXT DEFAULT NULL']
+      ['meta_description', 'TEXT DEFAULT NULL'],
+      ['banner_url', 'VARCHAR(500) DEFAULT NULL']
     ]) if (!cNames.has(col)) await db.query(`ALTER TABLE categories ADD COLUMN ${col} ${def}`);
     // Purono category gulo backfill: slug = name theke, sort_order = id order.
     // Slug 140-e kata hoy, jate duplicate hole '-2' suffix jog korleo

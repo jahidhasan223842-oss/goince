@@ -17,10 +17,15 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase();
-    // Product video field-e video file cholbe; baki shob field-e sudhu chobi
+    // Product video field-e video file cholbe; CSV import field-e csv file
+    // cholbe (products/categories import); baki shob field-e sudhu chobi
     if (file.fieldname === 'video') {
       if (/\.(mp4|webm|mov)$/.test(ext)) return cb(null, true);
       return cb(new Error('Only video files (mp4, webm, mov) are allowed!'));
+    }
+    if (file.fieldname === 'csv') {
+      if (/\.csv$/.test(ext)) return cb(null, true);
+      return cb(new Error('Only CSV files are allowed!'));
     }
     if (/\.(jpeg|jpg|png|webp)$/.test(ext)) return cb(null, true);
     cb(new Error('Only image files (jpg, png, webp) are allowed!'));

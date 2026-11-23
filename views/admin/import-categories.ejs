@@ -1,0 +1,22 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Import Categories (CSV)</h1>
+<p class="field-hint">Upload a CSV file to add many categories at once. Columns (first row = header): <code>name, parent, slug, description, image_url, banner_url, sort_order, is_visible, is_featured, meta_title, meta_description</code> — only <strong>name</strong> is required. <code>parent</code> can be a category name or id — if it is not found, the category is added as a Main Category. <a href="/admin/categories/export">Download the current categories as CSV</a> to see the format.</p>
+
+<form action="/admin/categories/import<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" enctype="multipart/form-data" class="admin-form"><%- include('../partials/csrf-field') %>
+  <label>CSV File</label>
+  <input type="file" name="csv" accept=".csv" required>
+  <button type="submit" class="btn-primary">Import Categories</button>
+</form>
+
+<% if (result) { %>
+  <div style="margin-top:20px;">
+    <p><strong><%= result.added %> categories added</strong>, <%= result.skipped %> rows skipped.</p>
+    <% if (result.errors && result.errors.length) { %>
+      <ul><% result.errors.forEach(e => { %><li style="color:#d62839;"><%= e %></li><% }) %></ul>
+    <% } %>
+    <p><a href="/admin/categories">← Back to Categories</a></p>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

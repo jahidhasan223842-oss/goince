@@ -16,8 +16,9 @@
 <% const totalSubs = (cat.descendantIds || []).length; %>
 <% const totalProducts = (typeof cat.totalProductCount !== 'undefined' ? cat.totalProductCount : cat.product_count); %>
 <% const directProducts = (typeof cat.directProductCount !== 'undefined' ? cat.directProductCount : cat.product_count); %>
-<div class="cat-row <%= !cat.parent_id ? 'cat-main-row' : 'cat-sub-row' %> <%= cat.is_visible === 0 ? 'cat-hidden' : '' %>" id="cat-<%= cat.id %>">
+<div class="cat-row <%= !cat.parent_id ? 'cat-main-row' : 'cat-sub-row' %> <%= cat.is_visible === 0 ? 'cat-hidden' : '' %>" id="cat-<%= cat.id %>" data-cat-id="<%= cat.id %>" data-parent-id="<%= cat.parent_id || '' %>">
   <input type="checkbox" class="cat-check" value="<%= cat.id %>" title="Select for bulk action" aria-label="Select <%= cat.name %>">
+  <% if (typeof draggable !== 'undefined' && draggable) { %><span class="cat-drag" draggable="true" data-cat-drag="<%= cat.id %>" title="Drag to reorder among its siblings">⠿</span><% } %>
   <% if (chevronId) { %>
     <button type="button" class="cat-chevron" data-cat-toggle="<%= chevronId %>" aria-expanded="true" title="Show/hide sub-categories">▼</button>
   <% } %>
@@ -26,6 +27,7 @@
     <strong><%= cat.name %></strong>
     <% if (!cat.parent_id) { %> <span class="badge badge-main" title="Main category">Main</span><% } else { %> <span class="badge badge-sub" title="Sub-category of <%= cat.parent_name %>">Sub-category</span><% } %>
     <% if (cat.is_featured) { %> <span title="Featured on homepage">⭐</span><% } %>
+    <% if (cat.banner_url) { %> <span title="Has a banner image">🖼️</span><% } %>
     <% if (cat.is_visible === 0) { %> <span class="badge badge-hidden" title="Not shown on the website">Hidden from website</span><% } %>
     <% if (depth > 0 && cat.parent_name) { %><br><small><%= cat.parent_name %> › <%= cat.name %></small><% } %>
     <% if (cat.description) { %><br><small><%= cat.description %></small><% } %>

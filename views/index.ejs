@@ -58,6 +58,10 @@
   </nav>
 <% } %>
 
+<% if (typeof selectedCategoryObj !== 'undefined' && selectedCategoryObj && selectedCategoryObj.banner_url) { %>
+  <div class="cat-banner"><img src="<%= selectedCategoryObj.banner_url %>" alt="<%= selectedCategoryObj.name %>"></div>
+<% } %>
+
 <div class="toolbar-row">
   <h1 class="page-title"><% if (typeof selectedCategoryObj !== 'undefined' && selectedCategoryObj) { %><%= selectedCategoryObj.name %><% } else { %><%= search ? 'Search results' : 'All Products' %><% } %></h1>
 

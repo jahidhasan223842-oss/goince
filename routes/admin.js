@@ -48,6 +48,7 @@ function parseCategoryForm(body) {
     is_visible: parseCategoryFlag(body.is_visible, 1),
     is_featured: parseCategoryFlag(body.is_featured, 0),
     slug: slugify(body.slug || body.name || '').slice(0, 150),
+    banner_url: (body.banner_url || '').trim() || null,
     meta_title: (body.meta_title || '').trim() || null,
     meta_description: (body.meta_description || '').trim() || null
   };
@@ -64,17 +65,28 @@ async function uniqueCategorySlug(base, excludeId) {
   }
 }
 // Category photo: notun file upload hole seta, na hole URL field, na hole ager chobi
+// upload.fields() bebohar hoy (image + banner duto field), tai req.files
+// thekeo dekha hoy; purono upload.single()-er req.file-o cholbe.
 function categoryImage(req, oldImage) {
-  if (req.file) return '/uploads/' + req.file.filename;
+  const f = req.file || (req.files && req.files.image && req.files.image[0]);
+  if (f) return '/uploads/' + f.filename;
   const url = (req.body.image_url || '').trim();
   if (url) return url;
   return oldImage || null;
 }
-// Category photo upload-er multer error (bhul file type / 5MB-r beshi) hole
-// generic 500 page na dekhiye porishkar message dekhano — na hole form-er
-// data hariye jay. Shudhu category add/edit form-e bebohar hoy.
+// Category banner: notun file upload hole seta, na hole URL field, na hole ager banner
+function categoryBanner(req, oldBanner) {
+  const f = req.files && req.files.banner && req.files.banner[0];
+  if (f) return '/uploads/' + f.filename;
+  const url = (req.body.banner_url || '').trim();
+  if (url) return url;
+  return oldBanner || null;
+}
+// Category photo/banner upload-er multer error (bhul file type / 5MB-r beshi)
+// hole generic 500 page na dekhiye porishkar message dekhano — na hole
+// form-er data hariye jay. Shudhu category add/edit form-e bebohar hoy.
 function categoryUpload(req, res, next) {
-  upload.single('image')(req, res, (err) => {
+  upload.fields([{ name: 'image', maxCount: 1 }, { name: 'banner', maxCount: 1 }])(req, res, (err) => {
     if (!err) return next();
     console.error('Category image upload error:', err.message);
     return res.status(400).send(`
@@ -930,6 +942,7 @@ router.post('/categories/add', requireAdmin, requireRole('products'), categoryUp
     }
     const slug = await uniqueCategorySlug(f.slug || f.name);
     const image = categoryImage(req, null);
+    const banner = categoryBanner(req, null);
     // Sort order na dile group-er sheshe bosbe (0 dile shobar age chole jeto)
     let sortOrder = f.sort_order;
     if (sortOrder === null) {
@@ -939,8 +952,8 @@ router.post('/categories/add', requireAdmin, requireRole('products'), categoryUp
       );
       sortOrder = mx.m + 1;
     }
-    const [result] = await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug, meta_title, meta_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [f.name, f.parent_id, image, f.description, sortOrder, f.is_visible, f.is_featured, slug, f.meta_title, f.meta_description]);
+    const [result] = await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug, meta_title, meta_description, banner_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [f.name, f.parent_id, image, f.description, sortOrder, f.is_visible, f.is_featured, slug, f.meta_title, f.meta_description, banner]);
     if (req.body.from === 'quick-add') return res.redirect('back');
     res.redirect('/admin/categories#cat-' + result.insertId);
   } catch (err) {
@@ -1048,8 +1061,9 @@ router.post('/categories/edit/:id', requireAdmin, requireRole('products'), categ
     }
     const slug = await uniqueCategorySlug(f.slug || f.name, req.params.id);
     const image = categoryImage(req, old.image_url);
-    await db.query('UPDATE categories SET name = ?, parent_id = ?, image_url = ?, description = ?, sort_order = ?, is_visible = ?, is_featured = ?, slug = ?, meta_title = ?, meta_description = ? WHERE id = ?',
-      [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug, f.meta_title, f.meta_description, req.params.id]);
+    const banner = categoryBanner(req, old.banner_url);
+    await db.query('UPDATE categories SET name = ?, parent_id = ?, image_url = ?, description = ?, sort_order = ?, is_visible = ?, is_featured = ?, slug = ?, meta_title = ?, meta_description = ?, banner_url = ? WHERE id = ?',
+      [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug, f.meta_title, f.meta_description, banner, req.params.id]);
     res.redirect('/admin/categories#cat-' + req.params.id);
   } catch (err) {
     console.error('Category edit error:', err);
@@ -1084,6 +1098,36 @@ router.post('/categories/:id/move', requireAdmin, requireRole('products'), async
   } catch (err) {
     console.error('Category move error:', err);
     res.redirect('/admin/categories#cat-' + req.params.id);
+  }
+});
+
+// ---------- CATEGORY DRAG-DROP REORDER (tree-te teney sajano) ----------
+// Drag-drop shudhu EKI parent-er moddhei sajay — onno group-e fele dile
+// ignore kora hoy. Body: { parent_id ('' = main), ids: [ordered ids] }.
+// ids-ta group-er shob sibling-er sathe na mille 400 — ordhek order
+// kokhono save hobe na. Sort order 10/20/30 kore notun kore deya hoy.
+router.post('/categories/reorder', requireAdmin, requireRole('products'), async (req, res) => {
+  try {
+    const parentId = req.body.parent_id ? parseInt(req.body.parent_id, 10) || null : null;
+    let ids = req.body.ids;
+    if (!Array.isArray(ids)) ids = ids ? [ids] : [];
+    ids = [...new Set(ids.map(v => parseInt(v, 10)).filter(v => !isNaN(v)))];
+    const [siblings] = await db.query(
+      'SELECT id FROM categories WHERE ' + (parentId ? 'parent_id = ?' : 'parent_id IS NULL') + ' ORDER BY sort_order ASC, id ASC',
+      parentId ? [parentId] : []
+    );
+    const siblingIds = siblings.map(s => s.id).sort((a, b) => a - b);
+    const given = [...ids].sort((a, b) => a - b);
+    if (siblingIds.length !== given.length || !siblingIds.every((v, i) => v === given[i])) {
+      return res.status(400).json({ ok: false, error: 'Order does not match this group.' });
+    }
+    for (let i = 0; i < ids.length; i++) {
+      await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [(i + 1) * 10, ids[i]]);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Category reorder error:', err);
+    res.status(500).json({ ok: false, error: 'Could not save the new order.' });
   }
 });
 
@@ -1150,6 +1194,112 @@ router.post('/categories/bulk', requireAdmin, requireRole('products'), async (re
     console.error('Category bulk error:', err);
     res.redirect('/admin/categories');
   }
+});
+
+// ---------- CATEGORY CSV EXPORT / IMPORT ----------
+// Export: parent name diye deya hoy (id na), jate CSV-ta pore manusher
+// pore bujhte ar import korte subidha hoy. Import-o parent name ba id
+// — dutotei chole; na chinle top-level hishebe boshe.
+// Choto CSV parser — quoted field-er vitore comma ("a, b") ar "" escape
+// bojhe; products import-er naive split(',') description-e comma thakle
+// venge jeto.
+function parseCsvText(text) {
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  const s = String(text || '').replace(/^\uFEFF/, '');
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inQ) {
+      if (ch === '"') { if (s[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && s[i + 1] === '\n') i++;
+      row.push(cur); cur = '';
+      if (row.some(v => v.trim() !== '')) rows.push(row);
+      row = [];
+    } else cur += ch;
+  }
+  if (cur !== '' || row.length) { row.push(cur); if (row.some(v => v.trim() !== '')) rows.push(row); }
+  return rows;
+}
+
+router.get('/categories/export', requireAdmin, requireRole('products'), async (req, res) => {
+  const [rows] = await db.query('SELECT c.*, p.name AS parent_name FROM categories c LEFT JOIN categories p ON p.id = c.parent_id ORDER BY c.id');
+  const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const header = 'id,name,parent,slug,description,image_url,banner_url,sort_order,is_visible,is_featured,meta_title,meta_description';
+  const lines = rows.map(c => [c.id, c.name, c.parent_name || '', c.slug, c.description, c.image_url, c.banner_url, c.sort_order, c.is_visible, c.is_featured, c.meta_title, c.meta_description].map(esc).join(','));
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="goince-categories.csv"');
+  res.send('\uFEFF' + [header].concat(lines).join('\r\n'));
+});
+
+router.get('/categories/import', requireAdmin, requireRole('products'), (req, res) => {
+  res.render('admin/import-categories', { result: null, siteName: 'Goince' });
+});
+router.post('/categories/import', requireAdmin, requireRole('products'), upload.single('csv'), async (req, res) => {
+  let added = 0, skipped = 0; const errors = [];
+  try {
+    const fs = require('fs');
+    if (!req.file) {
+      errors.push('No CSV file uploaded.');
+    } else {
+      const rows = parseCsvText(fs.readFileSync(req.file.path, 'utf8'));
+      fs.unlinkSync(req.file.path);
+      if (!rows.length) {
+        errors.push('The CSV file is empty.');
+      } else {
+        const header = rows[0].map(h => h.trim().toLowerCase());
+        const idx = (name) => header.indexOf(name);
+        const parseFlag = (v, def) => {
+          if (v === undefined || v === null || String(v).trim() === '') return def;
+          return ['1', 'true', 'yes', 'y'].includes(String(v).trim().toLowerCase()) ? 1 : 0;
+        };
+        const resolveParent = async (raw) => {
+          const v = (raw || '').trim();
+          if (!v) return null;
+          if (/^\d+$/.test(v)) {
+            const [[r]] = await db.query('SELECT id FROM categories WHERE id = ?', [parseInt(v, 10)]);
+            if (r) return r.id;
+          }
+          const [[r]] = await db.query('SELECT id FROM categories WHERE name = ? LIMIT 1', [v]);
+          return r ? r.id : null;
+        };
+        // Dui pass: prothome parent paoya row gulo, tarpor baki gulo — parent
+        // file-er pore thakle 2nd pass-e peye jabe; 2nd pass-eo na pele
+        // top-level hishebe bosbe (unknown parent).
+        let pending = rows.slice(1);
+        for (let pass = 0; pass < 2 && pending.length; pass++) {
+          const nextPending = [];
+          for (const cols of pending) {
+            const get = (name) => (idx(name) >= 0 ? (cols[idx(name)] || '').trim() : '');
+            const name = get('name');
+            if (!name) { skipped++; continue; }
+            const parentRaw = get('parent');
+            let parentId = null;
+            if (parentRaw) {
+              parentId = await resolveParent(parentRaw);
+              if (parentId === null && pass === 0) { nextPending.push(cols); continue; }
+            }
+            try {
+              const slug = await uniqueCategorySlug(get('slug') || name);
+              let sortOrder = parseInt(get('sort_order'), 10);
+              if (isNaN(sortOrder)) {
+                const [[mx]] = await db.query('SELECT COALESCE(MAX(sort_order), 0) AS m FROM categories WHERE ' + (parentId ? 'parent_id = ?' : 'parent_id IS NULL'), parentId ? [parentId] : []);
+                sortOrder = mx.m + 1;
+              }
+              await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug, meta_title, meta_description, banner_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [name, parentId, get('image_url') || null, get('description') || null, sortOrder, parseFlag(get('is_visible'), 1), parseFlag(get('is_featured'), 0), slug, get('meta_title') || null, get('meta_description') || null, get('banner_url') || null]);
+              added++;
+            } catch (e) { skipped++; errors.push('Row "' + name + '": ' + (e.sqlMessage || e.message)); }
+          }
+          pending = nextPending;
+        }
+      }
+    }
+  } catch (e) { errors.push(e.message); }
+  res.render('admin/import-categories', { result: { added, skipped, errors: errors.slice(0, 10) }, siteName: 'Goince' });
 });
 
 // ---------- ORDERS LIST ----------
@@ -2032,9 +2182,56 @@ router.get('/reports', requireAdmin, requireRole('reports'), async (req, res) =>
       params
     );
 
+    // Sales by top-level category (nijer + shob sub-category-r sale jog
+    // kore), eki period-er filter. Shunno sale-owala category-o 0 niye
+    // dekhano hoy, jate kon category bikri hocche na bojha jay.
+    // dateCondition-e bare `created_at` ache — products-er-o created_at
+    // thakay ekhane orders.created_at diye qualify kora holo.
+    let categorySales = [];
+    try {
+      const [catRows] = await db.query('SELECT id, name, parent_id FROM categories');
+      const { roots } = buildCategoryTree(catRows);
+      const salesCond = dateCondition.replace(/created_at/g, 'orders.created_at');
+      // GROUP_CONCAT-e onek order id thakle default 1024 char-e kete jete
+      // pare — session-er jonno limit bariye rakha holo.
+      await db.query('SET SESSION group_concat_max_len = 100000');
+      const [salesRows] = await db.query(
+        `SELECT products.category_id AS category_id,
+                GROUP_CONCAT(DISTINCT orders.id) AS orderIds,
+                COALESCE(SUM(order_items.quantity), 0) AS items,
+                COALESCE(SUM(order_items.quantity * order_items.price), 0) AS revenue,
+                COALESCE(SUM(order_items.quantity * order_items.cost_price), 0) AS cost,
+                COALESCE(SUM(order_items.quantity * (order_items.price - order_items.cost_price)), 0) AS profit
+         FROM order_items
+         JOIN orders ON orders.id = order_items.order_id
+         JOIN products ON products.id = order_items.product_id
+         WHERE ${salesCond} AND orders.status != 'Cancelled'
+         GROUP BY products.category_id`,
+        params
+      );
+      const byCat = new Map();
+      salesRows.forEach(r => byCat.set(+r.category_id, {
+        orderIds: new Set(String(r.orderIds || '').split(',').filter(Boolean).map(Number)),
+        items: +r.items || 0, revenue: +r.revenue || 0, cost: +r.cost || 0, profit: +r.profit || 0
+      }));
+      const sumNode = (n) => {
+        const own = byCat.get(n.id) || { orderIds: new Set(), items: 0, revenue: 0, cost: 0, profit: 0 };
+        const orderIds = new Set(own.orderIds);
+        let items = own.items, revenue = own.revenue, cost = own.cost, profit = own.profit;
+        n.children.forEach(c => {
+          const s = sumNode(c);
+          s.orderIds.forEach(id => orderIds.add(id));
+          items += s.items; revenue += s.revenue; cost += s.cost; profit += s.profit;
+        });
+        return { id: n.id, name: n.name, orders: orderIds.size, items, revenue, cost, profit, orderIds };
+      };
+      // Uncategorized product-er sale kono category-te dhore na — note in PR.
+      categorySales = roots.filter(r => !r.isOrphan).map(sumNode).sort((a, b) => b.revenue - a.revenue);
+    } catch (e) { /* purono DB-te categories/order_items na thakle section-ta khali thakbe */ }
+
     res.render('admin/reports', {
       period, periodLabel, summary, itemsSummary, cancelledSummary,
-      topProducts, orders, customFrom, customTo, totalCost, totalProfit, siteName: 'Goince'
+      topProducts, orders, customFrom, customTo, totalCost, totalProfit, categorySales, siteName: 'Goince'
     });
   } catch (err) {
     console.error(err);

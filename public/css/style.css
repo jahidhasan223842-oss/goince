@@ -916,6 +916,17 @@ a { text-decoration: none; color: inherit; }
 .cat-empty-sub { padding: 10px 12px 12px; color: var(--text-muted); font-size: 13px; }
 .cat-tree-btn { background: var(--surface); border: 1px solid var(--border-strong); color: var(--text); padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 13px; }
 .cat-tree-btn:hover { background: var(--bg-hover); }
+/* Drag & drop reorder (admin Categories tree): shudhu ⠿ handle dhore tana
+   jay; drop korar jaygay dag dekhano hoy. */
+.cat-drag { cursor: grab; color: var(--text-muted); font-size: 16px; padding: 4px 6px; border-radius: 4px; flex: 0 0 auto; user-select: none; touch-action: none; }
+.cat-drag:hover { background: var(--bg-hover); color: var(--text); }
+.cat-drag:active { cursor: grabbing; }
+.cat-row.cat-dragging { opacity: 0.45; }
+.cat-row.cat-drag-over-before { box-shadow: inset 0 3px 0 #f0a500; }
+.cat-row.cat-drag-over-after { box-shadow: inset 0 -3px 0 #f0a500; }
+/* Category banner on the shop category page (wide image, above the title). */
+.cat-banner { margin: 12px 0 4px; }
+.cat-banner img { width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; display: block; }
 /* Shop category page: breadcrumb path + category description. */
 .breadcrumb { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
 .breadcrumb a { text-decoration: underline; }

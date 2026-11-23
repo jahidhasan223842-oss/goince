@@ -70,6 +70,32 @@
   </div>
 <% } %>
 
+<h2 class="report-section-heading">📊 Sales by Category</h2>
+<% if (typeof categorySales === 'undefined' || categorySales.length === 0) { %>
+  <p>No categories yet.</p>
+<% } else { %>
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Category</th><th>Orders</th><th>Items Sold</th><th>Revenue</th><th>Cost</th><th>Profit</th></tr>
+      </thead>
+      <tbody>
+        <% categorySales.forEach(c => { %>
+          <tr>
+            <td><a href="/admin/products?category=<%= c.id %>"><%= c.name %></a></td>
+            <td><%= c.orders %></td>
+            <td><%= c.items %></td>
+            <td>৳<%= Number(c.revenue).toFixed(2) %></td>
+            <td>৳<%= Number(c.cost).toFixed(2) %></td>
+            <td>৳<%= Number(c.profit).toFixed(2) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <p class="report-note">Each category includes its sub-categories' sales. Products without a category are not counted here.</p>
+<% } %>
+
 <h2 class="report-section-heading">🧾 Orders (<%= periodLabel %>)</h2>
 <% if (orders.length === 0) { %>
   <p>No orders found in this period.</p>
