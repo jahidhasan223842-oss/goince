@@ -82,12 +82,14 @@ router.post('/login', async (req, res) => {
 
   const { email, password } = req.body;
   let loginOk = false;
+  let adminRow = null;
 
   try {
     // Check the DB ("admins" table) first, because a password changed via
     // Forgot Password is the new correct password
     const [rows] = await db.query('SELECT * FROM admins WHERE email = ?', [email]);
     if (rows.length > 0) {
+      adminRow = rows[0];
       loginOk = await bcrypt.compare(password || '', rows[0].password);
     } else if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
       // No row for this email in the "admins" table — fall back to the .env check
@@ -104,6 +106,8 @@ router.post('/login', async (req, res) => {
   if (loginOk) {
     delete loginAttempts[ip]; // reset attempt count after a successful login
     req.session.isAdmin = true;
+    req.session.adminId = adminRow ? adminRow.id : null;
+    req.session.adminEmail = adminRow ? adminRow.email : email;
 
     // "Remember Me" checked -> stay logged in for 30 days; otherwise the
     // session ends when the browser is closed (a normal session cookie)
@@ -1248,8 +1252,35 @@ router.get('/settings', requireAdmin, async (req, res) => {
     ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
     products,
     message: null,
+    pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
+      req.query.pw === 'wrong' ? 'Current password is wrong — password was not changed.' :
+      req.query.pw === 'mismatch' ? 'New passwords do not match — password was not changed.' :
+      req.query.pw === 'short' ? 'New password must be at least 6 characters.' :
+      req.query.pw === 'noaccount' ? 'No admin account found in the database — use Forgot Password instead.' : null,
     siteName: 'Goince'
   });
+});
+
+// ---------- CHANGE ADMIN PASSWORD (Settings theke, nijer password nije bodlano) ----------
+router.post('/settings/change-password', requireAdmin, async (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body;
+  if ((new_password || '').length < 6) return res.redirect('/admin/settings?pw=short');
+  if (new_password !== confirm_password) return res.redirect('/admin/settings?pw=mismatch');
+  let adminRow = null;
+  if (req.session.adminId) {
+    const [[row]] = await db.query('SELECT * FROM admins WHERE id = ?', [req.session.adminId]);
+    adminRow = row || null;
+  }
+  if (!adminRow) {
+    const [rows] = await db.query('SELECT * FROM admins ORDER BY id ASC LIMIT 1');
+    adminRow = rows[0] || null;
+  }
+  if (!adminRow) return res.redirect('/admin/settings?pw=noaccount');
+  const ok = await bcrypt.compare(current_password || '', adminRow.password);
+  if (!ok) return res.redirect('/admin/settings?pw=wrong');
+  const hashed = await bcrypt.hash(new_password, 10);
+  await db.query('UPDATE admins SET password = ? WHERE id = ?', [hashed, adminRow.id]);
+  res.redirect('/admin/settings?pw=ok');
 });
 
 router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), async (req, res) => {
@@ -1337,6 +1368,45 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
   });
 });
 
+// ==================== HOMEPAGE BANNERS ====================
+
+router.get('/banners', requireAdmin, async (req, res) => {
+  const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
+  res.render('admin/banners', { banners, editing: null, siteName: 'Goince' });
+});
+router.post('/banners/add', requireAdmin, upload.single('image'), async (req, res) => {
+  const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || null);
+  await db.query(
+    'INSERT INTO banners (title, subtitle, image, link_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+    [(req.body.title || '').trim(), (req.body.subtitle || '').trim() || null, image, (req.body.link_url || '').trim() || null, parseInt(req.body.sort_order, 10) || 0]
+  );
+  res.redirect('/admin/banners');
+});
+router.get('/banners/edit/:id', requireAdmin, async (req, res) => {
+  const [[editing]] = await db.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
+  if (!editing) return res.redirect('/admin/banners');
+  const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
+  res.render('admin/banners', { banners, editing, siteName: 'Goince' });
+});
+router.post('/banners/edit/:id', requireAdmin, upload.single('image'), async (req, res) => {
+  const [[old]] = await db.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
+  if (!old) return res.redirect('/admin/banners');
+  const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || old.image);
+  await db.query(
+    'UPDATE banners SET title = ?, subtitle = ?, image = ?, link_url = ?, sort_order = ? WHERE id = ?',
+    [(req.body.title || '').trim(), (req.body.subtitle || '').trim() || null, image, (req.body.link_url || '').trim() || null, parseInt(req.body.sort_order, 10) || 0, req.params.id]
+  );
+  res.redirect('/admin/banners');
+});
+router.post('/banners/:id/toggle', requireAdmin, async (req, res) => {
+  await db.query('UPDATE banners SET is_active = 1 - is_active WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/banners');
+});
+router.post('/banners/:id/delete', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM banners WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/banners');
+});
+
 // ==================== CONTACT MESSAGES (website-er Contact form) ====================
 router.get('/messages', requireAdmin, async (req, res) => {
   const [messages] = await db.query('SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 100');
@@ -1367,47 +1437,46 @@ router.post('/test-email', requireAdmin, async (req, res) => {
 
 // ==================== REPORTS ====================
 // Daily / Weekly / Monthly / Yearly / All Time / Custom Date Range sales report
+// Shared by /admin/reports and /admin/reports/export: period -> WHERE condition
+function getReportPeriod(query) {
+  const validPeriods = ['daily', 'weekly', 'monthly', 'yearly', 'all', 'custom'];
+  const period = validPeriods.includes(query.period) ? query.period : 'daily';
+  let dateCondition = '1=1';
+  let params = [];
+  let periodLabel = 'All Time';
+  let customFrom = query.from || '';
+  let customTo = query.to || '';
+  if (period === 'daily') {
+    dateCondition = 'DATE(created_at) = CURDATE()';
+    periodLabel = "Today (" + new Date().toLocaleDateString() + ")";
+  } else if (period === 'weekly') {
+    dateCondition = 'YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)';
+    periodLabel = 'This Week';
+  } else if (period === 'monthly') {
+    dateCondition = 'YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE())';
+    periodLabel = 'This Month';
+  } else if (period === 'yearly') {
+    dateCondition = 'YEAR(created_at) = YEAR(CURDATE())';
+    periodLabel = 'This Year (' + new Date().getFullYear() + ')';
+  } else if (period === 'custom') {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (dateRegex.test(customFrom) && dateRegex.test(customTo)) {
+      dateCondition = 'DATE(created_at) BETWEEN ? AND ?';
+      params = [customFrom, customTo];
+      periodLabel = customFrom + ' to ' + customTo;
+    } else {
+      dateCondition = 'DATE(created_at) = CURDATE()';
+      periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Please select dates";
+    }
+  } else {
+    periodLabel = 'All Time';
+  }
+  return { period, dateCondition, params, periodLabel, customFrom, customTo };
+}
+
 router.get('/reports', requireAdmin, async (req, res) => {
   try {
-    const validPeriods = ['daily', 'weekly', 'monthly', 'yearly', 'all', 'custom'];
-    const period = validPeriods.includes(req.query.period) ? req.query.period : 'daily';
-
-    // Build the WHERE condition for the selected period (parameterized, safe from SQL injection)
-    // and a readable label
-    let dateCondition = '1=1';
-    let params = [];
-    let periodLabel = 'All Time';
-    let customFrom = req.query.from || '';
-    let customTo = req.query.to || '';
-
-    if (period === 'daily') {
-      dateCondition = 'DATE(created_at) = CURDATE()';
-      periodLabel = "Today (" + new Date().toLocaleDateString() + ")";
-    } else if (period === 'weekly') {
-      dateCondition = 'YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)';
-      periodLabel = 'This Week';
-    } else if (period === 'monthly') {
-      dateCondition = 'YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE())';
-      periodLabel = 'This Month';
-    } else if (period === 'yearly') {
-      dateCondition = 'YEAR(created_at) = YEAR(CURDATE())';
-      periodLabel = 'This Year (' + new Date().getFullYear() + ')';
-    } else if (period === 'custom') {
-      // Check that the from/to date format is correct (YYYY-MM-DD)
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (dateRegex.test(customFrom) && dateRegex.test(customTo)) {
-        dateCondition = 'DATE(created_at) BETWEEN ? AND ?';
-        params = [customFrom, customTo];
-        periodLabel = customFrom + ' to ' + customTo;
-      } else {
-        // If no valid date is given, show today's date (fallback)
-        dateCondition = 'DATE(created_at) = CURDATE()';
-        periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Please select dates";
-      }
-    } else {
-      periodLabel = 'All Time';
-    }
-
+    const { period, dateCondition, params, periodLabel, customFrom, customTo } = getReportPeriod(req.query);
     // All summaries are calculated excluding cancelled orders
     const [[summary]] = await db.query(
       `SELECT
@@ -1479,6 +1548,50 @@ router.get('/reports', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('There was a problem loading the report: ' + err.message);
+  }
+});
+
+// ---------- REPORTS CSV EXPORT (ekoi period-er orders + revenue + profit) ----------
+router.get('/reports/export', requireAdmin, async (req, res) => {
+  try {
+    const { period, dateCondition, params, periodLabel } = getReportPeriod(req.query);
+    const [[summary]] = await db.query(
+      `SELECT COUNT(*) AS totalOrders, COALESCE(SUM(total_amount), 0) AS totalRevenue
+       FROM orders WHERE ${dateCondition} AND status != 'Cancelled'`, params);
+    let totalCost = 0, totalProfit = 0;
+    try {
+      const [[profitRow]] = await db.query(
+        `SELECT COALESCE(SUM(order_items.quantity * order_items.cost_price), 0) AS totalCost,
+                COALESCE(SUM(order_items.quantity * (order_items.price - order_items.cost_price)), 0) AS totalProfit
+         FROM order_items JOIN orders ON orders.id = order_items.order_id
+         WHERE ${dateCondition} AND orders.status != 'Cancelled'`, params);
+      totalCost = Number(profitRow.totalCost || 0);
+      totalProfit = Number(profitRow.totalProfit || 0);
+    } catch (e) { /* purono order-e cost_price na thakle 0 */ }
+    const [orders] = await db.query(
+      `SELECT id, customer_name, phone, total_amount, status, payment_status, created_at
+       FROM orders WHERE ${dateCondition} ORDER BY created_at DESC`, params);
+    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const lines = [
+      'Goince Report - ' + periodLabel,
+      'Period,' + esc(period),
+      'Total Orders,' + summary.totalOrders,
+      'Total Revenue,' + Number(summary.totalRevenue).toFixed(2),
+      'Total Cost,' + totalCost.toFixed(2),
+      'Total Profit,' + totalProfit.toFixed(2),
+      '',
+      'Order ID,Date,Customer,Phone,Total,Status,Payment Status',
+    ];
+    for (const o of orders) {
+      lines.push([o.id, new Date(o.created_at).toISOString().slice(0, 19).replace('T', ' '),
+        esc(o.customer_name), esc(o.phone), Number(o.total_amount).toFixed(2), o.status, o.payment_status || 'Unpaid'].join(','));
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="goince-report-' + period + '.csv"');
+    res.send('\uFEFF' + lines.join('\r\n'));
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('There was a problem exporting the report: ' + err.message);
   }
 });
 

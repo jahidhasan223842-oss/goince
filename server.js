@@ -144,6 +144,17 @@ const SITE_SETTING_DEFAULTS = {
     const pmNames = pmCols.map(c => c.COLUMN_NAME);
     if (!pmNames.includes('payment_type')) await db.query("ALTER TABLE payment_methods ADD COLUMN payment_type VARCHAR(30) NOT NULL DEFAULT 'send_money'");
     if (!pmNames.includes('instructions')) await db.query('ALTER TABLE payment_methods ADD COLUMN instructions TEXT DEFAULT NULL');
+    // Homepage banners (Admin > Banners theke chalano jay)
+    await db.query(`CREATE TABLE IF NOT EXISTS banners (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      subtitle VARCHAR(500) DEFAULT NULL,
+      image VARCHAR(255) DEFAULT NULL,
+      link_url VARCHAR(500) DEFAULT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
     await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,

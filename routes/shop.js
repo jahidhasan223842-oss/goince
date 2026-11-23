@@ -201,7 +201,13 @@ router.get('/', async (req, res) => {
         if (hp) heroProduct = hp;
       }
     } catch (e) {}
+    let banners = [];
+    try {
+      const [bannerRows] = await db.query("SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC");
+      banners = bannerRows;
+    } catch (e) { banners = []; }
     res.render('index', {
+      banners,
       heroProduct,
       variantProductIds: [...variantProductIds],
       optionProductIds: [...optionProductIds],

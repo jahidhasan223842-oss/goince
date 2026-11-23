@@ -1,0 +1,55 @@
+<%- include('../partials/admin-header') %>
+
+<div class="admin-page-header">
+  <h1>Homepage Banners</h1>
+</div>
+<p class="field-hint">Banners show on the homepage below the hero, in order. Use a wide image (1200×400 recommended). Only active banners are shown.</p>
+
+<form action="<%= editing ? '/admin/banners/edit/' + editing.id : '/admin/banners/add' %>" method="POST" class="admin-form" enctype="multipart/form-data">
+  <h3><%= editing ? '✏️ Edit Banner' : '➕ Add New Banner' %></h3>
+  <label>Title</label>
+  <input type="text" name="title" value="<%= editing ? editing.title : '' %>" required>
+  <label>Subtitle (optional)</label>
+  <input type="text" name="subtitle" value="<%= editing ? (editing.subtitle || '') : '' %>">
+  <label>Image — upload a photo</label>
+  <input type="file" name="image" accept="image/*">
+  <% if (editing && editing.image) { %><p class="field-hint">Current image: <a href="<%= editing.image %>" target="_blank"><%= editing.image %></a> (leave empty to keep it)</p><% } %>
+  <label>Or image link (URL)</label>
+  <input type="text" name="image_url" value="<%= editing ? (editing.image || '') : '' %>" placeholder="https://...">
+  <label>Link (optional — where the banner button goes, e.g. /product/3)</label>
+  <input type="text" name="link_url" value="<%= editing ? (editing.link_url || '') : '' %>" placeholder="/product/3">
+  <label>Order (lower number shows first)</label>
+  <input type="number" name="sort_order" value="<%= editing ? editing.sort_order : 0 %>" min="0">
+  <button type="submit" class="btn-primary"><%= editing ? 'Update Banner' : 'Add Banner' %></button>
+  <% if (editing) { %> <a href="/admin/banners">Cancel</a> <% } %>
+</form>
+
+<% if (banners.length === 0) { %>
+  <p>No banners yet. Add one above to show it on the homepage.</p>
+<% } else { %>
+<div class="table-responsive" style="margin-top:20px;">
+<table class="admin-table">
+  <thead>
+    <tr><th>Image</th><th>Title</th><th>Link</th><th>Order</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    <% banners.forEach(b => { %>
+      <tr>
+        <td><% if (b.image) { %><img src="<%= b.image %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"><% } else { %>-<% } %></td>
+        <td><strong><%= b.title %></strong><% if (b.subtitle) { %><br><small><%= b.subtitle %></small><% } %></td>
+        <td><%= b.link_url || '-' %></td>
+        <td><%= b.sort_order %></td>
+        <td><% if (b.is_active) { %><span class="status-badge status-delivered">Active</span><% } else { %><span class="status-badge status-cancelled">Hidden</span><% } %></td>
+        <td style="white-space:nowrap;">
+          <a href="/admin/banners/edit/<%= b.id %>">Edit</a> |
+          <form action="/admin/banners/<%= b.id %>/toggle" method="POST" style="display:inline"><button type="submit" class="link-btn-danger" style="color:#f0a500;"><%= b.is_active ? 'Hide' : 'Show' %></button></form> |
+          <form action="/admin/banners/<%= b.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this banner?');"><button type="submit" class="link-btn-danger">Delete</button></form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>
