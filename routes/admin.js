@@ -6,6 +6,7 @@ const { getCourierConfig, createConsignment, getTrackingStatus } = require('../l
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
+const { ROLES, requireRole } = require('../lib/roles');
 
 function requireAdmin(req, res, next) {
   if (req.session.isAdmin) return next();
@@ -109,6 +110,7 @@ router.post('/login', async (req, res) => {
     req.session.isAdmin = true;
     req.session.adminId = adminRow ? adminRow.id : null;
     req.session.adminEmail = adminRow ? adminRow.email : email;
+    req.session.adminRole = adminRow ? (adminRow.role || 'owner') : 'owner';
 
     // "Remember Me" checked -> stay logged in for 30 days; otherwise the
     // session ends when the browser is closed (a normal session cookie)
@@ -118,7 +120,8 @@ router.post('/login', async (req, res) => {
       req.session.cookie.expires = false; // session cookie — expires when the browser closes
     }
 
-    return res.redirect('/admin/dashboard');
+    // Staff sudhu Orders + Products dekhte pare, tai tader landing page Orders
+    return res.redirect(req.session.adminRole === 'staff' ? '/admin/orders' : '/admin/dashboard');
   }
 
   // Bhul password — attempt count barano
@@ -140,6 +143,9 @@ router.post('/login', async (req, res) => {
 
 router.get('/logout', (req, res) => {
   req.session.isAdmin = false;
+  req.session.adminId = null;
+  req.session.adminEmail = null;
+  req.session.adminRole = null;
   res.redirect('/admin/login');
 });
 
@@ -236,7 +242,7 @@ router.post('/reset-password/:token', async (req, res) => {
 });
 
 // ---------- DASHBOARD / SALES ANALYTICS ----------
-router.get('/dashboard', requireAdmin, async (req, res) => {
+router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res) => {
   try {
     // Use validated YYYY-MM-DD values only; all user values remain SQL parameters.
     const validDate = (value) => {
@@ -331,7 +337,7 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
 
 // ==================== INVENTORY / STOCK TRACKING ====================
 
-router.get('/inventory', requireAdmin, async (req, res) => {
+router.get('/inventory', requireAdmin, requireRole('products'), async (req, res) => {
   const filter = req.query.filter || 'all'; // all, low, out
   let sql = `SELECT products.*, categories.name AS category_name
              FROM products LEFT JOIN categories ON products.category_id = categories.id
@@ -345,14 +351,14 @@ router.get('/inventory', requireAdmin, async (req, res) => {
 });
 
 // ---------- QUICK STOCK UPDATE (stock can be changed right from here) ----------
-router.post('/inventory/update/:id', requireAdmin, async (req, res) => {
+router.post('/inventory/update/:id', requireAdmin, requireRole('products'), async (req, res) => {
   const stock = Math.max(0, parseInt(req.body.stock) || 0);
   await db.query('UPDATE products SET stock = ? WHERE id = ?', [stock, req.params.id]);
   res.redirect('/admin/inventory' + (req.body.filter ? '?filter=' + req.body.filter : ''));
 });
 
 // ---------- PRODUCT LIST ----------
-router.get('/products', requireAdmin, async (req, res) => {
+router.get('/products', requireAdmin, requireRole('productsView'), async (req, res) => {
   const { q } = req.query;
   const where = [];
   const params = [];
@@ -374,13 +380,13 @@ router.get('/products', requireAdmin, async (req, res) => {
 });
 
 // ---------- ADD PRODUCT ----------
-router.get('/products/add', requireAdmin, async (req, res) => {
+router.get('/products/add', requireAdmin, requireRole('products'), async (req, res) => {
   const [categories] = await db.query('SELECT * FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, name');
   const [allProducts] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   res.render('admin/add-product', { categories, product: null, galleryImages: [], options: [], relatedIds: [], allProducts, videos: [], siteName: 'Goince' });
 });
 
-router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
+router.post('/products/add', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
   try {
     const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_values, custom_sizes } = req.body;
     const adv = parseProductAdvanced(req.body);
@@ -444,7 +450,7 @@ router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCo
 });
 
 // ---------- EDIT PRODUCT ----------
-router.get('/products/edit/:id', requireAdmin, async (req, res) => {
+router.get('/products/edit/:id', requireAdmin, requireRole('products'), async (req, res) => {
   const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (rows.length === 0) return res.redirect('/admin/products');
   const [categories] = await db.query('SELECT * FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, name');
@@ -456,7 +462,7 @@ router.get('/products/edit/:id', requireAdmin, async (req, res) => {
   res.render('admin/add-product', { categories, product: rows[0], galleryImages, options, relatedIds: relatedRows.map(r => r.related_id), allProducts, videos, siteName: 'Goince' });
 });
 
-router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
+router.post('/products/edit/:id', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
   try {
     const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_management, size_values, custom_sizes } = req.body;
     const adv = parseProductAdvanced(req.body);
@@ -565,7 +571,7 @@ async function logStockChange(productId, variantId, changeQty, stockAfter, reaso
 }
 
 // ---------- ATTRIBUTES (Size / Color ityadi) ----------
-router.get('/attributes', requireAdmin, async (req, res) => {
+router.get('/attributes', requireAdmin, requireRole('products'), async (req, res) => {
   const [attrs] = await db.query('SELECT * FROM attributes ORDER BY name');
   for (const a of attrs) {
     const [vals] = await db.query('SELECT * FROM attribute_values WHERE attribute_id = ? ORDER BY value', [a.id]);
@@ -573,27 +579,27 @@ router.get('/attributes', requireAdmin, async (req, res) => {
   }
   res.render('admin/attributes', { attributes: attrs, siteName: 'Goince' });
 });
-router.post('/attributes/add', requireAdmin, async (req, res) => {
+router.post('/attributes/add', requireAdmin, requireRole('products'), async (req, res) => {
   const name = (req.body.name || '').trim();
   if (name) { try { await db.query('INSERT INTO attributes (name) VALUES (?)', [name]); } catch (e) {} }
   res.redirect('/admin/attributes');
 });
-router.post('/attributes/delete/:id', requireAdmin, async (req, res) => {
+router.post('/attributes/delete/:id', requireAdmin, requireRole('products'), async (req, res) => {
   await db.query('DELETE FROM attributes WHERE id = ?', [req.params.id]);
   res.redirect('/admin/attributes');
 });
-router.post('/attributes/:id/values/add', requireAdmin, async (req, res) => {
+router.post('/attributes/:id/values/add', requireAdmin, requireRole('products'), async (req, res) => {
   const value = (req.body.value || '').trim();
   if (value) { try { await db.query('INSERT INTO attribute_values (attribute_id, value) VALUES (?, ?)', [req.params.id, value]); } catch (e) {} }
   res.redirect('/admin/attributes');
 });
-router.post('/attribute-values/delete/:id', requireAdmin, async (req, res) => {
+router.post('/attribute-values/delete/:id', requireAdmin, requireRole('products'), async (req, res) => {
   await db.query('DELETE FROM attribute_values WHERE id = ?', [req.params.id]);
   res.redirect('/admin/attributes');
 });
 
 // ---------- PRODUCT VARIANTS MANAGER ----------
-router.get('/products/:id/variants', requireAdmin, async (req, res) => {
+router.get('/products/:id/variants', requireAdmin, requireRole('products'), async (req, res) => {
   const [[product]] = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (!product) return res.redirect('/admin/products');
   const [attrs] = await db.query('SELECT * FROM attributes ORDER BY name');
@@ -615,7 +621,7 @@ router.get('/products/:id/variants', requireAdmin, async (req, res) => {
   }
   res.render('admin/product-variants', { product, attributes: attrs, variants, selectedValueIds, siteName: 'Goince' });
 });
-router.post('/products/:id/variants/sync', requireAdmin, async (req, res) => {
+router.post('/products/:id/variants/sync', requireAdmin, requireRole('products'), async (req, res) => {
   const productId = req.params.id;
   const [attrs] = await db.query('SELECT * FROM attributes ORDER BY name');
   // prottek attribute theke tick kora value gulo
@@ -663,7 +669,7 @@ router.post('/products/:id/variants/sync', requireAdmin, async (req, res) => {
   }
   res.redirect('/admin/products/' + productId + '/variants');
 });
-router.post('/products/:id/variants/:vid/update', requireAdmin, upload.single('image'), async (req, res) => {
+router.post('/products/:id/variants/:vid/update', requireAdmin, requireRole('products'), upload.single('image'), async (req, res) => {
   const stock = parseInt(req.body.stock, 10) || 0;
   const price = req.body.price === '' || req.body.price == null ? null : parseFloat(req.body.price);
   const compareAt = req.body.compare_at_price === '' || req.body.compare_at_price == null ? null : parseFloat(req.body.compare_at_price);
@@ -678,32 +684,32 @@ router.post('/products/:id/variants/:vid/update', requireAdmin, upload.single('i
   if (stock !== old.stock) await logStockChange(req.params.id, req.params.vid, stock - old.stock, stock, 'variant');
   res.redirect('/admin/products/' + req.params.id + '/variants');
 });
-router.post('/products/:id/variants/delete/:vid', requireAdmin, async (req, res) => {
+router.post('/products/:id/variants/delete/:vid', requireAdmin, requireRole('products'), async (req, res) => {
   await db.query('DELETE FROM product_variants WHERE id = ? AND product_id = ?', [req.params.vid, req.params.id]);
   res.redirect('/admin/products/' + req.params.id + '/variants');
 });
 
 // ---------- STOCK HISTORY + STOCK ALERTS ----------
-router.get('/products/:id/stock-history', requireAdmin, async (req, res) => {
+router.get('/products/:id/stock-history', requireAdmin, requireRole('products'), async (req, res) => {
   const [[product]] = await db.query('SELECT id, name FROM products WHERE id = ?', [req.params.id]);
   if (!product) return res.redirect('/admin/products');
   const [rows] = await db.query('SELECT * FROM stock_history WHERE product_id = ? ORDER BY created_at DESC LIMIT 100', [req.params.id]);
   res.render('admin/stock-history', { product, rows, siteName: 'Goince' });
 });
-router.get('/stock-alerts', requireAdmin, async (req, res) => {
+router.get('/stock-alerts', requireAdmin, requireRole('products'), async (req, res) => {
   const [alerts] = await db.query(
     `SELECT sa.*, p.name AS product_name, p.stock FROM stock_alerts sa
      JOIN products p ON p.id = sa.product_id ORDER BY sa.created_at DESC LIMIT 200`
   );
   res.render('admin/stock-alerts', { alerts, siteName: 'Goince' });
 });
-router.post('/stock-alerts/:id/done', requireAdmin, async (req, res) => {
+router.post('/stock-alerts/:id/done', requireAdmin, requireRole('products'), async (req, res) => {
   await db.query('UPDATE stock_alerts SET notified = 1 WHERE id = ?', [req.params.id]);
   res.redirect('/admin/stock-alerts');
 });
 
 // ---------- DUPLICATE PRODUCT ----------
-router.post('/products/:id/duplicate', requireAdmin, async (req, res) => {
+router.post('/products/:id/duplicate', requireAdmin, requireRole('products'), async (req, res) => {
   const [[p]] = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (!p) return res.redirect('/admin/products');
   const slug = await uniqueSlug((p.slug || slugify(p.name)) + '-copy');
@@ -719,10 +725,10 @@ router.post('/products/:id/duplicate', requireAdmin, async (req, res) => {
 });
 
 // ---------- CSV IMPORT / EXPORT ----------
-router.get('/products/import', requireAdmin, (req, res) => {
+router.get('/products/import', requireAdmin, requireRole('products'), (req, res) => {
   res.render('admin/import-products', { result: null, siteName: 'Goince' });
 });
-router.post('/products/import', requireAdmin, upload.single('csv'), async (req, res) => {
+router.post('/products/import', requireAdmin, requireRole('products'), upload.single('csv'), async (req, res) => {
   let added = 0, skipped = 0; const errors = [];
   try {
     const fs = require('fs');
@@ -748,7 +754,7 @@ router.post('/products/import', requireAdmin, upload.single('csv'), async (req, 
   } catch (e) { errors.push(e.message); }
   res.render('admin/import-products', { result: { added, skipped, errors: errors.slice(0, 10) }, siteName: 'Goince' });
 });
-router.get('/products/export', requireAdmin, async (req, res) => {
+router.get('/products/export', requireAdmin, requireRole('products'), async (req, res) => {
   const [products] = await db.query('SELECT id, name, price, cost_price, stock, sku, brand, tags, category_id, status, slug FROM products ORDER BY id');
   const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const csv = ['id,name,price,cost_price,stock,sku,brand,tags,category_id,status,slug'].concat(
@@ -760,13 +766,13 @@ router.get('/products/export', requireAdmin, async (req, res) => {
 });
 
 // ---------- DELETE A SINGLE GALLERY IMAGE ----------
-router.post('/products/:id/gallery/delete/:imageId', requireAdmin, async (req, res) => {
+router.post('/products/:id/gallery/delete/:imageId', requireAdmin, requireRole('products'), async (req, res) => {
   await db.query('DELETE FROM product_images WHERE id = ? AND product_id = ?', [req.params.imageId, req.params.id]);
   res.redirect('/admin/products/edit/' + req.params.id);
 });
 
 // ==================== PRODUCT OPTIONS (Color / Size / Weight — you can set the label yourself) ====================
-router.post('/products/:id/options/add', requireAdmin, upload.single('option_image'), async (req, res) => {
+router.post('/products/:id/options/add', requireAdmin, requireRole('products'), upload.single('option_image'), async (req, res) => {
   try {
     const productId = req.params.id;
     const submittedLabel = (req.body.option_label || '').trim();
@@ -805,19 +811,19 @@ router.post('/products/:id/options/add', requireAdmin, upload.single('option_ima
   }
 });
 
-router.post('/products/:id/options/delete/:optionId', requireAdmin, async (req, res) => {
+router.post('/products/:id/options/delete/:optionId', requireAdmin, requireRole('products'), async (req, res) => {
   await db.query('DELETE FROM product_options WHERE id = ? AND product_id = ?', [req.params.optionId, req.params.id]);
   res.redirect('/admin/products/edit/' + req.params.id);
 });
 
 // ---------- DELETE PRODUCT ----------
-router.post('/products/delete/:id', requireAdmin, async (req, res) => {
+router.post('/products/delete/:id', requireAdmin, requireRole('products'), async (req, res) => {
   await db.query('DELETE FROM products WHERE id = ?', [req.params.id]);
   res.redirect('/admin/products');
 });
 
 // ---------- CATEGORY QUICK ADD (used from the Add Product form) ----------
-router.post('/categories/add', requireAdmin, async (req, res) => {
+router.post('/categories/add', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     const { name, parent_id } = req.body;
     if (name && name.trim()) {
@@ -832,7 +838,7 @@ router.post('/categories/add', requireAdmin, async (req, res) => {
 
 // ==================== FULL CATEGORY MANAGEMENT ====================
 
-router.get('/categories', requireAdmin, async (req, res) => {
+router.get('/categories', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     const [categories] = await db.query(
       `SELECT categories.*, COUNT(products.id) AS product_count, parent.name AS parent_name
@@ -850,7 +856,7 @@ router.get('/categories', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/categories/edit/:id', requireAdmin, async (req, res) => {
+router.post('/categories/edit/:id', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     const { name, parent_id } = req.body;
     if (name && name.trim()) {
@@ -863,7 +869,7 @@ router.post('/categories/edit/:id', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/categories/delete/:id', requireAdmin, async (req, res) => {
+router.post('/categories/delete/:id', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     // Deleting a category makes the products under it "Uncategorized"
     // (products are not deleted, only category_id becomes NULL — the DB schema has ON DELETE SET NULL)
@@ -876,7 +882,7 @@ router.post('/categories/delete/:id', requireAdmin, async (req, res) => {
 });
 
 // ---------- ORDERS LIST ----------
-router.get('/orders', requireAdmin, async (req, res) => {
+router.get('/orders', requireAdmin, requireRole('ordersView'), async (req, res) => {
   const { q, status, date_from, date_to } = req.query;
   const where = [];
   const params = [];
@@ -899,7 +905,7 @@ router.get('/orders', requireAdmin, async (req, res) => {
 });
 
 // ---------- ORDER DETAILS ----------
-router.get('/orders/:id', requireAdmin, async (req, res) => {
+router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/orders');
   const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
@@ -916,21 +922,21 @@ router.get('/orders/:id', requireAdmin, async (req, res) => {
 });
 
 // ---------- UPDATE ORDER STATUS ----------
-router.post('/orders/:id/status', requireAdmin, async (req, res) => {
+router.post('/orders/:id/status', requireAdmin, requireRole('orders'), async (req, res) => {
   const { status } = req.body;
   await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
   res.redirect('/admin/orders/' + req.params.id);
 });
 
 // ---------- UPDATE PAYMENT STATUS ----------
-router.post('/orders/:id/payment-status', requireAdmin, async (req, res) => {
+router.post('/orders/:id/payment-status', requireAdmin, requireRole('orders'), async (req, res) => {
   const { payment_status } = req.body;
   await db.query('UPDATE orders SET payment_status = ? WHERE id = ?', [payment_status, req.params.id]);
   res.redirect('/admin/orders/' + req.params.id);
 });
 
 // ---------- UPDATE COURIER / TRACKING INFO ----------
-router.post('/orders/:id/shipping', requireAdmin, async (req, res) => {
+router.post('/orders/:id/shipping', requireAdmin, requireRole('orders'), async (req, res) => {
   const { courier_name, tracking_number } = req.body;
   await db.query(
     'UPDATE orders SET courier_name = ?, tracking_number = ? WHERE id = ?',
@@ -940,7 +946,7 @@ router.post('/orders/:id/shipping', requireAdmin, async (req, res) => {
 });
 
 // ---------- CREATE COURIER CONSIGNMENT (Steadfast / Pathao API) ----------
-router.post('/orders/:id/create-consignment', requireAdmin, async (req, res) => {
+router.post('/orders/:id/create-consignment', requireAdmin, requireRole('orders'), async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/orders');
   if (order.courier_consignment_id || order.tracking_number) return res.redirect('/admin/orders/' + order.id + '?courier=already');
@@ -957,7 +963,7 @@ router.post('/orders/:id/create-consignment', requireAdmin, async (req, res) => 
 });
 
 // ---------- REFRESH TRACKING STATUS FROM COURIER ----------
-router.post('/orders/:id/refresh-tracking', requireAdmin, async (req, res) => {
+router.post('/orders/:id/refresh-tracking', requireAdmin, requireRole('orders'), async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/orders');
   if (!order.courier_consignment_id && !order.tracking_number) return res.redirect('/admin/orders/' + order.id + '?courier=no-consignment');
@@ -969,13 +975,13 @@ router.post('/orders/:id/refresh-tracking', requireAdmin, async (req, res) => {
 });
 
 // ---------- COUPONS LIST ----------
-router.get('/coupons', requireAdmin, async (req, res) => {
+router.get('/coupons', requireAdmin, requireRole('coupons'), async (req, res) => {
   const [coupons] = await db.query('SELECT * FROM coupons ORDER BY created_at DESC');
   res.render('admin/coupons', { coupons, siteName: 'Goince' });
 });
 
 // ---------- ADD COUPON ----------
-router.post('/coupons/add', requireAdmin, async (req, res) => {
+router.post('/coupons/add', requireAdmin, requireRole('coupons'), async (req, res) => {
   try {
     const { code, discount_percent, expiry_date } = req.body;
     await db.query(
@@ -990,13 +996,13 @@ router.post('/coupons/add', requireAdmin, async (req, res) => {
 });
 
 // ---------- TOGGLE COUPON ACTIVE/INACTIVE ----------
-router.post('/coupons/toggle/:id', requireAdmin, async (req, res) => {
+router.post('/coupons/toggle/:id', requireAdmin, requireRole('coupons'), async (req, res) => {
   await db.query('UPDATE coupons SET active = NOT active WHERE id = ?', [req.params.id]);
   res.redirect('/admin/coupons');
 });
 
 // ---------- DELETE COUPON ----------
-router.post('/coupons/delete/:id', requireAdmin, async (req, res) => {
+router.post('/coupons/delete/:id', requireAdmin, requireRole('coupons'), async (req, res) => {
   await db.query('DELETE FROM coupons WHERE id = ?', [req.params.id]);
   res.redirect('/admin/coupons');
 });
@@ -1004,7 +1010,7 @@ router.post('/coupons/delete/:id', requireAdmin, async (req, res) => {
 // ==================== CUSTOMER MANAGEMENT ====================
 
 // ---------- CUSTOMER LIST (can be searched by name/email/phone) ----------
-router.get('/customers', requireAdmin, async (req, res) => {
+router.get('/customers', requireAdmin, requireRole('customers'), async (req, res) => {
   const q = (req.query.q || '').trim();
   let sql = `SELECT users.*, COUNT(orders.id) AS order_count,
              COALESCE(SUM(CASE WHEN orders.status != 'Cancelled' THEN orders.total_amount ELSE 0 END), 0) AS total_spent
@@ -1021,11 +1027,11 @@ router.get('/customers', requireAdmin, async (req, res) => {
 });
 
 // ---------- ADD CUSTOMER PAGE ----------
-router.get('/customers/add', requireAdmin, (req, res) => {
+router.get('/customers/add', requireAdmin, requireRole('customers'), (req, res) => {
   res.render('admin/add-customer', { customer: null, error: null, siteName: 'Goince' });
 });
 
-router.post('/customers/add', requireAdmin, async (req, res) => {
+router.post('/customers/add', requireAdmin, requireRole('customers'), async (req, res) => {
   try {
     const { name, email, phone, address, password } = req.body;
 
@@ -1055,13 +1061,13 @@ router.post('/customers/add', requireAdmin, async (req, res) => {
 });
 
 // ---------- EDIT CUSTOMER ----------
-router.get('/customers/edit/:id', requireAdmin, async (req, res) => {
+router.get('/customers/edit/:id', requireAdmin, requireRole('customers'), async (req, res) => {
   const [rows] = await db.query('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (rows.length === 0) return res.redirect('/admin/customers');
   res.render('admin/add-customer', { customer: rows[0], error: null, siteName: 'Goince' });
 });
 
-router.post('/customers/edit/:id', requireAdmin, async (req, res) => {
+router.post('/customers/edit/:id', requireAdmin, requireRole('customers'), async (req, res) => {
   try {
     const { name, email, phone, address, password } = req.body;
     const id = req.params.id;
@@ -1104,13 +1110,13 @@ router.post('/customers/edit/:id', requireAdmin, async (req, res) => {
 });
 
 // ---------- DELETE CUSTOMER ----------
-router.post('/customers/delete/:id', requireAdmin, async (req, res) => {
+router.post('/customers/delete/:id', requireAdmin, requireRole('customers'), async (req, res) => {
   await db.query('DELETE FROM users WHERE id = ?', [req.params.id]);
   res.redirect('/admin/customers');
 });
 
 // ---------- BLOCK / UNBLOCK CUSTOMER ----------
-router.post('/customers/:id/toggle-block', requireAdmin, async (req, res) => {
+router.post('/customers/:id/toggle-block', requireAdmin, requireRole('customers'), async (req, res) => {
   const [[customer]] = await db.query('SELECT is_blocked FROM users WHERE id = ?', [req.params.id]);
   if (!customer) return res.redirect('/admin/customers');
   await db.query('UPDATE users SET is_blocked = ? WHERE id = ?', [customer.is_blocked ? 0 : 1, req.params.id]);
@@ -1120,7 +1126,7 @@ router.post('/customers/:id/toggle-block', requireAdmin, async (req, res) => {
 // ---------- CUSTOMER DETAIL (profile + full order history) ----------
 // This is kept at the bottom because Express matches routes in order —
 // if it came first, "/customers/add" and "/customers/edit/5" would be mistaken for :id.
-router.get('/customers/:id', requireAdmin, async (req, res) => {
+router.get('/customers/:id', requireAdmin, requireRole('customers'), async (req, res) => {
   const [[customer]] = await db.query('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!customer) return res.redirect('/admin/customers');
 
@@ -1151,7 +1157,7 @@ router.get('/customers/:id', requireAdmin, async (req, res) => {
 // ==================== LIVE CHAT ====================
 
 // ---------- CONVERSATION LIST ----------
-router.get('/chats', requireAdmin, async (req, res) => {
+router.get('/chats', requireAdmin, requireRole('chats'), async (req, res) => {
   const [conversations] = await db.query(
     `SELECT chat_conversations.*,
        (SELECT message FROM chat_messages WHERE conversation_id = chat_conversations.id ORDER BY created_at DESC LIMIT 1) AS last_message
@@ -1162,7 +1168,7 @@ router.get('/chats', requireAdmin, async (req, res) => {
 });
 
 // ---------- SINGLE CONVERSATION VIEW ----------
-router.get('/chats/:id', requireAdmin, async (req, res) => {
+router.get('/chats/:id', requireAdmin, requireRole('chats'), async (req, res) => {
   const [[conversation]] = await db.query('SELECT * FROM chat_conversations WHERE id = ?', [req.params.id]);
   if (!conversation) return res.redirect('/admin/chats');
   const [messages] = await db.query(
@@ -1173,7 +1179,7 @@ router.get('/chats/:id', requireAdmin, async (req, res) => {
 });
 
 // ---------- GET MESSAGES (JSON, admin side polling) ----------
-router.get('/chats/:id/messages', requireAdmin, async (req, res) => {
+router.get('/chats/:id/messages', requireAdmin, requireRole('chats'), async (req, res) => {
   const [messages] = await db.query(
     'SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC',
     [req.params.id]
@@ -1182,7 +1188,7 @@ router.get('/chats/:id/messages', requireAdmin, async (req, res) => {
 });
 
 // ---------- ADMIN REPLY ----------
-router.post('/chats/:id/reply', requireAdmin, async (req, res) => {
+router.post('/chats/:id/reply', requireAdmin, requireRole('chats'), async (req, res) => {
   const message = (req.body.message || '').trim();
   if (message) {
     await db.query(
@@ -1195,7 +1201,7 @@ router.post('/chats/:id/reply', requireAdmin, async (req, res) => {
 });
 
 // ==================== PAYMENT METHODS (bKash / Nagad / Rocket / any new mobile banking option) ====================
-router.get('/payment-methods', requireAdmin, async (req, res) => {
+router.get('/payment-methods', requireAdmin, requireRole('paymentMethods'), async (req, res) => {
   try {
     const [methods] = await db.query('SELECT * FROM payment_methods ORDER BY sort_order, id');
     res.render('admin/payment-methods', { methods, siteName: 'Goince' });
@@ -1213,7 +1219,7 @@ router.get('/payment-methods', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/payment-methods/add', requireAdmin, async (req, res) => {
+router.post('/payment-methods/add', requireAdmin, requireRole('paymentMethods'), async (req, res) => {
   const methodName = (req.body.method_name || '').trim();
   const number = (req.body.number || '').trim() || null;
 
@@ -1227,29 +1233,29 @@ router.post('/payment-methods/add', requireAdmin, async (req, res) => {
   res.redirect('/admin/payment-methods');
 });
 
-router.post('/payment-methods/edit/:id', requireAdmin, async (req, res) => {
+router.post('/payment-methods/edit/:id', requireAdmin, requireRole('paymentMethods'), async (req, res) => {
   const methodName = (req.body.method_name || '').trim();
   const number = (req.body.number || '').trim() || null;
   await db.query('UPDATE payment_methods SET method_name = ?, number = ?, payment_type = ?, instructions = ? WHERE id = ?', [methodName, number, (req.body.payment_type || 'send_money'), (req.body.instructions || '').trim() || null, req.params.id]);
   res.redirect('/admin/payment-methods');
 });
 
-router.post('/payment-methods/toggle/:id', requireAdmin, async (req, res) => {
+router.post('/payment-methods/toggle/:id', requireAdmin, requireRole('paymentMethods'), async (req, res) => {
   await db.query('UPDATE payment_methods SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
   res.redirect('/admin/payment-methods');
 });
 
-router.post('/payment-methods/delete/:id', requireAdmin, async (req, res) => {
+router.post('/payment-methods/delete/:id', requireAdmin, requireRole('paymentMethods'), async (req, res) => {
   await db.query('DELETE FROM payment_methods WHERE id = ?', [req.params.id]);
   res.redirect('/admin/payment-methods');
 });
 
 // ==================== DELIVERY ZONES ====================
-router.get('/delivery-zones', requireAdmin, async (req, res) => {
+router.get('/delivery-zones', requireAdmin, requireRole('deliveryZones'), async (req, res) => {
   const [zones] = await db.query('SELECT * FROM delivery_zones ORDER BY sort_order, id');
   res.render('admin/delivery-zones', { zones, siteName: 'Goince' });
 });
-router.post('/delivery-zones/add', requireAdmin, async (req, res) => {
+router.post('/delivery-zones/add', requireAdmin, requireRole('deliveryZones'), async (req, res) => {
   const name = (req.body.name || '').trim();
   const charge = parseFloat(req.body.charge);
   const deliveryTime = (req.body.delivery_time || '').trim() || null;
@@ -1261,7 +1267,7 @@ router.post('/delivery-zones/add', requireAdmin, async (req, res) => {
   }
   res.redirect('/admin/delivery-zones');
 });
-router.post('/delivery-zones/edit/:id', requireAdmin, async (req, res) => {
+router.post('/delivery-zones/edit/:id', requireAdmin, requireRole('deliveryZones'), async (req, res) => {
   const name = (req.body.name || '').trim();
   const charge = parseFloat(req.body.charge);
   const deliveryTime = (req.body.delivery_time || '').trim() || null;
@@ -1270,18 +1276,18 @@ router.post('/delivery-zones/edit/:id', requireAdmin, async (req, res) => {
   }
   res.redirect('/admin/delivery-zones');
 });
-router.post('/delivery-zones/toggle/:id', requireAdmin, async (req, res) => {
+router.post('/delivery-zones/toggle/:id', requireAdmin, requireRole('deliveryZones'), async (req, res) => {
   await db.query('UPDATE delivery_zones SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
   res.redirect('/admin/delivery-zones');
 });
-router.post('/delivery-zones/delete/:id', requireAdmin, async (req, res) => {
+router.post('/delivery-zones/delete/:id', requireAdmin, requireRole('deliveryZones'), async (req, res) => {
   await db.query('DELETE FROM delivery_zones WHERE id = ?', [req.params.id]);
   res.redirect('/admin/delivery-zones');
 });
 
 // ==================== SETTINGS ====================
 
-router.get('/settings', requireAdmin, async (req, res) => {
+router.get('/settings', requireAdmin, requireRole('settings'), async (req, res) => {
   const [rows] = await db.query(
     "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id')"
   );
@@ -1356,7 +1362,7 @@ router.post('/settings/change-password', requireAdmin, async (req, res) => {
   res.redirect('/admin/settings?pw=ok');
 });
 
-router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), async (req, res) => {
+router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), async (req, res) => {
   const shopPhone = (req.body.shop_phone || '').trim();
   // Logo upload: an uploaded file wins; otherwise the URL field value is used; if both are blank, the previous logo stays
   const logoFromFile = (req.files && req.files.logo_file && req.files.logo_file[0]) ? ('/uploads/' + req.files.logo_file[0].filename) : '';
@@ -1470,11 +1476,11 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
 
 // ==================== HOMEPAGE BANNERS ====================
 
-router.get('/banners', requireAdmin, async (req, res) => {
+router.get('/banners', requireAdmin, requireRole('banners'), async (req, res) => {
   const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
   res.render('admin/banners', { banners, editing: null, siteName: 'Goince' });
 });
-router.post('/banners/add', requireAdmin, upload.single('image'), async (req, res) => {
+router.post('/banners/add', requireAdmin, requireRole('banners'), upload.single('image'), async (req, res) => {
   const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || null);
   await db.query(
     'INSERT INTO banners (title, subtitle, image, link_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)',
@@ -1482,13 +1488,13 @@ router.post('/banners/add', requireAdmin, upload.single('image'), async (req, re
   );
   res.redirect('/admin/banners');
 });
-router.get('/banners/edit/:id', requireAdmin, async (req, res) => {
+router.get('/banners/edit/:id', requireAdmin, requireRole('banners'), async (req, res) => {
   const [[editing]] = await db.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
   if (!editing) return res.redirect('/admin/banners');
   const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
   res.render('admin/banners', { banners, editing, siteName: 'Goince' });
 });
-router.post('/banners/edit/:id', requireAdmin, upload.single('image'), async (req, res) => {
+router.post('/banners/edit/:id', requireAdmin, requireRole('banners'), upload.single('image'), async (req, res) => {
   const [[old]] = await db.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
   if (!old) return res.redirect('/admin/banners');
   const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || old.image);
@@ -1498,33 +1504,33 @@ router.post('/banners/edit/:id', requireAdmin, upload.single('image'), async (re
   );
   res.redirect('/admin/banners');
 });
-router.post('/banners/:id/toggle', requireAdmin, async (req, res) => {
+router.post('/banners/:id/toggle', requireAdmin, requireRole('banners'), async (req, res) => {
   await db.query('UPDATE banners SET is_active = 1 - is_active WHERE id = ?', [req.params.id]);
   res.redirect('/admin/banners');
 });
-router.post('/banners/:id/delete', requireAdmin, async (req, res) => {
+router.post('/banners/:id/delete', requireAdmin, requireRole('banners'), async (req, res) => {
   await db.query('DELETE FROM banners WHERE id = ?', [req.params.id]);
   res.redirect('/admin/banners');
 });
 
 // ==================== CONTACT MESSAGES (website-er Contact form) ====================
-router.get('/messages', requireAdmin, async (req, res) => {
+router.get('/messages', requireAdmin, requireRole('messages'), async (req, res) => {
   const [messages] = await db.query('SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 100');
   const [[{ unread }]] = await db.query('SELECT COUNT(*) AS unread FROM contact_messages WHERE is_read = 0');
   res.render('admin/messages', { messages, unread, siteName: 'Goince' });
 });
-router.post('/messages/:id/read', requireAdmin, async (req, res) => {
+router.post('/messages/:id/read', requireAdmin, requireRole('messages'), async (req, res) => {
   await db.query('UPDATE contact_messages SET is_read = 1 WHERE id = ?', [req.params.id]);
   res.redirect('/admin/messages');
 });
-router.post('/messages/:id/delete', requireAdmin, async (req, res) => {
+router.post('/messages/:id/delete', requireAdmin, requireRole('messages'), async (req, res) => {
   await db.query('DELETE FROM contact_messages WHERE id = ?', [req.params.id]);
   res.redirect('/admin/messages');
 });
 
 // ==================== REVIEWS MODERATION ====================
 
-router.get('/reviews', requireAdmin, async (req, res) => {
+router.get('/reviews', requireAdmin, requireRole('reviews'), async (req, res) => {
   const { status } = req.query;
   const where = [];
   const params = [];
@@ -1540,30 +1546,113 @@ router.get('/reviews', requireAdmin, async (req, res) => {
   const [[{ pending }]] = await db.query("SELECT COUNT(*) AS pending FROM reviews WHERE status = 'pending'");
   res.render('admin/reviews', { reviews, pending, status: status || '', siteName: 'Goince' });
 });
-router.post('/reviews/:id/approve', requireAdmin, async (req, res) => {
+router.post('/reviews/:id/approve', requireAdmin, requireRole('reviews'), async (req, res) => {
   await db.query("UPDATE reviews SET status = 'approved' WHERE id = ?", [req.params.id]);
   res.redirect('/admin/reviews');
 });
-router.post('/reviews/:id/hide', requireAdmin, async (req, res) => {
+router.post('/reviews/:id/hide', requireAdmin, requireRole('reviews'), async (req, res) => {
   await db.query("UPDATE reviews SET status = 'hidden' WHERE id = ?", [req.params.id]);
   res.redirect('/admin/reviews');
 });
-router.post('/reviews/:id/delete', requireAdmin, async (req, res) => {
+router.post('/reviews/:id/delete', requireAdmin, requireRole('reviews'), async (req, res) => {
   await db.query('DELETE FROM reviews WHERE id = ?', [req.params.id]);
   res.redirect('/admin/reviews');
 });
 
 // ==================== TEST EMAIL (Debug tool) ====================
 
-router.get('/test-email', requireAdmin, (req, res) => {
+router.get('/test-email', requireAdmin, requireRole('testEmail'), (req, res) => {
   res.render('admin/test-email', { result: null, testEmail: '', siteName: 'Goince' });
 });
 
-router.post('/test-email', requireAdmin, async (req, res) => {
+router.post('/test-email', requireAdmin, requireRole('testEmail'), async (req, res) => {
   const { test_email } = req.body;
   const { sendTestEmail } = require('../config/email');
   const result = await sendTestEmail(test_email);
   res.render('admin/test-email', { result, testEmail: test_email, siteName: 'Goince' });
+});
+
+// ==================== STAFF (admin users + roles) ====================
+// Owner-only: notun admin banano, role bodlano, password reset, delete.
+// Role: owner (shob kichu), manager (products/orders/customers/inventory),
+// staff (orders + products shudhu dekhte pare).
+router.get('/staff', requireAdmin, requireRole('staff'), async (req, res) => {
+  try {
+    const [admins] = await db.query('SELECT id, email, role, created_at FROM admins ORDER BY id ASC');
+    res.render('admin/staff', { admins, meId: req.session.adminId, siteName: 'Goince', message: req.query.msg || null, error: req.query.err || null });
+  } catch (err) {
+    res.render('admin/staff', { admins: [], meId: req.session.adminId, siteName: 'Goince', message: null, error: 'Could not load staff list.' });
+  }
+});
+
+router.post('/staff/add', requireAdmin, requireRole('staff'), async (req, res) => {
+  const { email, password, role } = req.body;
+  const cleanRole = ROLES.includes(role) ? role : 'staff';
+  if (!email || !password || password.length < 6) {
+    return res.redirect('/admin/staff?err=' + encodeURIComponent('Email and a password of at least 6 characters are required.'));
+  }
+  try {
+    const [existing] = await db.query('SELECT id FROM admins WHERE email = ?', [email.trim()]);
+    if (existing.length > 0) return res.redirect('/admin/staff?err=' + encodeURIComponent('An admin with this email already exists.'));
+    const hashed = await bcrypt.hash(password, 10);
+    await db.query('INSERT INTO admins (email, password, role) VALUES (?, ?, ?)', [email.trim(), hashed, cleanRole]);
+    res.redirect('/admin/staff?msg=' + encodeURIComponent('Staff account created.'));
+  } catch (err) {
+    res.redirect('/admin/staff?err=' + encodeURIComponent('Could not create staff account.'));
+  }
+});
+
+router.post('/staff/:id/role', requireAdmin, requireRole('staff'), async (req, res) => {
+  const { role } = req.body;
+  const cleanRole = ROLES.includes(role) ? role : 'staff';
+  try {
+    const [rows] = await db.query('SELECT id, role FROM admins WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.redirect('/admin/staff?err=' + encodeURIComponent('Admin not found.'));
+    // Nijer role nije bodlate parbe na; sesh Owner-ke Owner theke sorano jabe na
+    if (String(rows[0].id) === String(req.session.adminId)) {
+      return res.redirect('/admin/staff?err=' + encodeURIComponent('You cannot change your own role.'));
+    }
+    if (rows[0].role === 'owner' && cleanRole !== 'owner') {
+      const [owners] = await db.query("SELECT COUNT(*) AS cnt FROM admins WHERE role = 'owner'");
+      if (owners[0].cnt <= 1) return res.redirect('/admin/staff?err=' + encodeURIComponent('There must be at least one Owner.'));
+    }
+    await db.query('UPDATE admins SET role = ? WHERE id = ?', [cleanRole, req.params.id]);
+    res.redirect('/admin/staff?msg=' + encodeURIComponent('Role updated.'));
+  } catch (err) {
+    res.redirect('/admin/staff?err=' + encodeURIComponent('Could not update role.'));
+  }
+});
+
+router.post('/staff/:id/reset-password', requireAdmin, requireRole('staff'), async (req, res) => {
+  const { new_password } = req.body;
+  if (!new_password || new_password.length < 6) {
+    return res.redirect('/admin/staff?err=' + encodeURIComponent('New password must be at least 6 characters.'));
+  }
+  try {
+    const hashed = await bcrypt.hash(new_password, 10);
+    await db.query('UPDATE admins SET password = ? WHERE id = ?', [hashed, req.params.id]);
+    res.redirect('/admin/staff?msg=' + encodeURIComponent('Password reset.'));
+  } catch (err) {
+    res.redirect('/admin/staff?err=' + encodeURIComponent('Could not reset password.'));
+  }
+});
+
+router.post('/staff/:id/delete', requireAdmin, requireRole('staff'), async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, role FROM admins WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.redirect('/admin/staff?err=' + encodeURIComponent('Admin not found.'));
+    if (String(rows[0].id) === String(req.session.adminId)) {
+      return res.redirect('/admin/staff?err=' + encodeURIComponent('You cannot delete your own account.'));
+    }
+    if (rows[0].role === 'owner') {
+      const [owners] = await db.query("SELECT COUNT(*) AS cnt FROM admins WHERE role = 'owner'");
+      if (owners[0].cnt <= 1) return res.redirect('/admin/staff?err=' + encodeURIComponent('There must be at least one Owner.'));
+    }
+    await db.query('DELETE FROM admins WHERE id = ?', [req.params.id]);
+    res.redirect('/admin/staff?msg=' + encodeURIComponent('Staff account deleted.'));
+  } catch (err) {
+    res.redirect('/admin/staff?err=' + encodeURIComponent('Could not delete staff account.'));
+  }
 });
 
 // ==================== REPORTS ====================
@@ -1605,7 +1694,7 @@ function getReportPeriod(query) {
   return { period, dateCondition, params, periodLabel, customFrom, customTo };
 }
 
-router.get('/reports', requireAdmin, async (req, res) => {
+router.get('/reports', requireAdmin, requireRole('reports'), async (req, res) => {
   try {
     const { period, dateCondition, params, periodLabel, customFrom, customTo } = getReportPeriod(req.query);
     // All summaries are calculated excluding cancelled orders
@@ -1683,7 +1772,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
 });
 
 // ---------- REPORTS CSV EXPORT (ekoi period-er orders + revenue + profit) ----------
-router.get('/reports/export', requireAdmin, async (req, res) => {
+router.get('/reports/export', requireAdmin, requireRole('reports'), async (req, res) => {
   try {
     const { period, dateCondition, params, periodLabel } = getReportPeriod(req.query);
     const [[summary]] = await db.query(
@@ -1765,7 +1854,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-router.post('/products/:id/generate-video', requireAdmin, async (req, res) => {
+router.post('/products/:id/generate-video', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     const productId = req.params.id;
     const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [productId]);
@@ -1839,7 +1928,7 @@ router.post('/products/:id/generate-video', requireAdmin, async (req, res) => {
   }
 });
 
-router.get('/products/:id/video/download', requireAdmin, async (req, res) => {
+router.get('/products/:id/video/download', requireAdmin, requireRole('products'), async (req, res) => {
   const [rows] = await db.query(
     'SELECT filename FROM product_videos WHERE product_id = ? ORDER BY created_at DESC LIMIT 1',
     [req.params.id]
@@ -1850,7 +1939,7 @@ router.get('/products/:id/video/download', requireAdmin, async (req, res) => {
   res.download(filePath, rows[0].filename);
 });
 
-router.post('/products/:id/video/delete', requireAdmin, async (req, res) => {
+router.post('/products/:id/video/delete', requireAdmin, requireRole('products'), async (req, res) => {
   const productId = req.params.id;
   const [rows] = await db.query('SELECT id, filename FROM product_videos WHERE product_id = ?', [productId]);
   const videoDir = path.join(__dirname, '..', 'public', 'videos');

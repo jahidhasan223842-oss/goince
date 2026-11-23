@@ -22,29 +22,41 @@
     <aside class="admin-sidebar">
       <h2><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <%= siteName %></h2>
       <nav>
-        <a href="/admin/dashboard">🏠 Dashboard</a>
+        <% const _ar = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
+        <% if (_ar !== 'staff') { %><a href="/admin/dashboard">🏠 Dashboard</a><% } %>
         <p class="admin-nav-group">Shop</p>
         <a href="/admin/products">📦 Products</a>
+        <% if (_ar !== 'staff') { %>
         <a href="/admin/products/import">⇪ Import Products</a>
         <a href="/admin/attributes">🧩 Attributes</a>
         <a href="/admin/stock-alerts">🔔 Stock Alerts</a>
         <a href="/admin/categories">🗂️ Categories</a>
         <a href="/admin/banners">🖼️ Banners</a>
         <a href="/admin/inventory">📋 Inventory</a>
+        <% } %>
         <p class="admin-nav-group">Sales</p>
         <a href="/admin/orders">🛒 Orders</a>
+        <% if (_ar !== 'staff') { %>
         <a href="/admin/reports">📊 Reports</a>
         <a href="/admin/customers">👥 Customers</a>
         <a href="/admin/coupons">🎟️ Coupons</a>
+        <% } %>
+        <% if (_ar === 'owner') { %>
         <a href="/admin/payment-methods">💳 Payment Methods</a>
         <a href="/admin/delivery-zones">🚚 Delivery Zones</a>
+        <% } %>
+        <% if (_ar !== 'staff') { %>
         <p class="admin-nav-group">Communication</p>
         <a href="/admin/chats">💬 Live Chat</a>
         <a href="/admin/messages">✉️ Contact Messages</a>
         <a href="/admin/reviews">⭐ Reviews</a>
+        <% } %>
+        <% if (_ar === 'owner') { %>
         <p class="admin-nav-group">System</p>
         <a href="/admin/settings">⚙️ Settings</a>
         <a href="/admin/test-email">📧 Test Email</a>
+        <a href="/admin/staff">👤 Staff &amp; Roles</a>
+        <% } %>
         <a href="/" target="_blank">🌐 View Site</a>
         <a href="/admin/logout" class="logout-link">Logout</a>
       </nav>
