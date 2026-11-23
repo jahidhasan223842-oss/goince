@@ -3,7 +3,25 @@
 <h1><%= product ? 'Edit Product' : 'Add New Product' %></h1>
 <p style="color:#666; background:#f0f7ff; border:1px solid #bcd8ff; padding:10px 14px; border-radius:6px;">✅ Only <strong>Name, Price and Stock</strong> are required. Everything else below — Cost Price, SKU, Weight, Brand, Tags, SEO, Video, Related Products, Barcode, Delivery Time — is <strong>optional</strong>. You can publish a product right now and fill in the rest later from Edit.</p>
 
+<style>
+  .collapsible-section { border:1px solid var(--border, #ddd); border-radius:8px; margin-bottom:14px; overflow:hidden; }
+  .section-toggle { width:100%; display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px; background:var(--surface, #f7f7fa); border:none; cursor:pointer; font-size:16px; font-weight:700; color:var(--text, #16161a); text-align:left; }
+  .section-toggle:hover { background:var(--bg-hover, #eee); }
+  .section-chevron { transition:transform .2s; font-size:13px; flex-shrink:0; }
+  .collapsible-section.collapsed .section-chevron { transform:rotate(-90deg); }
+  .collapsible-section.collapsed .section-body { display:none; }
+  .section-body { padding:14px; }
+  .section-body hr { display:none; }
+</style>
+
+<div style="margin-bottom:12px; display:flex; gap:8px;">
+  <button type="button" class="btn-primary" id="expand-all-sections" style="padding:6px 14px;">🔽 Expand All</button>
+  <button type="button" class="btn-primary" id="collapse-all-sections" style="padding:6px 14px; background:var(--navy);">🔼 Collapse All</button>
+</div>
 <form action="<%= product ? '/admin/products/edit/' + product.id : '/admin/products/add' %>" method="POST" enctype="multipart/form-data" class="admin-form" id="product-main-form">
+<div class="collapsible-section" data-section="basic">
+  <button type="button" class="section-toggle" aria-expanded="true"><span>📝 Basic Information — Name, Price, Stock, Photos</span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
   <label>Product Name</label>
   <input type="text" name="name" value="<%= product ? product.name : '' %>" required>
 
@@ -128,9 +146,12 @@
   <label>Main Image Alt Text (for Google & screen readers — e.g. "Black leather wallet")</label>
   <input type="text" name="image_alt" value="<%= product && product.image_alt ? product.image_alt : '' %>" placeholder="Describe the main image">
 
+  </div>
+</div>
   <% if (!product) { %>
-    <hr>
-    <h3>Product Size Variants <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
+<div class="collapsible-section collapsed" data-section="sizes">
+  <button type="button" class="section-toggle" aria-expanded="false"><span>🧩 Product Size Variants (Optional)</span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
 
     <label for="size_type">Size Type</label>
     <select id="size_type">
@@ -232,18 +253,23 @@
       addCustomField('');
     })();
     </script>
+  </div>
+</div>
   <% } %>
-
-  <hr>
-  <h3>💰 Pricing &amp; Profit <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
+<div class="collapsible-section collapsed" data-section="pricing">
+  <button type="button" class="section-toggle" aria-expanded="false"><span>💰 Pricing &amp; Profit <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
   <label>Cost Price (৳) — what you paid for it; used to calculate profit in Reports</label>
   <input type="number" step="0.01" min="0" name="cost_price" id="cost_price" value="<%= product && product.cost_price != null ? product.cost_price : '' %>" placeholder="e.g. 500">
   <p id="profit-preview" style="font-size:14px; font-weight:600; color:var(--success);"></p>
   <label>SKU — your own product code (e.g. WATCH-001)</label>
   <input type="text" name="sku" value="<%= product && product.sku ? product.sku : '' %>" placeholder="e.g. WATCH-001">
 
-  <hr>
-  <h3>📦 Inventory &amp; Shipping <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
+  </div>
+</div>
+<div class="collapsible-section collapsed" data-section="inventory">
+  <button type="button" class="section-toggle" aria-expanded="false"><span>📦 Inventory &amp; Shipping <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
   <label>Weight (kg) — used for delivery planning</label>
   <input type="number" step="0.01" min="0" name="weight_kg" value="<%= product && product.weight_kg != null ? product.weight_kg : '' %>" placeholder="e.g. 0.5">
   <label>Low Stock Alert — warn on Dashboard when stock falls to this number</label>
@@ -256,15 +282,21 @@
   <input type="text" name="delivery_time" value="<%= product && product.delivery_time ? product.delivery_time : '' %>" placeholder="e.g. 2-3 din">
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="allow_backorder" value="1" <%= product && product.allow_backorder ? 'checked' : '' %>> Allow Pre-order — customers can order even when stock is 0 (you deliver when stock arrives)</label>
 
-  <hr>
-  <h3>🏷️ Brand &amp; Tags <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
+  </div>
+</div>
+<div class="collapsible-section collapsed" data-section="brand">
+  <button type="button" class="section-toggle" aria-expanded="false"><span>🏷️ Brand &amp; Tags <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
   <label>Brand</label>
   <input type="text" name="brand" value="<%= product && product.brand ? product.brand : '' %>" placeholder="e.g. BINBOND">
   <label>Tags — comma separated (e.g. winter, gift, men). Customers can search by tags.</label>
   <input type="text" name="tags" value="<%= product && product.tags ? product.tags : '' %>" placeholder="e.g. winter, gift, men">
 
-  <hr>
-  <h3>🚦 Publish <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — defaults to Published)</span></h3>
+  </div>
+</div>
+<div class="collapsible-section collapsed" data-section="publish">
+  <button type="button" class="section-toggle" aria-expanded="false"><span>🚦 Publish <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — defaults to Published)</span></span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
   <label>Status — Draft products are saved but NOT shown on the website</label>
   <select name="status">
     <option value="published" <%= !product || product.status !== 'draft' ? 'selected' : '' %>>Published — live on the website</option>
@@ -275,8 +307,11 @@
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_featured" value="1" <%= product && product.is_featured ? 'checked' : '' %>> Featured product</label>
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_new" value="1" <%= product && product.is_new ? 'checked' : '' %>> New Arrival badge</label>
 
-  <hr>
-  <h3>🔍 SEO (Google) <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — auto-filled if left blank)</span></h3>
+  </div>
+</div>
+<div class="collapsible-section collapsed" data-section="seo">
+  <button type="button" class="section-toggle" aria-expanded="false"><span>🔍 SEO (Google) <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — auto-filled if left blank)</span></span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
   <label>URL Slug — the product's web address (auto-filled from the name; letters, numbers and - only)</label>
   <input type="text" name="slug" id="slug" value="<%= product && product.slug ? product.slug : '' %>" placeholder="e.g. binbond-2521-watch">
   <label>Meta Title (Google search title — leave empty to use the product name)</label>
@@ -284,12 +319,18 @@
   <label>Meta Description (Google search description)</label>
   <textarea name="meta_description" rows="2" maxlength="160" placeholder="Short description for Google search results."><%= product && product.meta_description ? product.meta_description : '' %></textarea>
 
-  <hr>
-  <h3>🔗 Related Products — "You may also like" <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
+  </div>
+</div>
+<div class="collapsible-section collapsed" data-section="related">
+  <button type="button" class="section-toggle" aria-expanded="false"><span>🔗 Related Products — "You may also like" <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+  <div class="section-body">
   <label>Select products to suggest on this product's page (hold Ctrl/Cmd to select multiple)</label>
   <select name="related_ids" multiple size="5" style="width:100%; padding:8px;">
     <% (allProducts || []).forEach(ap => { %><option value="<%= ap.id %>" <%= (relatedIds || []).includes(ap.id) ? 'selected' : '' %>><%= ap.name %></option><% }) %>
   </select>
+
+  </div>
+</div>
 
   <script>
     // Profit preview + slug auto-fill
@@ -310,6 +351,47 @@
       nameInput.addEventListener('input', function () {
         if (!slugInput.value) slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
       });
+    })();
+  </script>
+
+  <script>
+    // Collapsible sections: click a heading to open/close it; your choice is remembered
+    (function () {
+      var KEY = 'goince-product-sections';
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+      function save() {
+        var state = {};
+        document.querySelectorAll('.collapsible-section').forEach(function (sec) {
+          state[sec.getAttribute('data-section')] = !sec.classList.contains('collapsed');
+        });
+        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+      }
+      function setSection(sec, open) {
+        sec.classList.toggle('collapsed', !open);
+        sec.querySelector('.section-toggle').setAttribute('aria-expanded', String(open));
+      }
+      document.querySelectorAll('.collapsible-section').forEach(function (sec) {
+        var id = sec.getAttribute('data-section');
+        var open = saved.hasOwnProperty(id) ? saved[id] : !sec.classList.contains('collapsed');
+        setSection(sec, open);
+        sec.querySelector('.section-toggle').addEventListener('click', function () {
+          setSection(sec, sec.classList.contains('collapsed'));
+          save();
+        });
+      });
+      document.getElementById('expand-all-sections').addEventListener('click', function () {
+        document.querySelectorAll('.collapsible-section').forEach(function (sec) { setSection(sec, true); });
+        save();
+      });
+      document.getElementById('collapse-all-sections').addEventListener('click', function () {
+        document.querySelectorAll('.collapsible-section').forEach(function (sec) { setSection(sec, false); });
+        save();
+      });
+      // Required field khali thakle browser je section-e ache sheta khule debe
+      document.getElementById('product-main-form').addEventListener('invalid', function () {
+        document.querySelectorAll('.collapsible-section').forEach(function (sec) { setSection(sec, true); });
+      }, true);
     })();
   </script>
 
