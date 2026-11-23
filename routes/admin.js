@@ -899,7 +899,7 @@ router.post('/payment-methods/delete/:id', requireAdmin, async (req, res) => {
 
 router.get('/settings', requireAdmin, async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url')"
   );
   const get = (key, fallback) => {
     const found = rows.find(r => r.setting_key === key);
@@ -909,6 +909,11 @@ router.get('/settings', requireAdmin, async (req, res) => {
     shopPhone: get('shop_phone', ''),
     deliveryChargeInside: get('delivery_charge_inside', '60'),
     deliveryChargeOutside: get('delivery_charge_outside', '120'),
+    heroTitle: get('hero_title', ''),
+    heroSubtitle: get('hero_subtitle', ''),
+    announcementText: get('announcement_text', ''),
+    shopAddress: get('shop_address', ''),
+    facebookUrl: get('facebook_url', ''),
     message: null,
     siteName: 'Goince'
   });
@@ -926,7 +931,12 @@ router.post('/settings', requireAdmin, async (req, res) => {
   const settingsToSave = [
     ['shop_phone', shopPhone],
     ['delivery_charge_inside', String(safeInside)],
-    ['delivery_charge_outside', String(safeOutside)]
+    ['delivery_charge_outside', String(safeOutside)],
+    ['hero_title', (req.body.hero_title || '').trim()],
+    ['hero_subtitle', (req.body.hero_subtitle || '').trim()],
+    ['announcement_text', (req.body.announcement_text || '').trim()],
+    ['shop_address', (req.body.shop_address || '').trim()],
+    ['facebook_url', (req.body.facebook_url || '').trim()]
   ];
 
   for (const [key, value] of settingsToSave) {
@@ -940,9 +950,29 @@ router.post('/settings', requireAdmin, async (req, res) => {
     shopPhone,
     deliveryChargeInside: safeInside,
     deliveryChargeOutside: safeOutside,
-    message: 'Settings update hoyeche!',
+    heroTitle: (req.body.hero_title || '').trim(),
+    heroSubtitle: (req.body.hero_subtitle || '').trim(),
+    announcementText: (req.body.announcement_text || '').trim(),
+    shopAddress: (req.body.shop_address || '').trim(),
+    facebookUrl: (req.body.facebook_url || '').trim(),
+    message: 'Settings update hoyeche! Homepage/footer-e shathe shathe dekhabe.',
     siteName: 'Goince'
   });
+});
+
+// ==================== CONTACT MESSAGES (website-er Contact form) ====================
+router.get('/messages', requireAdmin, async (req, res) => {
+  const [messages] = await db.query('SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 100');
+  const [[{ unread }]] = await db.query('SELECT COUNT(*) AS unread FROM contact_messages WHERE is_read = 0');
+  res.render('admin/messages', { messages, unread, siteName: 'Goince' });
+});
+router.post('/messages/:id/read', requireAdmin, async (req, res) => {
+  await db.query('UPDATE contact_messages SET is_read = 1 WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/messages');
+});
+router.post('/messages/:id/delete', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM contact_messages WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/messages');
 });
 
 // ==================== TEST EMAIL (Debug tool) ====================

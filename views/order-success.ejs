@@ -1,6 +1,7 @@
 <%- include('partials/header') %>
 
 <div class="order-success">
+  <%- include('partials/checkout-steps', { step: 3 }) %>
   <h1>✅ Order Placed Successfully!</h1>
   <p>Thank you for shopping with <%= siteName %>.</p>
   <p>Your Order ID: <strong>#<%= orderId %></strong></p>

@@ -2,9 +2,19 @@
 
 <% if (!selectedCategory && !search) { %>
 <section class="hero">
-  <h1>Cash on Delivery — sara Bangladesh-e delivery</h1>
-  <p>Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery. Order korar age phone-e confirm kora hoy.</p>
-  <a href="#products" class="btn-primary hero-cta">Shop Now ↓</a>
+  <div class="hero-text">
+    <span class="hero-badge">✅ Cash on Delivery</span>
+    <h1><%= siteSettings.hero_title %></h1>
+    <p><%= siteSettings.hero_subtitle %></p>
+    <a href="#products" class="btn-primary hero-cta">Shop Now ↓</a>
+    <a href="/track-order" class="btn-hero-outline">Track Order</a>
+  </div>
+  <% if (typeof bestSellers !== 'undefined' && bestSellers && bestSellers.length > 0) { %>
+    <a href="/product/<%= bestSellers[0].id %>" class="hero-image">
+      <img src="/uploads/<%= bestSellers[0].image %>" alt="<%= bestSellers[0].name %>" onerror="this.src='/uploads/no-image.png'">
+      <span class="hero-image-caption"><%= bestSellers[0].name %> — ৳<%= bestSellers[0].price %></span>
+    </a>
+  <% } %>
 </section>
 <section class="trust-bar">
   <div>✅ Cash on Delivery</div>
@@ -46,6 +56,11 @@
         <option value="unisex" <%= selectedAudience === 'unisex' ? 'selected' : '' %>>Unisex</option>
       </select>
     <% } %>
+    <label for="min_price">Price:</label>
+    <input type="number" name="min_price" id="min_price" placeholder="Min ৳" value="<%= typeof minPrice !== 'undefined' ? minPrice : '' %>" style="width:80px; padding:8px; border:1px solid var(--border-strong); border-radius:4px;">
+    <span>–</span>
+    <input type="number" name="max_price" id="max_price" placeholder="Max ৳" value="<%= typeof maxPrice !== 'undefined' ? maxPrice : '' %>" style="width:80px; padding:8px; border:1px solid var(--border-strong); border-radius:4px;">
+    <button type="submit" class="btn-primary" style="padding:8px 14px;">Filter</button>
     <label for="sort">Sort by:</label>
     <select name="sort" id="sort" onchange="this.form.submit()">
       <option value="newest" <%= sort === 'newest' ? 'selected' : '' %>>Newest</option>
@@ -71,6 +86,7 @@
       <a href="/product/<%= p.id %>">
         <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
         <h3><%= p.name %></h3>
+        <% if (p.avg_rating) { %><p class="card-rating">⭐ <%= Number(p.avg_rating).toFixed(1) %> (<%= p.review_count %>)</p><% } %>
         <div class="price-row">
           <p class="price">৳<%= p.price %></p>
           <% if (discountPercent) { %>
@@ -78,7 +94,15 @@
             <span class="discount-badge">-<%= discountPercent %>%</span>
           <% } %>
         </div>
+        <% if (p.stock > 0 && p.stock <= 5) { %><p class="card-stock-low">⚠️ Only <%= p.stock %> left!</p><% } else if (p.stock === 0) { %><p class="card-stock-out">Out of stock</p><% } %>
       </a>
+      <% if (p.stock > 0) { %>
+        <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
+          <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
+        <% } else { %>
+          <form action="/cart/add/<%= p.id %>" method="POST"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+        <% } %>
+      <% } %>
     </div>
   <% }) %>
 </div>
@@ -97,5 +121,35 @@
     <% }) %>
   </div>
 <% } %>
+
+<div id="recently-viewed" hidden>
+  <div class="section-heading"><h2>👀 Recently Viewed</h2></div>
+  <div class="product-grid" id="recently-viewed-grid"></div>
+</div>
+
+<section class="why-shop">
+  <div class="section-heading"><h2>Why Shop With Goince?</h2></div>
+  <div class="why-grid">
+    <div><strong>✅ Cash on Delivery</strong><p>Product hate peye taka dao — age taka dite hoy na.</p></div>
+    <div><strong>🚚 Fast Delivery</strong><p>Dhaka 1–2 din, baire 3–5 din. Order-er age phone-e confirm.</p></div>
+    <div><strong>🔄 Easy Return</strong><p>Defective ba vul product pele 24 ghontar vitore janalei hobe.</p></div>
+    <div><strong>💬 WhatsApp Support</strong><p>Jekono proshne WhatsApp-e likho, amra uttor dibo.</p></div>
+  </div>
+</section>
+
+<script>
+  // Recently viewed: product page-e save kora list ekhane dekhano
+  (function () {
+    try {
+      var items = JSON.parse(localStorage.getItem('goince-recent') || '[]');
+      if (!items.length) return;
+      var grid = document.getElementById('recently-viewed-grid');
+      grid.innerHTML = items.map(function (it) {
+        return '<div class="product-card"><a href="/product/' + it.id + '"><img src="/uploads/' + it.image + '" alt="" loading="lazy" onerror="this.src=\'/uploads/no-image.png\'"><h3>' + it.name.replace(/</g, '&lt;') + '</h3><p class="price">৳' + it.price + '</p></a></div>';
+      }).join('');
+      document.getElementById('recently-viewed').hidden = false;
+    } catch (e) {}
+  })();
+</script>
 
 <%- include('partials/footer') %>

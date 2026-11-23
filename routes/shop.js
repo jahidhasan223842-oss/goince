@@ -85,8 +85,11 @@ router.get('/', async (req, res) => {
       }
     }
 
+    const minPrice = parseFloat(req.query.min_price);
+    const maxPrice = parseFloat(req.query.max_price);
     let sql = `SELECT products.*,
-                 COUNT(reviews.id) AS review_count
+                 COUNT(reviews.id) AS review_count,
+                 AVG(reviews.rating) AS avg_rating
                FROM products
                LEFT JOIN reviews ON reviews.product_id = products.id
                WHERE 1=1`;
@@ -108,6 +111,8 @@ router.get('/', async (req, res) => {
       sql += ' AND products.name LIKE ?';
       params.push(`%${search}%`);
     }
+    if (!isNaN(minPrice)) { sql += ' AND products.price >= ?'; params.push(minPrice); }
+    if (!isNaN(maxPrice)) { sql += ' AND products.price <= ?'; params.push(maxPrice); }
 
     sql += ' GROUP BY products.id';
 
@@ -123,6 +128,15 @@ router.get('/', async (req, res) => {
     }
 
     const [products] = await db.query(sql, params);
+    // Kon product-e variant/option ache — oigulote homepage theke direct
+    // "Add to Cart" na diye "Choose option" dekhano hobe
+    let variantProductIds = new Set(), optionProductIds = new Set();
+    try {
+      const [vrows] = await db.query('SELECT DISTINCT product_id FROM product_variants');
+      const [orows] = await db.query('SELECT DISTINCT product_id FROM product_options');
+      variantProductIds = new Set(vrows.map(r => r.product_id));
+      optionProductIds = new Set(orows.map(r => r.product_id));
+    } catch (e) {}
 
     // Best sellers: shobcheye beshi bikri hoya product (homepage hero-r niche)
     let bestSellers = [];
@@ -138,6 +152,10 @@ router.get('/', async (req, res) => {
     }
 
     res.render('index', {
+      variantProductIds: [...variantProductIds],
+      optionProductIds: [...optionProductIds],
+      minPrice: isNaN(minPrice) ? '' : minPrice,
+      maxPrice: isNaN(maxPrice) ? '' : maxPrice,
       bestSellers,
       pageTitle: search ? `Search: ${search} - Goince` : 'Goince - Online Shop | Cash on Delivery in Bangladesh',
       metaDescription: 'Goince - Bangladesh-er online shop. Cash on Delivery, Dhaka-r vitore 1-2 din, Dhaka-r baire 3-5 dine delivery.',
@@ -701,12 +719,40 @@ router.post('/checkout', async (req, res) => {
   }
 });
 
+// ---------- SEARCH SUGGESTIONS (header autocomplete) ----------
+router.get('/api/search-suggestions', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+  try {
+    const [rows] = await db.query(
+      'SELECT id, name, price FROM products WHERE name LIKE ? ORDER BY created_at DESC LIMIT 8',
+      [`%${q}%`]);
+    res.json(rows);
+  } catch (err) { res.json([]); }
+});
+
 // ---------- ABOUT / CONTACT ----------
 router.get('/about', (req, res) => {
   res.render('about', { siteName: 'Goince', pageTitle: 'About Us - Goince', metaDescription: 'Goince somporke jano — Bangladesh-er online shop, Cash on Delivery, fast delivery.' });
 });
 router.get('/contact', (req, res) => {
-  res.render('contact', { siteName: 'Goince', pageTitle: 'Contact Us - Goince', metaDescription: 'Goince-er sathe jogajog koro — phone, WhatsApp, order support.' });
+  res.render('contact', { siteName: 'Goince', pageTitle: 'Contact Us - Goince', metaDescription: 'Goince-er sathe jogajog koro — phone, WhatsApp, order support.', success: null, error: null });
+});
+router.post('/contact', async (req, res) => {
+  const render = (success, error) => res.render('contact', { siteName: 'Goince', pageTitle: 'Contact Us - Goince', metaDescription: 'Goince-er sathe jogajog koro — phone, WhatsApp, order support.', success, error });
+  const name = (req.body.name || '').trim();
+  const phone = (req.body.phone || '').trim();
+  const email = (req.body.email || '').trim();
+  const subject = (req.body.subject || '').trim();
+  const message = (req.body.message || '').trim();
+  if (name.length < 2 || message.length < 5) return render(null, 'Naam ar message-ta thik moto likho.');
+  if (phone && !isValidBdPhone(phone)) return render(null, 'Sothik Bangladeshi mobile number (01XXXXXXXXX) dao — na thakle khali rakho.');
+  try {
+    await db.query(
+      'INSERT INTO contact_messages (name, phone, email, subject, message) VALUES (?, ?, ?, ?, ?)',
+      [name, phone || null, email || null, subject || null, message]);
+    return render('Dhonnobad! Tomar message peyechi — amra shigghroi jogajog korbo.', null);
+  } catch (err) { console.error(err); return render(null, 'Message pathate problem hoyeche — pore abar try koro, ba WhatsApp-e likho.'); }
 });
 
 // ---------- TRACK ORDER (guest — Order ID + phone) ----------

@@ -40,15 +40,24 @@
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta property="og:image" content="/icons/icon-512.png">
   <link rel="stylesheet" href="/css/style.css">
   <meta name="google-site-verification" content="GAj60zbiOAiiDk_FkIPCdO4W336XXdmOVd-fMGNAxgI" />
 </head>
 <body>
+  <% if (typeof siteSettings !== 'undefined' && siteSettings.announcement_text) { %>
+    <div class="announcement-bar"><%= siteSettings.announcement_text %></div>
+  <% } %>
   <header class="site-header">
     <div class="container header-inner">
-      <a href="/" class="logo"><%= siteName %></a>
-      <form action="/" method="GET" class="search-form">
-        <input type="text" name="search" placeholder="Search products..." value="<%= typeof search !== 'undefined' ? search : '' %>">
+      <a href="/" class="logo"><img src="/icons/icon-192.png" alt="" class="logo-mark"> <%= siteName %> <span class="logo-tag">Online Shop</span></a>
+      <form action="/" method="GET" class="search-form" autocomplete="off">
+        <div class="search-box">
+          <input type="text" name="search" id="search-input" placeholder="Search products..." value="<%= typeof search !== 'undefined' ? search : '' %>">
+          <div id="search-suggestions" class="search-suggestions" hidden></div>
+        </div>
         <button type="submit">Search</button>
       </form>
       <nav class="main-nav">
