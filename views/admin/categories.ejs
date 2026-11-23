@@ -23,6 +23,10 @@
   <input type="file" name="image" accept="image/*">
   <label>Or image link (URL)</label>
   <input type="text" name="image_url" placeholder="https://...">
+  <label>Banner — upload a wide image (shown at the top of this category's shop page)</label>
+  <input type="file" name="banner" accept="image/*">
+  <label>Or banner link (URL) — wide image, 1200×400 recommended</label>
+  <input type="text" name="banner_url" placeholder="https://...">
   <label>Description (optional — shown under the category name)</label>
   <textarea name="description" rows="2" placeholder="What is this category about?"></textarea>
   <h4 style="margin:18px 0 4px;">🔍 SEO (Google)</h4>
@@ -49,6 +53,11 @@
   <button type="submit" class="btn-primary">Search</button>
   <% if (q || (typeof visibility !== 'undefined' && visibility !== 'all')) { %> <a href="/admin/categories">Clear</a> <% } %>
 </form>
+
+<div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+  <a href="/admin/categories/import" class="cat-tree-btn">⇪ Import CSV</a>
+  <a href="/admin/categories/export" class="cat-tree-btn">⇩ Export CSV</a>
+</div>
 
 <% const isFiltered = !!(q || (typeof visibility !== 'undefined' && visibility !== 'all')); %>
 <% const hasResults = isFiltered
@@ -86,7 +95,7 @@
     </div>
     <div class="cat-tree">
       <% (typeof treeRoots !== 'undefined' ? treeRoots : []).forEach((root, ri) => { %>
-        <%- include('category-group', { node: root, isFirst: ri === 0, isLast: ri === treeRoots.length - 1 }) %>
+        <%- include('category-group', { node: root, isFirst: ri === 0, isLast: ri === treeRoots.length - 1, draggable: true }) %>
       <% }) %>
       <% if (typeof orphanSubs !== 'undefined' && orphanSubs && orphanSubs.length) { %>
         <div class="cat-group cat-orphans">
@@ -94,7 +103,7 @@
             <div class="cat-info"><strong>Other sub-categories</strong><br><small>Their parent category was deleted. Open Edit on one to give it a new parent, or delete it.</small></div>
           </div>
           <% orphanSubs.forEach((sub, oi) => { %>
-            <%- include('category-group', { node: sub, isFirst: oi === 0, isLast: oi === orphanSubs.length - 1 }) %>
+            <%- include('category-group', { node: sub, isFirst: oi === 0, isLast: oi === orphanSubs.length - 1, draggable: true }) %>
           <% }) %>
         </div>
       <% } %>
@@ -209,6 +218,85 @@
       h.type = 'hidden'; h.name = 'ids'; h.value = c.value;
       bulkForm.appendChild(h);
     });
+  });
+})();
+
+// Drag & drop reorder: prottek row-er ⠿ handle dhore teney EKI parent-er
+// moddhe sajano jay — onno group-e felle ignore kora hoy (move hoy na).
+// Mobile-e ▲▼ button-i reorder-er upay. Filter/search mode-e (.cat-tree
+// nei) drag-drop bondho thake, karon okhane group dekha jay na.
+(function () {
+  var tree = document.querySelector('.cat-tree');
+  if (!tree) return;
+  var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+  var draggedId = null, draggedParent = null;
+  function rowOf(group) {
+    for (var i = 0; i < group.children.length; i++) {
+      if (group.children[i].classList.contains('cat-row')) return group.children[i];
+    }
+    return null;
+  }
+  function siblingGroups(container) {
+    return Array.prototype.filter.call(container.children, function (el) { return el.classList.contains('cat-group'); });
+  }
+  function clearHints() {
+    document.querySelectorAll('.cat-drag-over-before,.cat-drag-over-after,.cat-dragging').forEach(function (el) {
+      el.classList.remove('cat-drag-over-before', 'cat-drag-over-after', 'cat-dragging');
+    });
+  }
+  tree.addEventListener('dragstart', function (e) {
+    var h = e.target.closest ? e.target.closest('[data-cat-drag]') : null;
+    if (!h) { e.preventDefault(); return; }
+    var row = h.closest('.cat-row');
+    if (!row) { e.preventDefault(); return; }
+    draggedId = row.getAttribute('data-cat-id');
+    draggedParent = row.getAttribute('data-parent-id') || '';
+    e.dataTransfer.setData('text/plain', draggedId);
+    e.dataTransfer.effectAllowed = 'move';
+    row.classList.add('cat-dragging');
+  });
+  tree.addEventListener('dragend', function () { draggedId = null; draggedParent = null; clearHints(); });
+  tree.addEventListener('dragover', function (e) {
+    if (!draggedId) return;
+    var row = e.target.closest ? e.target.closest('.cat-row') : null;
+    if (!row || (row.getAttribute('data-parent-id') || '') !== draggedParent) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    var r = row.getBoundingClientRect();
+    var before = (e.clientY - r.top) < r.height / 2;
+    row.classList.toggle('cat-drag-over-before', before);
+    row.classList.toggle('cat-drag-over-after', !before);
+  });
+  tree.addEventListener('dragleave', function (e) {
+    var row = e.target.closest ? e.target.closest('.cat-row') : null;
+    if (row) row.classList.remove('cat-drag-over-before', 'cat-drag-over-after');
+  });
+  tree.addEventListener('drop', function (e) {
+    if (!draggedId) return;
+    var row = e.target.closest ? e.target.closest('.cat-row') : null;
+    if (!row || (row.getAttribute('data-parent-id') || '') !== draggedParent) return;
+    e.preventDefault();
+    var r = row.getBoundingClientRect();
+    var before = (e.clientY - r.top) < r.height / 2;
+    var draggedRow = document.getElementById('cat-' + draggedId);
+    if (!draggedRow) return;
+    var draggedGroup = draggedRow.closest('.cat-group');
+    var targetGroup = row.closest('.cat-group');
+    if (!draggedGroup || !targetGroup || draggedGroup === targetGroup) return;
+    var container = targetGroup.parentElement;
+    container.insertBefore(draggedGroup, before ? targetGroup : targetGroup.nextSibling);
+    clearHints();
+    var ids = siblingGroups(container).map(function (g) {
+      var rw = rowOf(g);
+      return rw ? +rw.getAttribute('data-cat-id') : null;
+    }).filter(Boolean);
+    fetch('/admin/categories/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ parent_id: draggedParent || null, ids: ids })
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (!data.ok) window.location.reload();
+    }).catch(function () { window.location.reload(); });
   });
 })();
 </script>

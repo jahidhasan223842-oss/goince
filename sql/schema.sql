@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS categories (
   slug VARCHAR(150) DEFAULT NULL,
   meta_title VARCHAR(255) DEFAULT NULL,
   meta_description TEXT DEFAULT NULL,
+  banner_url VARCHAR(500) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY idx_categories_slug (slug),
   FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE
