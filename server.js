@@ -19,7 +19,7 @@ const app = express();
 
 // Site settings (Admin > Settings theke bodlano jay): hero, announcement,
 // address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
-const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode'];
+const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url'];
 const SITE_SETTING_DEFAULTS = {
   hero_title: 'Cash on Delivery — sara Bangladesh-e delivery',
   hero_subtitle: 'Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery. Order korar age phone-e confirm kora hoy.',
@@ -36,7 +36,10 @@ const SITE_SETTING_DEFAULTS = {
   gateway_provider: 'none',
   gateway_enabled: '0',
   gateway_store_id: '',
-  gateway_mode: 'sandbox'
+  gateway_mode: 'sandbox',
+  logo_url: '/icons/icon-192.png',
+  favicon_url: '/icons/icon-192.png',
+  og_image_url: '/icons/icon-512.png'
 };
 
 // ---------- Auto-create tables needed by newer features ----------
@@ -224,6 +227,9 @@ app.use(async (req, res, next) => {
       SITE_SETTING_KEYS);
     res.locals.siteSettings = { ...SITE_SETTING_DEFAULTS };
     srows.forEach(r => { res.locals.siteSettings[r.setting_key] = r.setting_value || ''; });
+    if (!res.locals.siteSettings.logo_url) res.locals.siteSettings.logo_url = SITE_SETTING_DEFAULTS.logo_url;
+    if (!res.locals.siteSettings.favicon_url) res.locals.siteSettings.favicon_url = SITE_SETTING_DEFAULTS.favicon_url;
+    if (!res.locals.siteSettings.og_image_url) res.locals.siteSettings.og_image_url = SITE_SETTING_DEFAULTS.og_image_url;
     if (!res.locals.siteSettings.hero_title) res.locals.siteSettings.hero_title = SITE_SETTING_DEFAULTS.hero_title;
     if (!res.locals.siteSettings.hero_subtitle) res.locals.siteSettings.hero_subtitle = SITE_SETTING_DEFAULTS.hero_subtitle;
   } catch (err) {

@@ -934,7 +934,7 @@ router.post('/delivery-zones/delete/:id', requireAdmin, async (req, res) => {
 
 router.get('/settings', requireAdmin, async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url')"
   );
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
@@ -962,14 +962,24 @@ router.get('/settings', requireAdmin, async (req, res) => {
     gatewayStoreId: get('gateway_store_id', ''),
     gatewayMode: get('gateway_mode', 'sandbox'),
     gatewayPasswordSet: !!get('gateway_store_password', ''),
+    logoUrl: get('logo_url', '/icons/icon-192.png'),
+    faviconUrl: get('favicon_url', '/icons/icon-192.png'),
+    ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
     products,
     message: null,
     siteName: 'Goince'
   });
 });
 
-router.post('/settings', requireAdmin, async (req, res) => {
+router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), async (req, res) => {
   const shopPhone = (req.body.shop_phone || '').trim();
+  // Logo upload: file dile setai use hobe, na dile URL field-er value, duitai khali thakle ager-ta-i thakbe
+  const logoFromFile = (req.files && req.files.logo_file && req.files.logo_file[0]) ? ('/uploads/' + req.files.logo_file[0].filename) : '';
+  const faviconFromFile = (req.files && req.files.favicon_file && req.files.favicon_file[0]) ? ('/uploads/' + req.files.favicon_file[0].filename) : '';
+  const ogFromFile = (req.files && req.files.og_file && req.files.og_file[0]) ? ('/uploads/' + req.files.og_file[0].filename) : '';
+  const logoUrl = logoFromFile || (req.body.logo_url || '').trim();
+  const faviconUrl = faviconFromFile || (req.body.favicon_url || '').trim();
+  const ogImageUrl = ogFromFile || (req.body.og_image_url || '').trim();
   const deliveryChargeInside = parseFloat(req.body.delivery_charge_inside);
   const deliveryChargeOutside = parseFloat(req.body.delivery_charge_outside);
 
@@ -996,7 +1006,10 @@ router.post('/settings', requireAdmin, async (req, res) => {
     ['gateway_provider', ['none', 'sslcommerz', 'shurjopay', 'bkash'].includes(req.body.gateway_provider) ? req.body.gateway_provider : 'none'],
     ['gateway_enabled', req.body.gateway_enabled === '1' ? '1' : '0'],
     ['gateway_store_id', (req.body.gateway_store_id || '').trim()],
-    ['gateway_mode', req.body.gateway_mode === 'live' ? 'live' : 'sandbox']
+    ['gateway_mode', req.body.gateway_mode === 'live' ? 'live' : 'sandbox'],
+    ['logo_url', logoUrl || '/icons/icon-192.png'],
+    ['favicon_url', faviconUrl || '/icons/icon-192.png'],
+    ['og_image_url', ogImageUrl || '/icons/icon-512.png']
   ];
   // Gateway password khali rakhle purono-ta-i thakbe (form-e kokhono dekhano hoy na)
   if ((req.body.gateway_store_password || '').trim()) {
@@ -1034,6 +1047,9 @@ router.post('/settings', requireAdmin, async (req, res) => {
     gatewayStoreId: (req.body.gateway_store_id || '').trim(),
     gatewayMode: req.body.gateway_mode === 'live' ? 'live' : 'sandbox',
     gatewayPasswordSet,
+    logoUrl: logoUrl || '/icons/icon-192.png',
+    faviconUrl: faviconUrl || '/icons/icon-192.png',
+    ogImageUrl: ogImageUrl || '/icons/icon-512.png',
     products,
     message: 'Settings update hoyeche! Homepage/footer-e shathe shathe dekhabe.',
     siteName: 'Goince'

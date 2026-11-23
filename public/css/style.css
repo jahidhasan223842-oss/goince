@@ -873,3 +873,8 @@ a { text-decoration: none; color: inherit; }
   .why-grid { grid-template-columns: repeat(2, 1fr); }
   .search-form { max-width: none; width: 100%; order: 3; }
 }
+
+.admin-logo-mark { width: 32px; height: 32px; border-radius: 8px; vertical-align: middle; margin-right: 6px; }
+.admin-login-logo { width: 64px; height: 64px; border-radius: 14px; display: block; margin: 0 auto 10px; }
+.admin-login-box { text-align: center; }
+.admin-login-box form { text-align: left; }

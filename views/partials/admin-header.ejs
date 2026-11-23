@@ -6,8 +6,8 @@
   <title>Admin - <%= siteName %></title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1a1a2e">
-  <link rel="icon" href="/icons/icon-192.png">
-  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
+  <link rel="apple-touch-icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
   <script>
     (function () {
       var t = localStorage.getItem('goince-theme') || 'dark';
@@ -19,7 +19,7 @@
 <body class="admin-body">
   <div class="admin-wrapper">
     <aside class="admin-sidebar">
-      <h2><%= siteName %></h2>
+      <h2><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <%= siteName %></h2>
       <nav>
         <a href="/admin/dashboard">🏠 Dashboard</a>
         <p class="admin-nav-group">Dokan</p>
