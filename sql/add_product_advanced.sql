@@ -1,0 +1,30 @@
+-- Add Product advanced fields (fresh install-er jonno; server.js start howar
+-- somoy ei column gulo nije thekeo baniye ney, tai haate run kora optional)
+-- mysql -u root -p -f goince_db < sql/add_product_advanced.sql
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS sku VARCHAR(100) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS cost_price DECIMAL(10,2) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS brand VARCHAR(100) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS tags VARCHAR(500) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS weight_kg DECIMAL(8,2) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'published',
+  ADD COLUMN IF NOT EXISTS scheduled_at DATETIME DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS is_featured TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_new TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS free_shipping TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS cod_allowed TINYINT(1) NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS low_stock_threshold INT NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS slug VARCHAR(255) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS meta_title VARCHAR(255) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS meta_description VARCHAR(500) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS image_alt VARCHAR(255) DEFAULT NULL;
+CREATE TABLE IF NOT EXISTS related_products (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  related_id INT NOT NULL,
+  sort_order INT DEFAULT 0,
+  UNIQUE KEY uq_related (product_id, related_id),
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (related_id) REFERENCES products(id) ON DELETE CASCADE
+);
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS cost_price DECIMAL(10,2) DEFAULT NULL;

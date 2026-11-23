@@ -11,6 +11,49 @@ function requireAdmin(req, res, next) {
   res.redirect('/admin/login');
 }
 
+// ---------- ADD PRODUCT: advanced fields ----------
+function slugify(text) {
+  return String(text || '').toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 200);
+}
+async function uniqueSlug(base, excludeId) {
+  let slug = slugify(base) || 'product';
+  let candidate = slug, n = 2;
+  while (true) {
+    const [rows] = await db.query('SELECT id FROM products WHERE slug = ? AND id != ?', [candidate, excludeId || 0]);
+    if (!rows.length) return candidate;
+    candidate = slug + '-' + (n++);
+  }
+}
+function parseProductAdvanced(body) {
+  const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+  return {
+    sku: (body.sku || '').trim() || null,
+    cost_price: num(body.cost_price),
+    brand: (body.brand || '').trim() || null,
+    tags: (body.tags || '').trim() || null,
+    weight_kg: num(body.weight_kg),
+    status: body.status === 'draft' ? 'draft' : 'published',
+    scheduled_at: (body.scheduled_at || '').trim() || null,
+    is_featured: body.is_featured === '1' ? 1 : 0,
+    is_new: body.is_new === '1' ? 1 : 0,
+    free_shipping: body.free_shipping === '1' ? 1 : 0,
+    cod_allowed: body.cod_allowed === '0' ? 0 : 1,
+    low_stock_threshold: parseInt(body.low_stock_threshold, 10) || 5,
+    slug: slugify(body.slug || body.name || ''),
+    meta_title: (body.meta_title || '').trim() || null,
+    meta_description: (body.meta_description || '').trim() || null,
+    image_alt: (body.image_alt || '').trim() || null
+  };
+}
+async function saveRelatedProducts(productId, relatedIds) {
+  await db.query('DELETE FROM related_products WHERE product_id = ?', [productId]);
+  const ids = [...new Set((Array.isArray(relatedIds) ? relatedIds : (relatedIds ? [relatedIds] : [])).map(v => parseInt(v, 10)).filter(v => !isNaN(v) && v !== productId))];
+  for (const rid of ids) {
+    await db.query('INSERT IGNORE INTO related_products (product_id, related_id) VALUES (?, ?)', [productId, rid]);
+  }
+}
+
 // ---------- ADMIN LOGIN (5 bar bhul dile 10 minute er jonno lock) ----------
 const loginAttempts = {}; // { ip: { count, lockUntil } } — in-memory, resets when the server restarts
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -219,8 +262,8 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
     const [[{ totalRevenue }]] = await db.query("SELECT COALESCE(SUM(total_amount),0) AS totalRevenue FROM orders WHERE status != 'Cancelled'");
     const [[{ totalCustomers }]] = await db.query('SELECT COUNT(*) AS totalCustomers FROM users');
     const [pendingOrders] = await db.query("SELECT * FROM orders WHERE status = 'Pending' ORDER BY created_at DESC LIMIT 5");
-    const [lowStockProducts] = await db.query('SELECT * FROM products WHERE stock <= 10 ORDER BY stock ASC LIMIT 5');
-    const [[{ lowStockCount }]] = await db.query('SELECT COUNT(*) AS lowStockCount FROM products WHERE stock <= 10 AND stock > 0');
+    const [lowStockProducts] = await db.query('SELECT * FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) ORDER BY stock ASC LIMIT 5');
+    const [[{ lowStockCount }]] = await db.query('SELECT COUNT(*) AS lowStockCount FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) AND stock > 0');
     const [[{ outOfStockCount }]] = await db.query('SELECT COUNT(*) AS outOfStockCount FROM products WHERE stock = 0');
 
     // Keep existing reporting semantics: all non-cancelled orders are counted as sales.
@@ -316,20 +359,28 @@ router.get('/products', requireAdmin, async (req, res) => {
 // ---------- ADD PRODUCT ----------
 router.get('/products/add', requireAdmin, async (req, res) => {
   const [categories] = await db.query('SELECT * FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, name');
-  res.render('admin/add-product', { categories, product: null, galleryImages: [], options: [], siteName: 'Goince' });
+  const [allProducts] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
+  res.render('admin/add-product', { categories, product: null, galleryImages: [], options: [], relatedIds: [], allProducts, videos: [], siteName: 'Goince' });
 });
 
-router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }]), async (req, res) => {
+router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
   try {
     const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_values, custom_sizes } = req.body;
+    const adv = parseProductAdvanced(req.body);
+    adv.slug = await uniqueSlug(adv.slug || name);
     const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
     const audience = allowedAudiences.includes(target_audience) ? target_audience : 'all';
     const image = (req.files && req.files.image) ? req.files.image[0].filename : 'no-image.png';
 
     const [result] = await db.query(
-      'INSERT INTO products (category_id, target_audience, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [category_id || null, audience, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null]
+      'INSERT INTO products (category_id, target_audience, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link, sku, cost_price, brand, tags, weight_kg, status, scheduled_at, is_featured, is_new, free_shipping, cod_allowed, low_stock_threshold, slug, meta_title, meta_description, image_alt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [category_id || null, audience, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null, adv.sku, adv.cost_price, adv.brand, adv.tags, adv.weight_kg, adv.status, adv.scheduled_at, adv.is_featured, adv.is_new, adv.free_shipping, adv.cod_allowed, adv.low_stock_threshold, adv.slug, adv.meta_title, adv.meta_description, adv.image_alt]
     );
+    // Product video (thakle)
+    if (req.files && req.files.video) {
+      await db.query('INSERT INTO product_videos (product_id, filename) VALUES (?, ?)', [result.insertId, req.files.video[0].filename]);
+    }
+    await saveRelatedProducts(result.insertId, req.body.related_ids);
 
     // Add any extra gallery images to the product_images table
     if (req.files && req.files.gallery) {
@@ -381,28 +432,39 @@ router.get('/products/edit/:id', requireAdmin, async (req, res) => {
   const [categories] = await db.query('SELECT * FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, name');
   const [galleryImages] = await db.query('SELECT * FROM product_images WHERE product_id = ?', [req.params.id]);
   const [options] = await db.query('SELECT * FROM product_options WHERE product_id = ? ORDER BY sort_order, id', [req.params.id]);
-  res.render('admin/add-product', { categories, product: rows[0], galleryImages, options, siteName: 'Goince' });
+  const [relatedRows] = await db.query('SELECT related_id FROM related_products WHERE product_id = ?', [req.params.id]);
+  const [allProducts] = await db.query('SELECT id, name FROM products WHERE id != ? ORDER BY created_at DESC', [req.params.id]);
+  const [videos] = await db.query('SELECT * FROM product_videos WHERE product_id = ?', [req.params.id]);
+  res.render('admin/add-product', { categories, product: rows[0], galleryImages, options, relatedIds: relatedRows.map(r => r.related_id), allProducts, videos, siteName: 'Goince' });
 });
 
-router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }]), async (req, res) => {
+router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
   try {
     const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_management, size_values, custom_sizes } = req.body;
+    const adv = parseProductAdvanced(req.body);
+    adv.slug = await uniqueSlug(adv.slug || name, req.params.id);
     const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
     const audience = allowedAudiences.includes(target_audience) ? target_audience : 'all';
     const id = req.params.id;
     const mainImage = (req.files && req.files.image) ? req.files.image[0].filename : null;
 
+    const advValues = [adv.sku, adv.cost_price, adv.brand, adv.tags, adv.weight_kg, adv.status, adv.scheduled_at, adv.is_featured, adv.is_new, adv.free_shipping, adv.cod_allowed, adv.low_stock_threshold, adv.slug, adv.meta_title, adv.meta_description, adv.image_alt];
+    const advSet = 'sku=?, cost_price=?, brand=?, tags=?, weight_kg=?, status=?, scheduled_at=?, is_featured=?, is_new=?, free_shipping=?, cod_allowed=?, low_stock_threshold=?, slug=?, meta_title=?, meta_description=?, image_alt=?';
     if (mainImage) {
       await db.query(
-        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, target_audience=?, image=?, source_link=? WHERE id=?',
-        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, audience, mainImage, source_link || null, id]
+        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, target_audience=?, image=?, source_link=?, ' + advSet + ' WHERE id=?',
+        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, audience, mainImage, source_link || null, ...advValues, id]
       );
     } else {
       await db.query(
-        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, target_audience=?, source_link=? WHERE id=?',
-        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, audience, source_link || null, id]
+        'UPDATE products SET name=?, description=?, short_description=?, specifications=?, price=?, compare_at_price=?, stock=?, category_id=?, target_audience=?, source_link=?, ' + advSet + ' WHERE id=?',
+        [name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, category_id || null, audience, source_link || null, ...advValues, id]
       );
     }
+    if (req.files && req.files.video) {
+      await db.query('INSERT INTO product_videos (product_id, filename) VALUES (?, ?)', [id, req.files.video[0].filename]);
+    }
+    await saveRelatedProducts(id, req.body.related_ids);
 
     // New gallery images are added alongside the existing ones (they are not removed)
     if (req.files && req.files.gallery) {
@@ -462,6 +524,63 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
       </div>
     `);
   }
+});
+
+// ---------- DUPLICATE PRODUCT ----------
+router.post('/products/:id/duplicate', requireAdmin, async (req, res) => {
+  const [[p]] = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+  if (!p) return res.redirect('/admin/products');
+  const slug = await uniqueSlug((p.slug || slugify(p.name)) + '-copy');
+  const [result] = await db.query(
+    'INSERT INTO products (category_id, target_audience, name, description, short_description, specifications, price, compare_at_price, stock, image, source_link, sku, cost_price, brand, tags, weight_kg, status, scheduled_at, is_featured, is_new, free_shipping, cod_allowed, low_stock_threshold, slug, meta_title, meta_description, image_alt) SELECT category_id, target_audience, CONCAT(name, " (Copy)"), description, short_description, specifications, price, compare_at_price, stock, image, source_link, NULL, cost_price, brand, tags, weight_kg, "draft", NULL, is_featured, is_new, free_shipping, cod_allowed, low_stock_threshold, ?, meta_title, meta_description, image_alt FROM products WHERE id = ?',
+    [slug, req.params.id]
+  );
+  const [imgs] = await db.query('SELECT image FROM product_images WHERE product_id = ?', [req.params.id]);
+  for (const g of imgs) await db.query('INSERT INTO product_images (product_id, image) VALUES (?, ?)', [result.insertId, g.image]);
+  const [opts] = await db.query('SELECT * FROM product_options WHERE product_id = ?', [req.params.id]);
+  for (const o of opts) await db.query('INSERT INTO product_options (product_id, option_label, value_name, color_hex, image, sort_order) VALUES (?, ?, ?, ?, ?, ?)', [result.insertId, o.option_label, o.value_name, o.color_hex, o.image, o.sort_order]);
+  res.redirect('/admin/products/edit/' + result.insertId);
+});
+
+// ---------- CSV IMPORT / EXPORT ----------
+router.get('/products/import', requireAdmin, (req, res) => {
+  res.render('admin/import-products', { result: null, siteName: 'Goince' });
+});
+router.post('/products/import', requireAdmin, upload.single('csv'), async (req, res) => {
+  let added = 0, skipped = 0; const errors = [];
+  try {
+    const fs = require('fs');
+    const text = fs.readFileSync(req.file.path, 'utf8');
+    fs.unlinkSync(req.file.path);
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const idx = (name) => header.indexOf(name);
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const name = cols[idx('name')] || '';
+      const price = parseFloat(cols[idx('price')]);
+      if (!name || isNaN(price)) { skipped++; continue; }
+      try {
+        const slug = await uniqueSlug(slugify(name));
+        await db.query(
+          'INSERT INTO products (name, price, cost_price, stock, sku, brand, tags, category_id, status, slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [name, price, parseFloat(cols[idx('cost_price')]) || null, parseInt(cols[idx('stock')], 10) || 0, cols[idx('sku')] || null, cols[idx('brand')] || null, cols[idx('tags')] || null, parseInt(cols[idx('category_id')], 10) || null, 'published', slug]
+        );
+        added++;
+      } catch (e) { skipped++; errors.push('Row ' + (i + 1) + ': ' + (e.sqlMessage || e.message)); }
+    }
+  } catch (e) { errors.push(e.message); }
+  res.render('admin/import-products', { result: { added, skipped, errors: errors.slice(0, 10) }, siteName: 'Goince' });
+});
+router.get('/products/export', requireAdmin, async (req, res) => {
+  const [products] = await db.query('SELECT id, name, price, cost_price, stock, sku, brand, tags, category_id, status, slug FROM products ORDER BY id');
+  const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const csv = ['id,name,price,cost_price,stock,sku,brand,tags,category_id,status,slug'].concat(
+    products.map(p => [p.id, p.name, p.price, p.cost_price, p.stock, p.sku, p.brand, p.tags, p.category_id, p.status, p.slug].map(esc).join(','))
+  ).join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="goince-products.csv"');
+  res.send(csv);
 });
 
 // ---------- DELETE A SINGLE GALLERY IMAGE ----------
@@ -1152,6 +1271,21 @@ router.get('/reports', requireAdmin, async (req, res) => {
       params
     );
 
+    // Profit: revenue - cost (order_items.cost_price, order-er somoy-er kena dam)
+    let totalCost = 0, totalProfit = 0;
+    try {
+      const [[profitRow]] = await db.query(
+        `SELECT COALESCE(SUM(order_items.quantity * order_items.cost_price), 0) AS totalCost,
+                COALESCE(SUM(order_items.quantity * (order_items.price - order_items.cost_price)), 0) AS totalProfit
+         FROM order_items
+         JOIN orders ON orders.id = order_items.order_id
+         WHERE ${dateCondition} AND orders.status != 'Cancelled'`,
+        params
+      );
+      totalCost = Number(profitRow.totalCost || 0);
+      totalProfit = Number(profitRow.totalProfit || 0);
+    } catch (e) { /* purono order-e cost_price na thakle 0 */ }
+
     // The best-selling products in this period (top 5)
     const [topProducts] = await db.query(
       `SELECT order_items.product_name,
@@ -1178,7 +1312,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
 
     res.render('admin/reports', {
       period, periodLabel, summary, itemsSummary, cancelledSummary,
-      topProducts, orders, customFrom, customTo, siteName: 'Goince'
+      topProducts, orders, customFrom, customTo, totalCost, totalProfit, siteName: 'Goince'
     });
   } catch (err) {
     console.error(err);

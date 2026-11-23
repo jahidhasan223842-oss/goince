@@ -2,7 +2,11 @@
 
 <div class="admin-page-header">
   <h1>Products</h1>
-  <a href="/admin/products/add" class="btn-primary">+ Add New Product</a>
+  <span>
+    <a href="/admin/products/add" class="btn-primary">+ Add New Product</a>
+    <a href="/admin/products/import" class="btn-primary" style="background:var(--navy);">⇪ Import CSV</a>
+    <a href="/admin/products/export" class="btn-primary" style="background:var(--navy);">⇩ Export CSV</a>
+  </span>
 </div>
 
 <div class="table-responsive">
@@ -14,6 +18,8 @@
       <th>Category</th>
       <th>Audience</th>
       <th>Price</th>
+      <th>Cost / Profit</th>
+      <th>Status</th>
       <th>Stock</th>
       <th>Video</th>
       <th>Actions</th>
@@ -27,6 +33,8 @@
         <td><%= p.category_name || '-' %></td>
         <td><%= p.target_audience && p.target_audience !== 'all' ? (p.target_audience.charAt(0).toUpperCase() + p.target_audience.slice(1)) : 'All / General' %></td>
         <td>৳<%= p.price %></td>
+        <td><% if (p.cost_price != null) { %>৳<%= p.cost_price %> / <strong style="color:green;">+৳<%= (p.price - p.cost_price).toFixed(0) %></strong><% } else { %>-<% } %></td>
+        <td><% if (p.status === 'draft') { %><span class="status-badge status-cancelled">Draft</span><% } else if (p.scheduled_at && new Date(p.scheduled_at) > new Date()) { %><span class="status-badge">Scheduled</span><% } else { %><span class="status-badge status-delivered">Published</span><% } %><% if (p.is_featured) { %><br><small>⭐ Featured</small><% } %><% if (p.is_new) { %><br><small>🆕 New</small><% } %></td>
         <td><%= p.stock %></td>
         <td style="min-width:160px;">
           <% if (p.video_filename) { %>
@@ -46,6 +54,7 @@
         </td>
         <td>
           <a href="/admin/products/edit/<%= p.id %>">Edit</a> |
+          <form action="/admin/products/<%= p.id %>/duplicate" method="POST" style="display:inline"><button type="submit" class="link-btn-danger" style="color:#2196f3;">Duplicate</button></form> |
           <form action="/admin/products/delete/<%= p.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');">
             <button type="submit" class="link-btn-danger">Delete</button>
           </form>
