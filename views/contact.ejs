@@ -9,6 +9,24 @@
     <li><strong>Order track:</strong> <a href="/track-order">Track Order</a> page-e Order ID ar phone number dao.</li>
   </ul>
   <p class="field-hint">Order niye likhle Order ID-ta sathe dio — tahole amra taratari khuje ber korte parbo.</p>
+
+  <% if (success) { %><p class="success-msg"><%= success %></p><% } %>
+  <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
+
+  <h3>Message Pathao</h3>
+  <form action="/contact" method="POST" class="admin-form" style="max-width:480px;">
+    <label>Your Name *</label>
+    <input type="text" name="name" required>
+    <label>Phone (optional)</label>
+    <input type="tel" name="phone" placeholder="01XXXXXXXXX">
+    <label>Email (optional)</label>
+    <input type="email" name="email" placeholder="you@example.com">
+    <label>Subject</label>
+    <input type="text" name="subject" placeholder="jemon: Order, Return, Product question">
+    <label>Message *</label>
+    <textarea name="message" rows="4" required></textarea>
+    <button type="submit" class="btn-primary">Send Message</button>
+  </form>
   <h3>Delivery somoy</h3>
   <p>Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 din. Chhuti ba courier-er deri hole ektu somoy beshi lagte pare.</p>
 </div>

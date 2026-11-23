@@ -5,6 +5,8 @@
         <h3><%= siteName %></h3>
         <p>Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.</p>
         <p>📞 <a href="tel:<%= shopPhone %>"><%= shopPhone %></a></p>
+        <% if (typeof siteSettings !== 'undefined' && siteSettings.shop_address) { %><p>📍 <%= siteSettings.shop_address %></p><% } %>
+        <% if (typeof siteSettings !== 'undefined' && siteSettings.facebook_url) { %><p>📘 <a href="<%= siteSettings.facebook_url %>" target="_blank" rel="noopener">Facebook Page</a></p><% } %>
       </div>
       <div>
         <h3>Quick Links</h3>
@@ -23,6 +25,7 @@
     </div>
     <div class="container">
       <p class="footer-trust">✅ Cash on Delivery &nbsp;·&nbsp; 🚚 Fast Delivery &nbsp;·&nbsp; 🔄 24h Return (defective/wrong product) &nbsp;·&nbsp; 💬 WhatsApp Support</p>
+      <p class="footer-payments">💳 Payment: Cash on Delivery<% if (typeof paymentMethods !== 'undefined' && paymentMethods && paymentMethods.length) { %> · <%= paymentMethods.map(function (m) { return m.method_name; }).join(' · ') %><% } %></p>
       <p>&copy; <%= new Date().getFullYear() %> <%= siteName %>. All rights reserved.</p>
     </div>
   </footer>
@@ -50,6 +53,32 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
   <% } %>
 
   <script src="/js/theme.js"></script>
+  <script>
+    // Search suggestions: type korlei product-er naam/daam dekhabe
+    (function () {
+      var input = document.getElementById('search-input');
+      var box = document.getElementById('search-suggestions');
+      if (!input || !box) return;
+      var timer = null;
+      input.addEventListener('input', function () {
+        clearTimeout(timer);
+        var q = input.value.trim();
+        if (q.length < 2) { box.hidden = true; box.innerHTML = ''; return; }
+        timer = setTimeout(function () {
+          fetch('/api/search-suggestions?q=' + encodeURIComponent(q))
+            .then(function (r) { return r.json(); })
+            .then(function (items) {
+              if (!items.length) { box.hidden = true; box.innerHTML = ''; return; }
+              box.innerHTML = items.map(function (it) {
+                return '<a href="/product/' + it.id + '">' + it.name.replace(/</g, '&lt;') + ' <span>৳' + it.price + '</span></a>';
+              }).join('');
+              box.hidden = false;
+            }).catch(function () { box.hidden = true; });
+        }, 250);
+      });
+      document.addEventListener('click', function (e) { if (!box.contains(e.target) && e.target !== input) box.hidden = true; });
+    })();
+  </script>
   <script>
     // WhatsApp button: pre-fill the message (adds the product link on product pages) and track the click
     (function () {

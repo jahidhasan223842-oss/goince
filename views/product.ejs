@@ -96,6 +96,11 @@
       <p>📦 Estimated Delivery: Inside Dhaka 1–2 din, Outside Dhaka 3–5 din</p>
     </div>
 
+    <div class="share-box">
+      <span>Share:</span>
+      <a href="https://wa.me/?text=<%= encodeURIComponent(product.name + ' — ৳' + product.price + ' | Goince') %>" target="_blank" rel="noopener">WhatsApp</a>
+      <button type="button" onclick="copyProductLink()">🔗 Copy Link</button>
+    </div>
     <a href="/" class="back-link">&larr; Back to shop</a>
   </div>
 </div>
@@ -171,6 +176,16 @@
 <% } %>
 
 <script>
+  function copyProductLink() {
+    navigator.clipboard.writeText(location.href).then(function () { alert('Link copied!'); });
+  }
+  // Recently viewed-e save kora (homepage-e dekhabe)
+  try {
+    var recent = JSON.parse(localStorage.getItem('goince-recent') || '[]');
+    recent = recent.filter(function (it) { return it.id !== <%= product.id %>; });
+    recent.unshift({ id: <%= product.id %>, name: <%- JSON.stringify(product.name) %>, price: <%= product.price %>, image: <%- JSON.stringify(product.image || 'no-image.png') %> });
+    localStorage.setItem('goince-recent', JSON.stringify(recent.slice(0, 4)));
+  } catch (e) {}
   function swapImage(el, src) {
     document.getElementById('main-product-image').src = src;
     document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));

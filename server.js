@@ -17,12 +17,33 @@ const helmet = require('helmet');
 
 const app = express();
 
+// Site settings (Admin > Settings theke bodlano jay): hero, announcement,
+// address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
+const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url'];
+const SITE_SETTING_DEFAULTS = {
+  hero_title: 'Cash on Delivery — sara Bangladesh-e delivery',
+  hero_subtitle: 'Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery. Order korar age phone-e confirm kora hoy.',
+  announcement_text: '',
+  shop_address: '',
+  facebook_url: ''
+};
+
 // ---------- Auto-create tables needed by newer features ----------
 // Runs on every start and does nothing if the table already exists, so a new
 // feature's table never has to be created by hand on the live database.
 (async () => {
   try {
     const db = require('./config/db');
+    await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      phone VARCHAR(20) DEFAULT NULL,
+      email VARCHAR(255) DEFAULT NULL,
+      subject VARCHAR(255) DEFAULT NULL,
+      message TEXT NOT NULL,
+      is_read TINYINT(1) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
     await db.query(`CREATE TABLE IF NOT EXISTS product_videos (
       id INT AUTO_INCREMENT PRIMARY KEY,
       product_id INT NOT NULL,
@@ -158,14 +179,22 @@ app.use(async (req, res, next) => {
   res.locals.userName = req.session.userName || null;
   res.locals.cartCount = (req.session.cart || []).reduce((sum, item) => sum + item.quantity, 0);
 
-  // Shop phone number Database theke real-time e neya, jate Admin Panel theke
-  // change korle shathe shathe (server restart chara-i) effect hoy
+  // Shop phone + site settings Database theke real-time e neya, jate Admin Panel
+  // theke change korle shathe shathe (server restart chara-i) effect hoy
   try {
     const db = require('./config/db');
     const [[row]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
     res.locals.shopPhone = row ? row.setting_value : (process.env.SHOP_PHONE || '+8801XXXXXXXXX');
+    const [srows] = await db.query(
+      `SELECT setting_key, setting_value FROM settings WHERE setting_key IN (${SITE_SETTING_KEYS.map(() => '?').join(',')})`,
+      SITE_SETTING_KEYS);
+    res.locals.siteSettings = { ...SITE_SETTING_DEFAULTS };
+    srows.forEach(r => { res.locals.siteSettings[r.setting_key] = r.setting_value || ''; });
+    if (!res.locals.siteSettings.hero_title) res.locals.siteSettings.hero_title = SITE_SETTING_DEFAULTS.hero_title;
+    if (!res.locals.siteSettings.hero_subtitle) res.locals.siteSettings.hero_subtitle = SITE_SETTING_DEFAULTS.hero_subtitle;
   } catch (err) {
     res.locals.shopPhone = process.env.SHOP_PHONE || '+8801XXXXXXXXX';
+    res.locals.siteSettings = { ...SITE_SETTING_DEFAULTS };
   }
 
   next();
@@ -179,7 +208,7 @@ app.use('/admin', adminRoutes);
 
 // ---------- 404 Handler ----------
 app.use((req, res) => {
-  res.status(404).send('<h1>404 - Page Not Found</h1><a href="/">Go Home</a>');
+  res.status(404).render('404', { siteName: 'Goince', pageTitle: 'Page Not Found - Goince' });
 });
 
 // ---------- GLOBAL ERROR HANDLER ----------

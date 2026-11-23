@@ -822,3 +822,54 @@ a { text-decoration: none; color: inherit; }
   .trust-bar { grid-template-columns: repeat(2, 1fr); }
   .footer-grid { grid-template-columns: 1fr; }
 }
+
+/* ===== fix/professional-polish ===== */
+.announcement-bar { background: var(--accent); color: var(--navy); text-align: center; font-weight: 600; font-size: 14px; padding: 8px 16px; }
+.logo { display: flex; align-items: center; gap: 8px; }
+.logo-mark { width: 28px; height: 28px; border-radius: 6px; }
+.logo-tag { font-size: 12px; font-weight: 400; color: #fff; opacity: .8; }
+.search-box { position: relative; flex: 1; display: flex; }
+.search-box input { width: 100%; }
+.search-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 0 0 6px 6px; box-shadow: 0 8px 20px var(--shadow-md); z-index: 100; }
+.search-suggestions a { display: flex; justify-content: space-between; padding: 9px 12px; font-size: 14px; border-bottom: 1px solid var(--border); }
+.search-suggestions a:last-child { border-bottom: none; }
+.search-suggestions a:hover { background: var(--bg-hover); }
+.search-suggestions span { font-weight: 700; color: var(--accent-text); }
+.hero { display: flex; gap: 24px; align-items: center; }
+.hero-text { flex: 1; }
+.hero-badge { display: inline-block; background: rgba(255,255,255,.2); border-radius: 20px; padding: 4px 12px; font-size: 13px; margin-bottom: 10px; }
+.hero-image { flex: 0 0 260px; position: relative; display: block; }
+.hero-image img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; }
+.hero-image-caption { display: block; margin-top: 6px; font-size: 13px; color: #fff; opacity: .95; }
+.btn-hero-outline { display: inline-block; border: 2px solid #fff; color: #fff; padding: 9px 18px; border-radius: 6px; font-weight: 600; margin-left: 8px; }
+.card-rating { padding: 0 12px; font-size: 13px; color: var(--accent-text); font-weight: 600; }
+.card-stock-low { padding: 0 12px 4px; font-size: 13px; color: var(--danger); font-weight: 600; }
+.card-stock-out { padding: 0 12px 4px; font-size: 13px; color: var(--text-muted); }
+.btn-card { display: block; margin: 0 12px 14px; text-align: center; background: var(--navy); color: #fff; padding: 9px 12px; border-radius: 6px; font-weight: 600; border: none; width: calc(100% - 24px); cursor: pointer; font-size: 14px; }
+.btn-card:hover { background: var(--navy-2); }
+.product-card form { margin: 0; }
+.why-shop { margin: 10px 0 40px; }
+.why-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.why-grid > div { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.why-grid p { color: var(--text-muted); font-size: 14px; margin-top: 6px; }
+.checkout-steps { display: flex; gap: 10px; align-items: center; margin: 16px 0; font-weight: 600; color: var(--text-muted); }
+.checkout-steps span.active { color: var(--accent-text); }
+.checkout-steps span.done { color: var(--success); }
+.step-arrow { color: var(--border-strong); }
+.share-box { display: flex; gap: 12px; align-items: center; margin: 16px 0; }
+.share-box a, .share-box button { border: 1px solid var(--border-strong); background: var(--surface); padding: 7px 12px; border-radius: 20px; cursor: pointer; font-size: 13px; color: var(--text); }
+.not-found { text-align: center; padding: 60px 20px; }
+.not-found h1 { font-size: 32px; margin-bottom: 10px; }
+.not-found p { margin-bottom: 10px; }
+.footer-payments { color: var(--text-muted); font-size: 14px; }
+.admin-nav-group { color: #8a8aa0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin: 16px 0 4px; padding-left: 4px; }
+.admin-quick-links { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+.admin-quick-links a { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 16px; font-weight: 600; }
+.admin-quick-links a:hover { border-color: var(--accent); }
+@media (max-width: 700px) {
+  .hero { flex-direction: column; align-items: flex-start; }
+  .hero-image { flex: none; width: 100%; }
+  .hero-image img { height: 160px; }
+  .why-grid { grid-template-columns: repeat(2, 1fr); }
+  .search-form { max-width: none; width: 100%; order: 3; }
+}

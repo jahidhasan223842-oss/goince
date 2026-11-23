@@ -1,0 +1,8 @@
+<% /* step: 1 = Cart, 2 = Checkout, 3 = Done */ %>
+<div class="checkout-steps">
+  <span class="<%= step >= 1 ? 'active' : '' %> <%= step > 1 ? 'done' : '' %>">1. Cart</span>
+  <span class="step-arrow">→</span>
+  <span class="<%= step >= 2 ? 'active' : '' %> <%= step > 2 ? 'done' : '' %>">2. Checkout</span>
+  <span class="step-arrow">→</span>
+  <span class="<%= step >= 3 ? 'active' : '' %>">3. Done</span>
+</div>

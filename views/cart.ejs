@@ -1,6 +1,7 @@
 <%- include('partials/header') %>
 
 <h1 class="page-title">Your Cart</h1>
+<%- include('partials/checkout-steps', { step: 1 }) %>
 
 <% if (cart.length === 0) { %>
   <p>Your cart is empty. <a href="/">Continue shopping</a></p>
