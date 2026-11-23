@@ -18,7 +18,7 @@
   <button type="submit" class="btn-primary">Show Report</button>
 </form>
 
-<p class="report-period-label">Showing: <strong><%= periodLabel %></strong></p>
+<p class="report-period-label">Showing: <strong><%= periodLabel %></strong> &nbsp; <a href="/admin/reports/export?period=<%= period %><% if (period === 'custom') { %>&from=<%= customFrom %>&to=<%= customTo %><% } %>" class="btn-primary" style="background:var(--navy);">⇩ Export CSV</a></p>
 
 <div class="report-summary-grid">
   <div class="report-card">
