@@ -86,7 +86,7 @@
 
 <div class="no-print">
   <h3 style="margin-top:30px;">Update Order Status</h3>
-  <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form">
+  <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
     <select name="status">
       <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
         <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s %></option>
@@ -96,7 +96,7 @@
   </form>
 
   <h3 style="margin-top:24px;">Update Payment Status</h3>
-  <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form">
+  <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
     <select name="payment_status">
       <% ['Unpaid','Paid','Partial','Refunded'].forEach(s => { %>
         <option value="<%= s %>" <%= order.payment_status === s ? 'selected' : '' %>><%= s %></option>
@@ -106,7 +106,7 @@
   </form>
 
   <h3 style="margin-top:24px;">Courier / Tracking Info</h3>
-  <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;">
+  <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
     <label>Courier Company</label>
     <input type="text" name="courier_name" value="<%= order.courier_name || '' %>" placeholder="e.g. Pathao, Steadfast">
 

@@ -6,7 +6,7 @@
 
 <p style="color:#666; margin-bottom:20px;">Create attributes such as Size or Color, then add their values (e.g. Small/Medium/Large). From each product's "Variants" page you can use these values to create combinations.</p>
 
-<form action="/admin/attributes/add" method="POST" class="inline-form" style="margin-bottom:30px;">
+<form action="/admin/attributes/add" method="POST" class="inline-form" style="margin-bottom:30px;"><%- include('../partials/csrf-field') %>
   <input type="text" name="name" placeholder="New attribute name (e.g. Size)" required style="padding:10px 12px; border:1px solid #ccc; border-radius:4px; min-width:250px;">
   <button type="submit" class="btn-primary">+ Add Attribute</button>
 </form>
@@ -18,7 +18,7 @@
     <div class="invoice-box" style="margin-bottom:20px;">
       <div class="admin-page-header" style="margin-bottom:12px;">
         <h3><%= attr.name %></h3>
-        <form action="/admin/attributes/delete/<%= attr.id %>" method="POST" onsubmit="return confirm('Deleting this attribute will also delete all of its values, and any product variant combinations created with them will be broken. Are you sure?');">
+        <form action="/admin/attributes/delete/<%= attr.id %>" method="POST" onsubmit="return confirm('Deleting this attribute will also delete all of its values, and any product variant combinations created with them will be broken. Are you sure?');"><%- include('../partials/csrf-field') %>
           <button type="submit" class="link-btn-danger">Delete Attribute</button>
         </form>
       </div>
@@ -30,7 +30,7 @@
           <% attr.values.forEach(v => { %>
             <span class="status-badge status-confirmed" style="display:inline-flex; align-items:center; gap:8px;">
               <%= v.value %>
-              <form action="/admin/attribute-values/delete/<%= v.id %>" method="POST" style="display:inline" onsubmit="return confirm('Deleting this value will also stop matching any product variant created with it. Are you sure?');">
+              <form action="/admin/attribute-values/delete/<%= v.id %>" method="POST" style="display:inline" onsubmit="return confirm('Deleting this value will also stop matching any product variant created with it. Are you sure?');"><%- include('../partials/csrf-field') %>
                 <button type="submit" style="background:none; border:none; color:#fff; cursor:pointer; font-weight:bold;">×</button>
               </form>
             </span>
@@ -38,7 +38,7 @@
         </div>
       <% } %>
 
-      <form action="/admin/attributes/<%= attr.id %>/values/add" method="POST" class="inline-form">
+      <form action="/admin/attributes/<%= attr.id %>/values/add" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
         <input type="text" name="value" placeholder="New value (e.g. Small)" required style="padding:8px 12px; border:1px solid #ccc; border-radius:4px;">
         <button type="submit" class="btn-primary" style="padding:8px 16px;">+ Add Value</button>
       </form>

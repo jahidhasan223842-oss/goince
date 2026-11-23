@@ -28,7 +28,7 @@
           </td>
           <td>৳<%= item.price %></td>
           <td>
-            <form action="/cart/update/<%= item.cartKey %>" method="POST" class="qty-stepper">
+            <form action="/cart/update/<%= item.cartKey %>" method="POST" class="qty-stepper"><%- include('partials/csrf-field') %>
               <button type="submit" name="quantity" value="<%= Math.max(1, item.quantity - 1) %>" class="qty-btn">−</button>
               <input type="number" name="quantity" value="<%= item.quantity %>" min="1" max="<%= item.availableStock %>" class="qty-input">
               <button type="submit" name="quantity" value="<%= item.quantity + 1 %>" class="qty-btn" <%= item.quantity >= item.availableStock ? 'disabled' : '' %>>+</button>
@@ -36,10 +36,10 @@
           </td>
           <td>৳<%= (item.price * item.quantity).toFixed(2) %></td>
           <td class="cart-actions">
-            <form action="/cart/remove/<%= item.cartKey %>" method="POST">
+            <form action="/cart/remove/<%= item.cartKey %>" method="POST"><%- include('partials/csrf-field') %>
               <button type="submit" class="btn-remove">Remove</button>
             </form>
-            <form action="/cart/save-for-later/<%= item.cartKey %>" method="POST">
+            <form action="/cart/save-for-later/<%= item.cartKey %>" method="POST"><%- include('partials/csrf-field') %>
               <button type="submit" class="btn-save-later">Save for later</button>
             </form>
           </td>
@@ -52,12 +52,12 @@
   <div class="coupon-box">
     <% if (coupon) { %>
       <p>✅ Coupon <strong><%= coupon.code %></strong> applied (<%= coupon.discount_percent %>% off)
-        <form action="/cart/remove-coupon" method="POST" style="display:inline">
+        <form action="/cart/remove-coupon" method="POST" style="display:inline"><%- include('partials/csrf-field') %>
           <button type="submit" class="link-btn-danger">Remove</button>
         </form>
       </p>
     <% } else { %>
-      <form action="/cart/apply-coupon" method="POST" class="inline-form">
+      <form action="/cart/apply-coupon" method="POST" class="inline-form"><%- include('partials/csrf-field') %>
         <input type="text" name="coupon_code" placeholder="Have a coupon code?">
         <button type="submit" class="btn-primary">Apply</button>
       </form>

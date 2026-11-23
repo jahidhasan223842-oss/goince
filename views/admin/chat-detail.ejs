@@ -11,7 +11,7 @@
   <% }) %>
 </div>
 
-<form action="/admin/chats/<%= conversation.id %>/reply" method="POST" class="chat-reply-form">
+<form action="/admin/chats/<%= conversation.id %>/reply" method="POST" class="chat-reply-form"><%- include('../partials/csrf-field') %>
   <input type="text" name="message" placeholder="Type your reply..." required autocomplete="off">
   <button type="submit" class="btn-primary">Send</button>
 </form>

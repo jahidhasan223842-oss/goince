@@ -17,7 +17,7 @@
         <td><%= new Date(a.created_at).toLocaleString('en-GB') %></td>
         <td><%= a.stock %></td>
         <td><%= a.notified ? '✅ Ready to contact' : '⏳ Waiting for stock' %></td>
-        <td><% if (!a.notified && a.stock > 0) { %><form action="/admin/stock-alerts/<%= a.id %>/done" method="POST" style="display:inline;"><button type="submit" class="btn-primary" style="padding:4px 10px;">Mark Contacted</button></form><% } %></td>
+        <td><% if (!a.notified && a.stock > 0) { %><form action="/admin/stock-alerts/<%= a.id %>/done" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><button type="submit" class="btn-primary" style="padding:4px 10px;">Mark Contacted</button></form><% } %></td>
       </tr>
     <% }) %>
   </tbody>

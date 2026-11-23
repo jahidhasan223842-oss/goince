@@ -5,7 +5,7 @@
   <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
   <% if (message) { %><p class="success-msg"><%= message %></p><% } %>
 
-  <form action="/account/profile" method="POST">
+  <form action="/account/profile" method="POST"><%- include('../partials/csrf-field') %>
     <label>Full Name</label>
     <input type="text" name="name" value="<%= user.name %>" required>
 
@@ -24,7 +24,7 @@
   <hr style="margin:24px 0;">
 
   <h1>Change Password</h1>
-  <form action="/account/change-password" method="POST">
+  <form action="/account/change-password" method="POST"><%- include('../partials/csrf-field') %>
     <label>Current Password</label>
     <div class="password-wrapper">
       <input type="password" name="current_password" id="profile-pw-current" required>

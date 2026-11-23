@@ -112,7 +112,7 @@
         <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
           <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
         <% } else { %>
-          <form action="/cart/add/<%= p.id %>" method="POST"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+          <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
         <% } %>
       <% } %>
     </div>

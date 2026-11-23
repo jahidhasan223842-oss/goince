@@ -6,7 +6,7 @@
 
   <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
 
-  <form action="/track-order" method="POST" class="admin-form" style="max-width:420px;">
+  <form action="/track-order" method="POST" class="admin-form" style="max-width:420px;"><%- include('partials/csrf-field') %>
     <label>Order ID</label>
     <input type="number" name="order_id" placeholder="jemon: 123" required>
     <label>Phone Number</label>

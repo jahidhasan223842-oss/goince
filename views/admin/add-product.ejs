@@ -28,7 +28,7 @@
   <button type="button" class="btn-primary" id="collapse-all-sections" style="padding:6px 14px; background:var(--navy);">🔼 Collapse All</button>
   <span style="align-self:center; font-size:13px; color:#888;">⠿ ধরে টেনে সেকশন সাজাতে পারবে — তোমার সাজানো মনে থাকবে।</span>
 </div>
-<form action="<%= product ? '/admin/products/edit/' + product.id : '/admin/products/add' %>" method="POST" enctype="multipart/form-data" class="admin-form" id="product-main-form">
+<form action="<%= product ? '/admin/products/edit/' + product.id : '/admin/products/add' %><%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" enctype="multipart/form-data" class="admin-form" id="product-main-form"><%- include('../partials/csrf-field') %>
 <div class="collapsible-section" data-section="basic">
   <div class="section-header">
     <span class="drag-handle" draggable="true" title="Drag to move this section">⠿</span>
@@ -537,7 +537,7 @@
       <% galleryImages.forEach(img => { %>
         <div style="position:relative;">
           <img src="/uploads/<%= img.image %>" class="admin-thumb">
-          <form action="/admin/products/<%= product.id %>/gallery/delete/<%= img.id %>" method="POST" style="margin-top:4px;">
+          <form action="/admin/products/<%= product.id %>/gallery/delete/<%= img.id %>" method="POST" style="margin-top:4px;"><%- include('../partials/csrf-field') %>
             <button type="submit" class="link-btn-danger" style="font-size:11px;">Remove</button>
           </form>
         </div>
@@ -696,7 +696,7 @@
               <span style="display:block;width:45px;height:45px;border-radius:4px;border:1px solid #ddd;background:<%= o.color_hex %>;margin:0 auto 4px;"></span>
             <% } %>
             <span style="font-size:12px;display:block;"><%= o.value_name %></span>
-            <form action="/admin/products/<%= product.id %>/options/delete/<%= o.id %>" method="POST" style="margin-top:4px;">
+            <form action="/admin/products/<%= product.id %>/options/delete/<%= o.id %>" method="POST" style="margin-top:4px;"><%- include('../partials/csrf-field') %>
               <button type="submit" class="link-btn-danger" style="font-size:11px;">Remove</button>
             </form>
           </div>
@@ -704,7 +704,7 @@
       </div>
     <% } %>
 
-    <form action="/admin/products/<%= product.id %>/options/add" method="POST" enctype="multipart/form-data" class="inline-form" style="flex-wrap:wrap;">
+    <form action="/admin/products/<%= product.id %>/options/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" enctype="multipart/form-data" class="inline-form" style="flex-wrap:wrap;"><%- include('../partials/csrf-field') %>
       <input type="text" name="value_name" placeholder="Value (e.g. Red / 1kg)" required>
       <label style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:normal;">
         <input type="checkbox" name="use_color_hex" value="1" onchange="document.getElementById('color_hex_input').style.display = this.checked ? 'inline-block' : 'none';">
@@ -722,7 +722,7 @@
 
 <hr>
 <h3>Quick Add Category</h3>
-<form action="/admin/categories/add" method="POST" class="inline-form">
+<form action="/admin/categories/add" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
   <input type="text" name="name" placeholder="New category name" required>
   <select name="parent_id">
     <option value="">-- Main Category --</option>

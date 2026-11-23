@@ -38,7 +38,7 @@
           <td>
             <a href="/admin/customers/<%= c.id %>">View</a> |
             <a href="/admin/customers/edit/<%= c.id %>">Edit</a> |
-            <form action="/admin/customers/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete this customer? Their orders will stay but unlinked.');">
+            <form action="/admin/customers/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete this customer? Their orders will stay but unlinked.');"><%- include('../partials/csrf-field') %>
               <button type="submit" class="link-btn-danger">Delete</button>
             </form>
           </td>

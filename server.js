@@ -8,6 +8,8 @@ const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
 const path = require('path');
 
+const { csrfProtection } = require('./lib/csrf');
+
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
@@ -333,6 +335,9 @@ app.use(async (req, res, next) => {
 
   next();
 });
+
+// ---------- CSRF protection (session token; shob POST form-e hidden _csrf field lage) ----------
+app.use(csrfProtection);
 
 // ---------- Routes ----------
 app.use('/', shopRoutes);

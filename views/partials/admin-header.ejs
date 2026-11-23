@@ -6,6 +6,7 @@
   <title>Admin - <%= siteName %></title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1a1a2e">
+  <% if (typeof csrfToken !== 'undefined' && csrfToken) { %><meta name="csrf-token" content="<%= csrfToken %>"><% } %>
   <link rel="icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
   <link rel="apple-touch-icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
   <script>

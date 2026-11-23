@@ -12,7 +12,7 @@
   <div class="invoice-box" style="margin-bottom:24px;">
     <p style="color:#666; margin-bottom:16px;">Tick only the Colors/Sizes available for this product, then click <strong>Save</strong> below — they will appear on the website right away. Untick and save again to remove one from the website.</p>
 
-    <form action="/admin/products/<%= product.id %>/variants/sync" method="POST">
+    <form action="/admin/products/<%= product.id %>/variants/sync" method="POST"><%- include('../partials/csrf-field') %>
       <div style="display:flex; gap:30px; flex-wrap:wrap;">
         <% attributes.forEach(attr => { %>
           <div>
@@ -46,7 +46,7 @@
           <tr>
             <td><%= v.label || '-' %><% if (v.image) { %><br><img src="/uploads/<%= v.image %>" style="width:48px; height:48px; object-fit:cover; border-radius:4px; margin-top:4px;"><% } %></td>
             <td>
-              <form action="/admin/products/<%= product.id %>/variants/<%= v.id %>/update" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <form action="/admin/products/<%= product.id %>/variants/<%= v.id %>/update<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;"><%- include('../partials/csrf-field') %>
                 <input type="number" name="stock" value="<%= v.stock %>" min="0" title="Stock" style="width:70px; padding:6px; border:1px solid #ccc; border-radius:4px;">
                 <input type="number" step="0.01" name="price" value="<%= v.price !== null ? v.price : '' %>" placeholder="৳ price" title="Price (blank = product price)" style="width:100px; padding:6px; border:1px solid #ccc; border-radius:4px;">
                 <input type="number" step="0.01" name="compare_at_price" value="<%= v.compare_at_price !== null && v.compare_at_price !== undefined ? v.compare_at_price : '' %>" placeholder="৳ old price" title="Old price — shows a discount on this variant" style="width:100px; padding:6px; border:1px solid #ccc; border-radius:4px;">
@@ -56,7 +56,7 @@
               </form>
             </td>
             <td>
-              <form action="/admin/products/<%= product.id %>/variants/delete/<%= v.id %>" method="POST" onsubmit="return confirm('Remove this combination? (Unticking its checkbox and saving will do the same.)');">
+              <form action="/admin/products/<%= product.id %>/variants/delete/<%= v.id %>" method="POST" onsubmit="return confirm('Remove this combination? (Unticking its checkbox and saving will do the same.)');"><%- include('../partials/csrf-field') %>
                 <button type="submit" class="link-btn-danger">Remove</button>
               </form>
             </td>

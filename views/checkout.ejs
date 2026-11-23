@@ -22,7 +22,7 @@
     <h3 class="summary-grand-total"><span>Total</span><span>৳<span id="total-display"><%= total.toFixed(2) %></span></span></h3>
   </div>
 
-  <form action="/checkout" method="POST" class="checkout-form">
+  <form action="/checkout" method="POST" class="checkout-form"><%- include('partials/csrf-field') %>
     <% if (typeof error !== 'undefined' && error) { %>
       <p class="error-msg"><%= error %></p>
     <% } %>

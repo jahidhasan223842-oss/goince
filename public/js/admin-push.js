@@ -58,9 +58,10 @@
         });
       }
 
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       await fetch('/admin/push-subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(csrfMeta ? { 'x-csrf-token': csrfMeta.content } : {}) },
         body: JSON.stringify(subscription)
       });
     } catch (err) {
