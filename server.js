@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const path = require('path');
 
 const { csrfProtection } = require('./lib/csrf');
-const { buildMenuTree } = require('./lib/categories');
+const { buildMenuTree, buildMenuById } = require('./lib/categories');
 
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
@@ -391,13 +391,17 @@ app.use(async (req, res, next) => {
          GROUP BY categories.id
          ORDER BY categories.is_featured DESC, categories.sort_order ASC, categories.id ASC`);
       res.locals.menuCategories = buildMenuTree(catRows);
+      // Category-bar pill dropdown-er jonno id diye node khujar map.
+      res.locals.menuById = buildMenuById(res.locals.menuCategories);
     } catch (menuErr) {
       res.locals.menuCategories = [];
+      res.locals.menuById = {};
     }
   } catch (err) {
     res.locals.shopPhone = process.env.SHOP_PHONE || '+8801XXXXXXXXX';
     res.locals.siteSettings = { ...SITE_SETTING_DEFAULTS };
     res.locals.menuCategories = [];
+    res.locals.menuById = {};
   }
 
   next();
