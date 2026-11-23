@@ -144,6 +144,11 @@ const SITE_SETTING_DEFAULTS = {
     const pmNames = pmCols.map(c => c.COLUMN_NAME);
     if (!pmNames.includes('payment_type')) await db.query("ALTER TABLE payment_methods ADD COLUMN payment_type VARCHAR(30) NOT NULL DEFAULT 'send_money'");
     if (!pmNames.includes('instructions')) await db.query('ALTER TABLE payment_methods ADD COLUMN instructions TEXT DEFAULT NULL');
+    // Reviews moderation: status pending / approved / hidden (purono review gulo approved thakbe)
+    const [rvCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reviews'");
+    if (!rvCols.map(c => c.COLUMN_NAME).includes('status')) {
+      await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved'");
+    }
     await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,

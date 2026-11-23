@@ -1378,6 +1378,37 @@ router.post('/messages/:id/delete', requireAdmin, async (req, res) => {
   res.redirect('/admin/messages');
 });
 
+// ==================== REVIEWS MODERATION ====================
+
+router.get('/reviews', requireAdmin, async (req, res) => {
+  const { status } = req.query;
+  const where = [];
+  const params = [];
+  if (status) { where.push('r.status = ?'); params.push(status); }
+  const [reviews] = await db.query(
+    `SELECT r.*, p.name AS product_name, u.name AS user_name FROM reviews r
+     LEFT JOIN products p ON r.product_id = p.id
+     LEFT JOIN users u ON r.user_id = u.id`
+    + (where.length ? ' WHERE ' + where.join(' AND ') : '') + `
+     ORDER BY r.created_at DESC LIMIT 200`,
+    params
+  );
+  const [[{ pending }]] = await db.query("SELECT COUNT(*) AS pending FROM reviews WHERE status = 'pending'");
+  res.render('admin/reviews', { reviews, pending, status: status || '', siteName: 'Goince' });
+});
+router.post('/reviews/:id/approve', requireAdmin, async (req, res) => {
+  await db.query("UPDATE reviews SET status = 'approved' WHERE id = ?", [req.params.id]);
+  res.redirect('/admin/reviews');
+});
+router.post('/reviews/:id/hide', requireAdmin, async (req, res) => {
+  await db.query("UPDATE reviews SET status = 'hidden' WHERE id = ?", [req.params.id]);
+  res.redirect('/admin/reviews');
+});
+router.post('/reviews/:id/delete', requireAdmin, async (req, res) => {
+  await db.query('DELETE FROM reviews WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/reviews');
+});
+
 // ==================== TEST EMAIL (Debug tool) ====================
 
 router.get('/test-email', requireAdmin, (req, res) => {
