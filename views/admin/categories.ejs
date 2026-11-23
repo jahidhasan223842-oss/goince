@@ -6,17 +6,17 @@
 </div>
 <p class="field-hint">Categories group your products on the shop. Add a photo, set the order, hide a category without deleting it, or mark it as featured for the homepage.</p>
 
-<form action="/admin/categories/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
+<form id="add-category" action="/admin/categories/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
   <h3>➕ Add New Category</h3>
   <label>Category Name</label>
   <input type="text" name="name" placeholder="e.g. Fashion, or Men's Shirt" required>
   <label>URL Slug (auto-filled from the name — you can change it)</label>
   <input type="text" name="slug" id="cat-slug" placeholder="e.g. fashion">
-  <label>Parent Category (leave blank to make this a Main Category)</label>
+  <label>Parent Category — pick a main category to make this a sub-category (leave blank for a Main Category)</label>
   <select name="parent_id">
     <option value="">-- None (Main Category) --</option>
     <% mainCategories.forEach(cat => { %>
-      <option value="<%= cat.id %>"><%= cat.name %></option>
+      <option value="<%= cat.id %>" <%= (typeof selectedParent !== 'undefined' && selectedParent && selectedParent == cat.id) ? 'selected' : '' %>><%= cat.name %></option>
     <% }) %>
   </select>
   <label>Photo — upload an image</label>
@@ -48,10 +48,11 @@
   <thead><tr><th>Image</th><th>Name</th><th>Products</th><th>Visible</th><th>Order</th><th>Actions</th></tr></thead>
   <tbody>
     <% categories.forEach(cat => { %>
-      <tr>
+      <tr id="cat-<%= cat.id %>">
         <td><% if (cat.image_url) { %><img src="<%= cat.image_url %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"><% } else { %>-<% } %></td>
-        <td>
-          <strong><%= cat.parent_id ? '— ' : '' %><%= cat.name %></strong>
+        <td style="<%= cat.parent_id ? 'padding-left:28px;' : '' %>">
+          <strong><%= cat.name %></strong>
+          <% if (cat.parent_id) { %> <span class="badge badge-sub" title="Sub-category of <%= cat.parent_name %>">Sub-category</span><% } else { %> <span class="badge badge-main" title="Main category">Main</span><% } %>
           <% if (cat.is_featured) { %> <span title="Featured on homepage">⭐</span><% } %>
           <% if (cat.parent_name) { %><br><small><%= cat.parent_name %> › <%= cat.name %></small><% } %>
           <% if (cat.description) { %><br><small><%= cat.description %></small><% } %>
@@ -66,6 +67,7 @@
           <br><small>Order: <%= cat.sort_order %></small>
         </td>
         <td style="white-space:nowrap;">
+          <% if (!cat.parent_id) { %><a href="/admin/categories?parent=<%= cat.id %>#add-category">＋ Sub-category</a> | <% } %>
           <a href="/admin/categories/edit/<%= cat.id %>">Edit</a> |
           <form action="/admin/categories/delete/<%= cat.id %>" method="POST" style="display:inline" onsubmit="return confirm('Deleting this will make its products Uncategorized, and any sub-categories will also be deleted. Sure?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
         </td>

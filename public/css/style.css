@@ -317,6 +317,10 @@ a { text-decoration: none; color: inherit; }
 .inline-form { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
 
 .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: #fff; }
+/* Category type pills (admin Categories list): not the red count .badge */
+.badge-main, .badge-sub { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+.badge-main { background: #e8eef5; color: #33475b; }
+.badge-sub { background: #e3f2e8; color: #1f7a30; }
 .status-pending { background: #a15c00; }
 .status-confirmed { background: #1565c0; }
 .status-shipped { background: #7b1fa2; }

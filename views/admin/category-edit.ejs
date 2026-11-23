@@ -10,7 +10,7 @@
   <input type="text" name="name" value="<%= category.name %>" required>
   <label>URL Slug (auto-filled from the name — you can change it)</label>
   <input type="text" name="slug" id="cat-slug" value="<%= category.slug || '' %>" placeholder="e.g. fashion">
-  <label>Parent Category (leave blank to make this a Main Category)</label>
+  <label>Parent Category — pick a main category to make this a sub-category (leave blank for a Main Category)</label>
   <select name="parent_id">
     <option value="">-- None (Main Category) --</option>
     <% mainCategories.forEach(cat => { %>
