@@ -28,7 +28,7 @@
           <% } %>
         </td>
         <td>
-          <form action="/admin/inventory/update/<%= p.id %>" method="POST" class="qty-stepper">
+          <form action="/admin/inventory/update/<%= p.id %>" method="POST" class="qty-stepper"><%- include('../partials/csrf-field') %>
             <input type="hidden" name="filter" value="<%= filter %>">
             <input type="number" name="stock" value="<%= p.stock %>" min="0" style="width:70px; padding:6px; border:1px solid #ccc; border-radius:4px;">
             <button type="submit" class="btn-primary" style="padding:6px 14px; font-size:13px;">Update</button>

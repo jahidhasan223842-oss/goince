@@ -4,7 +4,7 @@
   <h1>Login</h1>
   <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
   <% if (typeof message !== 'undefined' && message) { %><p class="success-msg"><%= message %></p><% } %>
-  <form action="/login" method="POST" class="auth-form">
+  <form action="/login" method="POST" class="auth-form"><%- include('../partials/csrf-field') %>
     <label>Email</label>
     <input type="email" name="email" required>
 

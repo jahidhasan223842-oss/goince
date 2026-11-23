@@ -4,7 +4,7 @@
 
 <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
 
-<form action="<%= customer ? '/admin/customers/edit/' + customer.id : '/admin/customers/add' %>" method="POST" class="admin-form">
+<form action="<%= customer ? '/admin/customers/edit/' + customer.id : '/admin/customers/add' %>" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
   <label>Full Name</label>
   <input type="text" name="name" value="<%= customer ? customer.name : '' %>" required>
 

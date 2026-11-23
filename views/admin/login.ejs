@@ -17,7 +17,7 @@
     <h2><%= siteName %> Admin</h2>
     <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
     <% if (typeof message !== 'undefined' && message) { %><p class="success-msg"><%= message %></p><% } %>
-    <form action="/admin/login" method="POST">
+    <form action="/admin/login" method="POST"><%- include('../partials/csrf-field') %>
       <label>Email</label>
       <input type="email" name="email" required>
       <label>Password</label>

@@ -18,7 +18,7 @@
   <% } %>
 <% } %>
 
-<form action="/admin/test-email" method="POST" class="admin-form">
+<form action="/admin/test-email" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
   <label>Send the test email to this address</label>
   <input type="email" name="test_email" value="<%= testEmail %>" placeholder="your_email@gmail.com" required>
   <button type="submit" class="btn-primary">Send Test Email</button>

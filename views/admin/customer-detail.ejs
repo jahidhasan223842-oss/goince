@@ -4,7 +4,7 @@
   <h1><%= customer.name %></h1>
   <div>
     <a href="/admin/customers/edit/<%= customer.id %>" class="btn-primary">Edit Customer</a>
-    <form action="/admin/customers/<%= customer.id %>/toggle-block" method="POST" style="display:inline">
+    <form action="/admin/customers/<%= customer.id %>/toggle-block" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
       <% if (customer.is_blocked) { %>
         <button type="submit" class="btn-primary">Unblock Customer</button>
       <% } else { %>

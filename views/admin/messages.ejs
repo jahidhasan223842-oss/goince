@@ -18,8 +18,8 @@
         <td><%= m.subject || '-' %></td>
         <td><%= m.message %></td>
         <td style="white-space:nowrap;">
-          <% if (!m.is_read) { %><form action="/admin/messages/<%= m.id %>/read" method="POST" style="display:inline;"><button type="submit" class="link-btn-danger" style="color:#2196f3;">Mark read</button></form> | <% } %>
-          <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this message?');"><button type="submit" class="link-btn-danger">Delete</button></form>
+          <% if (!m.is_read) { %><form action="/admin/messages/<%= m.id %>/read" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;">Mark read</button></form> | <% } %>
+          <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this message?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
         </td>
       </tr>
     <% }) %>
