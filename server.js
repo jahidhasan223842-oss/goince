@@ -66,6 +66,46 @@ const SITE_SETTING_DEFAULTS = {
       await db.query('INSERT INTO delivery_zones (name, slug, charge, delivery_time, sort_order) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)',
         ['Inside Dhaka', 'inside_dhaka', get('delivery_charge_inside', 60), '1-2 din', 1, 'Outside Dhaka', 'outside_dhaka', get('delivery_charge_outside', 120), '3-5 din', 2]);
     }
+    // Product advanced fields (purono table-e na thakle jog kora) — Add Product form-er
+    // notun section gulo (SKU, cost, brand, status, SEO, shipping) ekhane save hoy
+    const [pCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'");
+    const pNames = new Set(pCols.map(c => c.COLUMN_NAME));
+    const productCols = [
+      ['sku', 'VARCHAR(100) DEFAULT NULL'],
+      ['cost_price', 'DECIMAL(10,2) DEFAULT NULL'],
+      ['brand', 'VARCHAR(100) DEFAULT NULL'],
+      ['tags', 'VARCHAR(500) DEFAULT NULL'],
+      ['weight_kg', 'DECIMAL(8,2) DEFAULT NULL'],
+      ['status', "VARCHAR(20) NOT NULL DEFAULT 'published'"],
+      ['scheduled_at', 'DATETIME DEFAULT NULL'],
+      ['is_featured', 'TINYINT(1) NOT NULL DEFAULT 0'],
+      ['is_new', 'TINYINT(1) NOT NULL DEFAULT 0'],
+      ['free_shipping', 'TINYINT(1) NOT NULL DEFAULT 0'],
+      ['cod_allowed', 'TINYINT(1) NOT NULL DEFAULT 1'],
+      ['low_stock_threshold', 'INT NOT NULL DEFAULT 5'],
+      ['slug', 'VARCHAR(255) DEFAULT NULL'],
+      ['meta_title', 'VARCHAR(255) DEFAULT NULL'],
+      ['meta_description', 'VARCHAR(500) DEFAULT NULL'],
+      ['image_alt', 'VARCHAR(255) DEFAULT NULL']
+    ];
+    for (const [col, def] of productCols) {
+      if (!pNames.has(col)) await db.query(`ALTER TABLE products ADD COLUMN ${col} ${def}`);
+    }
+    const [[{ slugIdx }]] = await db.query("SELECT COUNT(*) AS slugIdx FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND INDEX_NAME = 'idx_products_slug'");
+    if (!slugIdx) { try { await db.query('CREATE UNIQUE INDEX idx_products_slug ON products (slug)'); } catch (e) { /* slug-e duplicate thakle index lagbe na */ } }
+    await db.query(`CREATE TABLE IF NOT EXISTS related_products (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      related_id INT NOT NULL,
+      sort_order INT DEFAULT 0,
+      UNIQUE KEY uq_related (product_id, related_id),
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+      FOREIGN KEY (related_id) REFERENCES products(id) ON DELETE CASCADE
+    )`);
+    const [oiCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_items'");
+    if (!oiCols.map(c => c.COLUMN_NAME).includes('cost_price')) {
+      await db.query('ALTER TABLE order_items ADD COLUMN cost_price DECIMAL(10,2) DEFAULT NULL');
+    }
     // payment_methods-e payment type + instructions column (purono table-e na thakle jog kora)
     const [pmCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_methods'");
     const pmNames = pmCols.map(c => c.COLUMN_NAME);

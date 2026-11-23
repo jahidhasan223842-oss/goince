@@ -37,6 +37,11 @@
     <p class="report-card-label">Avg. Order Value</p>
     <p class="report-card-value">৳<%= Number(summary.avgOrderValue).toFixed(2) %></p>
   </div>
+  <div class="report-card">
+    <p class="report-card-label">💰 Total Profit (Revenue − Cost)</p>
+    <p class="report-card-value" style="color:green;">৳<%= Number(typeof totalProfit !== 'undefined' ? totalProfit : 0).toFixed(2) %></p>
+    <p class="report-card-label">Total cost: ৳<%= Number(typeof totalCost !== 'undefined' ? totalCost : 0).toFixed(2) %> (only orders with a cost price saved)</p>
+  </div>
   <div class="report-card report-card-muted">
     <p class="report-card-label">Cancelled Orders</p>
     <p class="report-card-value"><%= cancelledSummary.cancelledOrders %></p>

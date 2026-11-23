@@ -17,7 +17,7 @@
     <div class="summary-totals">
       <p><span>Subtotal</span><span>৳<span id="subtotal-display"><%= subtotal.toFixed(2) %></span></span></p>
       <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-৳<%= discount.toFixed(2) %></span></p><% } %>
-      <p><span>Delivery Charge</span><span>৳<span id="delivery-display"><%= deliveryCharge.toFixed(2) %></span></span></p>
+      <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %>৳<span id="delivery-display"><%= deliveryCharge.toFixed(2) %></span><% } %></span></p>
     </div>
     <h3 class="summary-grand-total"><span>Total</span><span>৳<span id="total-display"><%= total.toFixed(2) %></span></span></h3>
   </div>
@@ -57,7 +57,7 @@
       <label>Payment Method</label>
       <select name="payment_method" id="payment_method" onchange="toggleTxnField()">
         <% if (!gateway || gateway.mode !== 'gateway' || !gateway.configured) { %>
-          <option value="Cash on Delivery">Cash on Delivery</option>
+          <% if (typeof codAllowed === 'undefined' || codAllowed) { %><option value="Cash on Delivery">Cash on Delivery</option><% } %>
         <% } %>
         <% if (!gateway || gateway.mode !== 'gateway' || !gateway.configured) { %>
           <% paymentMethods.forEach(m => { %>
@@ -96,12 +96,14 @@
   const subtotal = <%= subtotal %>;
   const discount = <%= discount %>;
 
+  const freeShipping = <%= (typeof allFreeShipping !== 'undefined' && allFreeShipping) ? 'true' : 'false' %>;
   function updateTotal() {
     const select = document.getElementById('delivery_area');
-    const charge = parseFloat(select.options[select.selectedIndex].dataset.charge);
+    const charge = freeShipping ? 0 : parseFloat(select.options[select.selectedIndex].dataset.charge);
     const total = subtotal - discount + charge;
 
-    document.getElementById('delivery-display').textContent = charge.toFixed(2);
+    const deliveryEl = document.getElementById('delivery-display');
+    if (deliveryEl) deliveryEl.textContent = charge.toFixed(2);
     document.getElementById('total-display').textContent = total.toFixed(2);
     document.getElementById('btn-total-display').textContent = total.toFixed(2);
   }

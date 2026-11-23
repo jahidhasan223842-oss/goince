@@ -77,6 +77,10 @@ function isValidBdPhone(raw) {
   return /^01[3-9][0-9]{8}$/.test(normalizeBdPhone(raw));
 }
 
+// Only Published products that are not scheduled for the future are visible
+// to customers (Draft products stay hidden)
+const VISIBLE_PRODUCT_SQL = "(products.status IS NULL OR products.status = 'published') AND (products.scheduled_at IS NULL OR products.scheduled_at <= NOW())";
+
 // ---------- HOMEPAGE ----------
 router.get('/', async (req, res) => {
   try {
@@ -128,7 +132,7 @@ router.get('/', async (req, res) => {
                  AVG(reviews.rating) AS avg_rating
                FROM products
                LEFT JOIN reviews ON reviews.product_id = products.id
-               WHERE 1=1`;
+               WHERE 1=1 AND ${VISIBLE_PRODUCT_SQL}`;
     const params = [];
     const selectedAudience = isSeasonalCategory && allowedAudiences.includes(requestedAudience) ? requestedAudience : '';
 
@@ -144,8 +148,8 @@ router.get('/', async (req, res) => {
       params.push(...audienceMatches);
     }
     if (search) {
-      sql += ' AND products.name LIKE ?';
-      params.push(`%${search}%`);
+      sql += ' AND (products.name LIKE ? OR products.tags LIKE ? OR products.brand LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     if (!isNaN(minPrice)) { sql += ' AND products.price >= ?'; params.push(minPrice); }
     if (!isNaN(maxPrice)) { sql += ' AND products.price <= ?'; params.push(maxPrice); }
@@ -181,7 +185,7 @@ router.get('/', async (req, res) => {
         const [rows] = await db.query(
           `SELECT products.*, COALESCE(SUM(order_items.quantity), 0) AS sold
            FROM products LEFT JOIN order_items ON order_items.product_id = products.id
-           WHERE products.stock > 0
+           WHERE products.stock > 0 AND ${VISIBLE_PRODUCT_SQL}
            GROUP BY products.id ORDER BY sold DESC, products.created_at DESC LIMIT 4`);
         bestSellers = rows;
       } catch (e) { bestSellers = []; }
@@ -227,9 +231,19 @@ router.get('/', async (req, res) => {
 // ---------- PRODUCT DETAILS PAGE (with reviews) ----------
 router.get('/product/:id', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+    // /product/3 (id) and /product/binbond-watch (slug) both work
+    const idOrSlug = req.params.id;
+    const [rows] = await db.query(
+      'SELECT * FROM products WHERE id = ? OR slug = ?',
+      [isNaN(parseInt(idOrSlug, 10)) ? 0 : parseInt(idOrSlug, 10), idOrSlug]
+    );
     if (rows.length === 0) return res.status(404).send('Product not found');
     const product = rows[0];
+    // Draft or not-yet-scheduled products are hidden from customers
+    if ((product.status && product.status !== 'published') ||
+        (product.scheduled_at && new Date(product.scheduled_at) > new Date())) {
+      return res.status(404).send('Product not found');
+    }
 
     const [reviews] = await db.query(
       `SELECT reviews.*, users.name AS user_name FROM reviews
@@ -305,14 +319,23 @@ router.get('/product/:id', async (req, res) => {
       discountPercent = Math.round((1 - product.price / product.compare_at_price) * 100);
     }
 
-    // Related products: eki category theke, current product bade
+    // Related products: Admin-er beche deya gulo age, tarpor eki category theke
     let related = [];
-    if (product.category_id) {
+    try {
+      const [chosen] = await db.query(
+        `SELECT p.* FROM related_products rp JOIN products p ON p.id = rp.related_id
+         WHERE rp.product_id = ? AND ${VISIBLE_PRODUCT_SQL.replace(/products\./g, 'p.')}`,
+        [product.id]
+      );
+      related = chosen;
+    } catch (e) { related = []; }
+    if (related.length < 4 && product.category_id) {
       const [relRows] = await db.query(
         'SELECT * FROM products WHERE category_id = ? AND id != ? LIMIT 4',
         [product.category_id, product.id]
       );
-      related = relRows;
+      const seen = new Set(related.map(r => r.id));
+      related = related.concat(relRows.filter(r => !seen.has(r.id))).slice(0, 4);
     }
 
     const deliveryCharges = await getDeliveryCharges();
@@ -323,8 +346,8 @@ router.get('/product/:id', async (req, res) => {
     const descriptionHtml = product.description ? marked.parse(product.description) : '';
 
     res.render('product', {
-      pageTitle: `${product.name} - Goince`,
-      metaDescription: (product.short_description || product.name).slice(0, 160),
+      pageTitle: product.meta_title || `${product.name} - Goince`,
+      metaDescription: (product.meta_description || product.short_description || product.name).slice(0, 160),
       product,
       galleryImages,
       options,
@@ -643,6 +666,19 @@ router.post('/cart/remove-coupon', (req, res) => {
   res.redirect('/cart');
 });
 
+// Cart-er product gulo free_shipping / cod_allowed kina
+async function getCartShippingFlags(cart) {
+  const ids = [...new Set(cart.map(i => i.id))];
+  if (!ids.length) return { allFreeShipping: false, codAllowed: true };
+  try {
+    const [rows] = await db.query(`SELECT id, free_shipping, cod_allowed FROM products WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+    return {
+      allFreeShipping: rows.length > 0 && rows.every(r => r.free_shipping),
+      codAllowed: rows.every(r => r.cod_allowed !== 0)
+    };
+  } catch (e) { return { allFreeShipping: false, codAllowed: true }; }
+}
+
 // ---------- CHECKOUT PAGE ----------
 router.get('/checkout', async (req, res) => {
   const cart = req.session.cart || [];
@@ -652,11 +688,12 @@ router.get('/checkout', async (req, res) => {
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
   const deliveryZones = await getDeliveryZones();
   const deliveryCharges = await getDeliveryCharges();
-  const deliveryCharge = deliveryZones.length ? deliveryZones[0].charge : deliveryCharges.inside_dhaka;
+  const flags = await getCartShippingFlags(cart);
+  const deliveryCharge = flags.allFreeShipping ? 0 : (deliveryZones.length ? deliveryZones[0].charge : deliveryCharges.inside_dhaka);
   const total = subtotal - discount + deliveryCharge;
   const paymentMethods = await getPaymentMethods();
   const gateway = await getGatewayConfig();
-  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, error: null, siteName: 'Goince' });
+  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: null, siteName: 'Goince' });
 });
 
 // ---------- PLACE ORDER ----------
@@ -699,7 +736,11 @@ router.post('/checkout', async (req, res) => {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const coupon = req.session.coupon || null;
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
-  const deliveryCharge = zone ? zone.charge : (deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka);
+  const flags = await getCartShippingFlags(cart);
+  const deliveryCharge = flags.allFreeShipping ? 0 : (zone ? zone.charge : (deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka));
+  if (selectedMethod === 'Cash on Delivery' && !flags.codAllowed) {
+    return renderCheckoutError('Cash on Delivery is not available for one or more products in your cart — please pay online or by bKash/Nagad.');
+  }
   const normalizedPhone = normalizeBdPhone(phone);
   const total = subtotal - discount + deliveryCharge;
   const userId = req.session.userId || null;
@@ -724,8 +765,8 @@ router.post('/checkout', async (req, res) => {
 
     for (const item of cart) {
       await connection.query(
-        'INSERT INTO order_items (order_id, product_id, product_name, price, quantity, variant_id, variant_label) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [orderId, item.id, item.name, item.price, item.quantity, item.variantId || null, item.variantLabel || null]
+        'INSERT INTO order_items (order_id, product_id, product_name, price, quantity, variant_id, variant_label, cost_price) VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT cost_price FROM products WHERE id = ?))',
+        [orderId, item.id, item.name, item.price, item.quantity, item.variantId || null, item.variantLabel || null, item.id]
       );
       if (item.variantId) {
         await connection.query(
