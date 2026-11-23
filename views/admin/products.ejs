@@ -54,6 +54,7 @@
         </td>
         <td>
           <a href="/admin/products/edit/<%= p.id %>">Edit</a> |
+          <a href="/admin/products/<%= p.id %>/stock-history">History</a> |
           <form action="/admin/products/<%= p.id %>/duplicate" method="POST" style="display:inline"><button type="submit" class="link-btn-danger" style="color:#2196f3;">Duplicate</button></form> |
           <form action="/admin/products/delete/<%= p.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');">
             <button type="submit" class="link-btn-danger">Delete</button>

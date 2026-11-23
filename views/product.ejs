@@ -34,8 +34,11 @@
     <div class="price-row">
       <p class="price" id="display-price">৳<%= product.price %></p>
       <% if (discountPercent) { %>
-        <p class="compare-price">৳<%= product.compare_at_price %></p>
-        <span class="discount-badge">-<%= discountPercent %>%</span>
+        <p class="compare-price" id="display-compare-price">৳<%= product.compare_at_price %></p>
+        <span class="discount-badge" id="display-discount-badge">-<%= discountPercent %>%</span>
+      <% } else { %>
+        <p class="compare-price" id="display-compare-price" style="display:none;"></p>
+        <span class="discount-badge" id="display-discount-badge" style="display:none;"></span>
       <% } %>
     </div>
 
@@ -82,8 +85,22 @@
       <input type="hidden" name="option_id" id="option_id_input" value="<%= (options && options.length > 0) ? options[0].id : '' %>">
       <label for="quantity">Quantity:</label>
       <input type="number" name="quantity" id="quantity" value="1" min="1" max="<%= product.stock %>">
-      <button type="submit" class="btn-primary" id="add-to-cart-btn" <%= product.stock === 0 ? 'disabled' : '' %>><%= product.stock > 0 ? 'Add to Cart' : 'Out of Stock' %></button>
+      <button type="submit" class="btn-primary" id="add-to-cart-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>><%= product.stock > 0 ? 'Add to Cart' : (product.allow_backorder ? 'Pre-order Now' : 'Out of Stock') %></button>
     </form>
+
+    <% if (product.stock === 0 && !product.allow_backorder) { %>
+    <div class="notify-me-box" style="margin-top:16px; padding:14px; border:1px solid #f0a500; border-radius:8px; background:#fff8e6;">
+      <p style="margin:0 0 8px; font-weight:600;">🔔 Stock শেষ — আসলেই জানতে চান?</p>
+      <% if (typeof notify !== 'undefined' && notify === 'ok') { %><p style="color:green;">ধন্যবাদ! স্টক আসলেই আপনাকে জানানো হবে।</p><% } %>
+      <form action="/product/<%= product.id %>/notify-me" method="POST" style="display:flex; gap:8px;">
+        <input type="tel" name="phone" required pattern="^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$" placeholder="আপনার মোবাইল নম্বর (01XXXXXXXXX)" style="flex:1; padding:10px; border:1px solid #ccc; border-radius:4px;">
+        <button type="submit" class="btn-primary">Notify Me</button>
+      </form>
+    </div>
+    <% } %>
+    <% if (product.stock === 0 && product.allow_backorder) { %>
+    <p style="color:#e67e22; font-weight:600; margin-top:10px;">📦 Pre-order — স্টক নেই, তবে অর্ডার করতে পারবেন। স্টক আসলেই ডেলিভারি দেওয়া হবে।</p>
+    <% } %>
 
     <% if (userName) { %>
       <form action="/wishlist/add/<%= product.id %>" method="POST" style="margin-top:10px;">
@@ -93,7 +110,7 @@
 
     <div class="delivery-info-box">
       <p>🚚 Delivery Charge: <strong>৳<%= deliveryCharge %></strong> (Inside Dhaka) / <strong>৳<%= deliveryChargeOutside %></strong> (Outside Dhaka)</p>
-      <p>📦 Estimated Delivery: Inside Dhaka 1–2 din, Outside Dhaka 3–5 din</p>
+      <p>📦 Estimated Delivery: <%= product.delivery_time ? product.delivery_time : 'Inside Dhaka 1–2 din, Outside Dhaka 3–5 din' %></p>
     </div>
 
     <div class="share-box">
@@ -215,9 +232,12 @@
   const variantData = <%- JSON.stringify(variants.map(v => ({
     id: v.id,
     price: v.price,
+    compare_at_price: v.compare_at_price,
+    image: v.image,
     stock: v.stock,
     attrs: v.attrs.reduce((acc, a) => { acc[a.attribute_id] = a.value_id; return acc; }, {})
   }))) %>;
+  const allowBackorder = <%= product.allow_backorder ? 'true' : 'false' %>;
 
   const selects = document.querySelectorAll('.variant-attr-select');
   const form = document.getElementById('add-to-cart-form');
@@ -258,6 +278,24 @@
     msg.textContent = '';
     variantIdInput.value = match.id;
     priceEl.textContent = '৳' + Number(match.price).toFixed(2);
+    // Variant-er nijer chobi thakle main chobi bodle jabe (lal/nil alada chobi)
+    if (match.image) {
+      const mainImg = document.getElementById('main-product-image');
+      if (mainImg) mainImg.src = '/uploads/' + match.image;
+    }
+    // Variant-er chhar thakle purono dam kata dam-e dekhabe
+    const compareEl = document.getElementById('display-compare-price');
+    const badgeEl = document.getElementById('display-discount-badge');
+    if (match.compare_at_price && Number(match.compare_at_price) > Number(match.price)) {
+      compareEl.textContent = '৳' + Number(match.compare_at_price).toFixed(2);
+      compareEl.style.display = '';
+      const pct = Math.round((1 - Number(match.price) / Number(match.compare_at_price)) * 100);
+      badgeEl.textContent = '-' + pct + '%';
+      badgeEl.style.display = '';
+    } else {
+      compareEl.style.display = 'none';
+      badgeEl.style.display = 'none';
+    }
     if (match.stock > 0) {
       stockEl.textContent = match.stock + ' in stock';
       qtyInput.max = match.stock;
@@ -265,8 +303,15 @@
       addBtn.disabled = false;
       addBtn.textContent = 'Add to Cart';
       form.style.display = '';
+    } else if (allowBackorder) {
+      stockEl.textContent = 'Pre-order — stock asle delivery hobe';
+      qtyInput.removeAttribute('max');
+      qtyInput.value = 1;
+      addBtn.disabled = false;
+      addBtn.textContent = 'Pre-order Now';
+      form.style.display = '';
     } else {
-      stockEl.textContent = 'Out of stock';
+      stockEl.textContent = 'Out of stock — ei combination-ti ekhon nei';
       addBtn.disabled = true;
       addBtn.textContent = 'Out of Stock';
       form.style.display = '';

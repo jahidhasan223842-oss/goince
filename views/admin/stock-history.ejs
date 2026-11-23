@@ -1,0 +1,23 @@
+<%- include('../partials/admin-header') %>
+<div class="admin-page-header">
+  <h1>Stock History — <%= product.name %></h1>
+  <a href="/admin/products">&larr; Back to Products</a>
+</div>
+<% if (rows.length === 0) { %>
+  <p>No stock changes recorded yet.</p>
+<% } else { %>
+<div class="table-responsive"><table class="admin-table">
+  <thead><tr><th>Date</th><th>Change</th><th>Stock After</th><th>Reason</th></tr></thead>
+  <tbody>
+    <% rows.forEach(r => { %>
+      <tr>
+        <td><%= new Date(r.created_at).toLocaleString('en-GB') %></td>
+        <td style="color:<%= r.change_qty >= 0 ? 'green' : '#d62839' %>; font-weight:600;"><%= r.change_qty >= 0 ? '+' : '' %><%= r.change_qty %></td>
+        <td><%= r.stock_after %></td>
+        <td><%= r.reason === 'order' ? 'Order placed' : r.reason === 'variant' ? 'Variant stock' : r.reason === 'new product' ? 'New product' : 'Manual edit' %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table></div>
+<% } %>
+<%- include('../partials/admin-footer') %>

@@ -1,6 +1,7 @@
 <%- include('../partials/admin-header') %>
 
 <h1><%= product ? 'Edit Product' : 'Add New Product' %></h1>
+<p style="color:#666; background:#f0f7ff; border:1px solid #bcd8ff; padding:10px 14px; border-radius:6px;">✅ Only <strong>Name, Price and Stock</strong> are required. Everything else below — Cost Price, SKU, Weight, Brand, Tags, SEO, Video, Related Products, Barcode, Delivery Time — is <strong>optional</strong>. You can publish a product right now and fill in the rest later from Edit.</p>
 
 <form action="<%= product ? '/admin/products/edit/' + product.id : '/admin/products/add' %>" method="POST" enctype="multipart/form-data" class="admin-form" id="product-main-form">
   <label>Product Name</label>
@@ -167,7 +168,7 @@
   <% } %>
 
   <hr>
-  <h3>💰 Pricing &amp; Profit</h3>
+  <h3>💰 Pricing &amp; Profit <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
   <label>Cost Price (৳) — what you paid for it; used to calculate profit in Reports</label>
   <input type="number" step="0.01" min="0" name="cost_price" id="cost_price" value="<%= product && product.cost_price != null ? product.cost_price : '' %>" placeholder="e.g. 500">
   <p id="profit-preview" style="font-size:14px; font-weight:600; color:var(--success);"></p>
@@ -175,23 +176,28 @@
   <input type="text" name="sku" value="<%= product && product.sku ? product.sku : '' %>" placeholder="e.g. WATCH-001">
 
   <hr>
-  <h3>📦 Inventory &amp; Shipping</h3>
+  <h3>📦 Inventory &amp; Shipping <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
   <label>Weight (kg) — used for delivery planning</label>
   <input type="number" step="0.01" min="0" name="weight_kg" value="<%= product && product.weight_kg != null ? product.weight_kg : '' %>" placeholder="e.g. 0.5">
   <label>Low Stock Alert — warn on Dashboard when stock falls to this number</label>
   <input type="number" min="0" name="low_stock_threshold" value="<%= product ? product.low_stock_threshold : 5 %>">
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="free_shipping" value="1" <%= product && product.free_shipping ? 'checked' : '' %>> Free Shipping for this product (no delivery charge)</label>
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="cod_allowed" value="0" <%= product && !product.cod_allowed ? 'checked' : '' %>> Disable Cash on Delivery for this product (prepaid only)</label>
+  <label>Barcode (for warehouse scanning — optional)</label>
+  <input type="text" name="barcode" value="<%= product && product.barcode ? product.barcode : '' %>" placeholder="e.g. 8901234567890">
+  <label>Delivery Time for this product (e.g. "2-3 din", "Same day Dhaka") — shown on the product page</label>
+  <input type="text" name="delivery_time" value="<%= product && product.delivery_time ? product.delivery_time : '' %>" placeholder="e.g. 2-3 din">
+  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="allow_backorder" value="1" <%= product && product.allow_backorder ? 'checked' : '' %>> Allow Pre-order — customers can order even when stock is 0 (you deliver when stock arrives)</label>
 
   <hr>
-  <h3>🏷️ Brand &amp; Tags</h3>
+  <h3>🏷️ Brand &amp; Tags <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
   <label>Brand</label>
   <input type="text" name="brand" value="<%= product && product.brand ? product.brand : '' %>" placeholder="e.g. BINBOND">
   <label>Tags — comma separated (e.g. winter, gift, men). Customers can search by tags.</label>
   <input type="text" name="tags" value="<%= product && product.tags ? product.tags : '' %>" placeholder="e.g. winter, gift, men">
 
   <hr>
-  <h3>🚦 Publish</h3>
+  <h3>🚦 Publish <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — defaults to Published)</span></h3>
   <label>Status — Draft products are saved but NOT shown on the website</label>
   <select name="status">
     <option value="published" <%= !product || product.status !== 'draft' ? 'selected' : '' %>>Published — live on the website</option>
@@ -203,7 +209,7 @@
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_new" value="1" <%= product && product.is_new ? 'checked' : '' %>> New Arrival badge</label>
 
   <hr>
-  <h3>🔍 SEO (Google)</h3>
+  <h3>🔍 SEO (Google) <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — auto-filled if left blank)</span></h3>
   <label>URL Slug — the product's web address (auto-filled from the name; letters, numbers and - only)</label>
   <input type="text" name="slug" id="slug" value="<%= product && product.slug ? product.slug : '' %>" placeholder="e.g. binbond-2521-watch">
   <label>Meta Title (Google search title — leave empty to use the product name)</label>
@@ -212,7 +218,7 @@
   <textarea name="meta_description" rows="2" maxlength="160" placeholder="Short description for Google search results."><%= product && product.meta_description ? product.meta_description : '' %></textarea>
 
   <hr>
-  <h3>🔗 Related Products — "You may also like" (optional)</h3>
+  <h3>🔗 Related Products — "You may also like" <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></h3>
   <label>Select products to suggest on this product's page (hold Ctrl/Cmd to select multiple)</label>
   <select name="related_ids" multiple size="5" style="width:100%; padding:8px;">
     <% (allProducts || []).forEach(ap => { %><option value="<%= ap.id %>" <%= (relatedIds || []).includes(ap.id) ? 'selected' : '' %>><%= ap.name %></option><% }) %>
