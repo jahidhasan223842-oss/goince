@@ -168,6 +168,21 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- Admins table-e role column (purono table-e na thakle jog kora) ----------
+// Staff roles: owner / manager / staff. Default 'owner' — ekhonkar ekmatro
+// admin (admin@goince.com) Owner-i thakbe.
+(async () => {
+  try {
+    const db = require('./config/db');
+    const [cols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admins'");
+    if (!cols.map(c => c.COLUMN_NAME).includes('role')) {
+      await db.query("ALTER TABLE admins ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'owner'");
+    }
+  } catch (err) {
+    console.error('Admin role column skip holo:', err.message);
+  }
+})();
+
 // ---------- Admin account DB-te seed kora (.env theke) ----------
 // Age Admin login shudhu .env-er ADMIN_EMAIL/ADMIN_PASSWORD diye hoto.
 // Forgot Password feature-er jonno DB-te thakte hobe (kokhono update
@@ -287,6 +302,8 @@ app.use((req, res, next) => {
 // ---------- Global view variables (shob view e automatic available thakbe) ----------
 app.use(async (req, res, next) => {
   res.locals.userName = req.session.userName || null;
+  res.locals.adminRole = req.session.adminRole || 'owner';
+  res.locals.adminEmail = req.session.adminEmail || null;
   res.locals.cartCount = (req.session.cart || []).reduce((sum, item) => sum + item.quantity, 0);
 
   // Shop phone + site settings Database theke real-time e neya, jate Admin Panel
