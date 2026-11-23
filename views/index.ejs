@@ -9,10 +9,10 @@
     <a href="#products" class="btn-primary hero-cta">Shop Now ↓</a>
     <a href="/track-order" class="btn-hero-outline">Track Order</a>
   </div>
-  <% if (typeof bestSellers !== 'undefined' && bestSellers && bestSellers.length > 0) { %>
-    <a href="/product/<%= bestSellers[0].id %>" class="hero-image">
-      <img src="/uploads/<%= bestSellers[0].image %>" alt="<%= bestSellers[0].name %>" onerror="this.src='/uploads/no-image.png'">
-      <span class="hero-image-caption"><%= bestSellers[0].name %> — ৳<%= bestSellers[0].price %></span>
+  <% if (typeof heroProduct !== 'undefined' && heroProduct) { %>
+    <a href="/product/<%= heroProduct.id %>" class="hero-image">
+      <img src="/uploads/<%= heroProduct.image %>" alt="<%= heroProduct.name %>" onerror="this.src='/uploads/no-image.png'">
+      <span class="hero-image-caption"><%= heroProduct.name %> — ৳<%= heroProduct.price %></span>
     </a>
   <% } %>
 </section>

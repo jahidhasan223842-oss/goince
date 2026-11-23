@@ -1,0 +1,44 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Delivery Zones</h1>
+<p class="field-hint">Checkout-e customer ei zone gulo theke ekta beche nebe — prottek zone-er alada delivery charge. Notun zone (jemon: Chittagong, Sylhet, ba kono area) ekhane add korte paro. Off kora zone checkout-e dekhabe na.</p>
+
+<form action="/admin/delivery-zones/add" method="POST" class="admin-form">
+  <label>Zone Name</label>
+  <input type="text" name="name" placeholder="jemon: Chittagong" required>
+  <label>Delivery Charge (৳)</label>
+  <input type="number" step="0.01" min="0" name="charge" placeholder="150" required>
+  <label>Delivery Time</label>
+  <input type="text" name="delivery_time" placeholder="jemon: 3-5 din">
+  <button type="submit" class="btn-primary">Add Zone</button>
+</form>
+
+<h2 style="margin-top:30px;">All Zones</h2>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Zone</th><th>Charge</th><th>Delivery Time</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+    <% zones.forEach(z => { %>
+      <tr>
+        <td>
+          <form id="zone-form-<%= z.id %>" action="/admin/delivery-zones/edit/<%= z.id %>" method="POST"></form>
+          <input type="text" name="name" value="<%= z.name %>" form="zone-form-<%= z.id %>" style="width:130px; padding:6px; border:1px solid #ccc; border-radius:4px;">
+        </td>
+        <td><input type="number" step="0.01" min="0" name="charge" value="<%= z.charge %>" form="zone-form-<%= z.id %>" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:4px;"> ৳</td>
+        <td><input type="text" name="delivery_time" value="<%= z.delivery_time || '' %>" form="zone-form-<%= z.id %>" placeholder="1-2 din" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
+        <td><span class="status-badge <%= z.is_active ? 'status-delivered' : 'status-cancelled' %>"><%= z.is_active ? 'Active' : 'Inactive' %></span></td>
+        <td style="white-space:nowrap;">
+          <button type="submit" form="zone-form-<%= z.id %>" class="link-btn-danger" style="color:#2196f3;">Save</button>
+          |
+          <form action="/admin/delivery-zones/toggle/<%= z.id %>" method="POST" style="display:inline"><button type="submit" class="link-btn-danger" style="color:#2196f3;"><%= z.is_active ? 'Deactivate' : 'Activate' %></button></form>
+          |
+          <form action="/admin/delivery-zones/delete/<%= z.id %>" method="POST" style="display:inline" onsubmit="return confirm('Ei zone-ta delete korbe?');"><button type="submit" class="link-btn-danger">Delete</button></form>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (zones.length === 0) { %><tr><td colspan="5" style="text-align:center; color:#888;">No zones yet. Add one above.</td></tr><% } %>
+  </tbody>
+</table>
+</div>
+
+<%- include('../partials/admin-footer') %>

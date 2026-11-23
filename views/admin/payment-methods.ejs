@@ -2,8 +2,9 @@
 
 <h1>Payment Methods</h1>
 <p class="field-hint" style="margin-bottom:16px;">
-  Customers will see these methods at checkout (Cash on Delivery always stays and does not need to be added separately — card payment ekhono nei, gateway ele tarpor add kora hobe).
-  You can Add/Edit/Delete/Turn on-off new bKash/Nagad numbers, Upay, or any other method right here.
+  Customers will see these methods at checkout (Cash on Delivery always stays and does not need to be added separately).
+  Prottek method-e <strong>Send Money / Cash Out / Payment</strong> — konta diye taka pathabe seta ekhane thik koro; checkout-e customer-ke setai dekhano hobe.
+  Online gateway (SSLCommerz/ShurjoPay/bKash PGW) setup korte <a href="/admin/settings">Settings page-er Payment Gateway section-e</a> jao.
 </p>
 
 <form action="/admin/payment-methods/add" method="POST" class="admin-form">
@@ -13,6 +14,18 @@
   <label>Number</label>
   <input type="text" name="number" placeholder="01XXXXXXXXX">
 
+  <label>Payment Type — customer ei upaye taka pathabe</label>
+  <select name="payment_type">
+    <option value="send_money">Send Money</option>
+    <option value="cash_out">Cash Out</option>
+    <option value="payment">Payment</option>
+    <option value="agent">Agent Banking</option>
+    <option value="bank">Bank Transfer</option>
+  </select>
+
+  <label>Instructions (optional — checkout-e dekhabe)</label>
+  <input type="text" name="instructions" placeholder="jemon: Send Money korar por TrxID dao">
+
   <button type="submit" class="btn-primary">Add Payment Method</button>
 </form>
 
@@ -20,7 +33,7 @@
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
-    <tr><th>Method</th><th>Number</th><th>Status</th><th>Actions</th></tr>
+    <tr><th>Method</th><th>Number</th><th>Type</th><th>Status</th><th>Actions</th></tr>
   </thead>
   <tbody>
     <% methods.forEach(m => { %>
@@ -30,6 +43,12 @@
           <input type="text" name="method_name" value="<%= m.method_name %>" form="edit-form-<%= m.id %>" style="width:120px; padding:6px; border:1px solid #ccc; border-radius:4px;">
         </td>
         <td><input type="text" name="number" value="<%= m.number || '' %>" form="edit-form-<%= m.id %>" placeholder="01XXXXXXXXX" style="width:140px; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
+        <td>
+          <select name="payment_type" form="edit-form-<%= m.id %>" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
+            <% ['send_money','cash_out','payment','agent','bank'].forEach(t => { %><option value="<%= t %>" <%= (m.payment_type || 'send_money') === t ? 'selected' : '' %>><%= {send_money:'Send Money',cash_out:'Cash Out',payment:'Payment',agent:'Agent Banking',bank:'Bank Transfer'}[t] %></option><% }) %>
+          </select>
+          <input type="text" name="instructions" value="<%= m.instructions || '' %>" form="edit-form-<%= m.id %>" placeholder="Instructions" style="width:140px; padding:6px; border:1px solid #ccc; border-radius:4px; margin-top:4px;">
+        </td>
         <td>
           <span class="status-badge <%= m.is_active ? 'status-delivered' : 'status-cancelled' %>">
             <%= m.is_active ? 'Active' : 'Inactive' %>
@@ -49,7 +68,7 @@
       </tr>
     <% }) %>
     <% if (methods.length === 0) { %>
-      <tr><td colspan="4" style="text-align:center; color:#888;">No payment methods yet. Add one above.</td></tr>
+      <tr><td colspan="5" style="text-align:center; color:#888;">No payment methods yet. Add one above.</td></tr>
     <% } %>
   </tbody>
 </table>
