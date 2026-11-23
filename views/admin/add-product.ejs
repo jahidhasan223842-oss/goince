@@ -42,9 +42,22 @@
   <label>Category</label>
   <select name="category_id">
     <option value="">-- Select Category --</option>
-    <% categories.forEach(cat => { %>
-      <option value="<%= cat.id %>" <%= (product && product.category_id == cat.id) ? 'selected' : '' %>><%= cat.parent_id ? '— ' : '' %><%= cat.name %></option>
+    <% categories.filter(c => !c.parent_id).forEach(mc => { %>
+    <optgroup label="<%= mc.name %>">
+      <option value="<%= mc.id %>" <%= (product && product.category_id == mc.id) ? 'selected' : '' %>><%= mc.name %></option>
+      <% categories.filter(c => c.parent_id == mc.id).forEach(sub => { %>
+      <option value="<%= sub.id %>" <%= (product && product.category_id == sub.id) ? 'selected' : '' %>>— <%= sub.name %></option>
+      <% }) %>
+    </optgroup>
     <% }) %>
+    <% const orphanSubs = categories.filter(c => c.parent_id && !categories.some(m => !m.parent_id && m.id == c.parent_id)); %>
+    <% if (orphanSubs.length) { %>
+    <optgroup label="Other">
+      <% orphanSubs.forEach(sub => { %>
+      <option value="<%= sub.id %>" <%= (product && product.category_id == sub.id) ? 'selected' : '' %>>— <%= sub.name %></option>
+      <% }) %>
+    </optgroup>
+    <% } %>
   </select>
 
   <label>Target Audience (Seasonal Products)</label>

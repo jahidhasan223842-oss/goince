@@ -879,10 +879,10 @@ router.post('/categories/add', requireAdmin, requireRole('products'), upload.sin
     }
     const slug = await uniqueCategorySlug(f.slug || f.name);
     const image = categoryImage(req, null);
-    await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    const [result] = await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug]);
     if (req.body.from === 'quick-add') return res.redirect('back');
-    res.redirect('/admin/categories');
+    res.redirect('/admin/categories#cat-' + result.insertId);
   } catch (err) {
     console.error('Category add error:', err);
     res.status(500).send('There was a problem adding the category. Please check whether the "parent_id" column exists in the database (run sql/update.sql).');
@@ -906,9 +906,18 @@ router.get('/categories', requireAdmin, requireRole('products'), async (req, res
        GROUP BY categories.id ORDER BY (categories.parent_id IS NULL) DESC, categories.parent_id, categories.sort_order ASC, categories.id ASC`,
       params
     );
+    // ?parent=<id> (from the "+ Sub-category" link on a main category row):
+    // pre-select that main category in the Add form. Only a real main
+    // category counts — a sub-category id or a bogus id is ignored.
+    let selectedParent = null;
+    const parentParam = parseInt(req.query.parent, 10);
+    if (!isNaN(parentParam)) {
+      const [[p]] = await db.query('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL', [parentParam]);
+      if (p) selectedParent = p.id;
+    }
     // Add form-er parent dropdown-e shob main category (search filter-e bad geleo)
     const [mainCategories] = await db.query('SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order ASC, id ASC');
-    res.render('admin/categories', { categories, mainCategories, q, siteName: 'Goince' });
+    res.render('admin/categories', { categories, mainCategories, q, selectedParent, siteName: 'Goince' });
   } catch (err) {
     console.error('Category list error:', err);
     res.status(500).send('There was a problem loading the category list. Please check whether the "parent_id" column exists in the database (run sql/update.sql -f).');
@@ -943,7 +952,7 @@ router.post('/categories/edit/:id', requireAdmin, requireRole('products'), uploa
     const image = categoryImage(req, old.image_url);
     await db.query('UPDATE categories SET name = ?, parent_id = ?, image_url = ?, description = ?, sort_order = ?, is_visible = ?, is_featured = ?, slug = ? WHERE id = ?',
       [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug, req.params.id]);
-    res.redirect('/admin/categories');
+    res.redirect('/admin/categories#cat-' + req.params.id);
   } catch (err) {
     console.error('Category edit error:', err);
     res.status(500).send('There was a problem updating the category.');
@@ -972,10 +981,11 @@ router.post('/categories/:id/move', requireAdmin, requireRole('products'), async
         await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [cat.sort_order, other.id]);
       }
     }
-    res.redirect('/admin/categories');
+    // Anchor-e ferot jai, jate page-er upore na giye oi row-tei thake
+    res.redirect('/admin/categories#cat-' + req.params.id);
   } catch (err) {
     console.error('Category move error:', err);
-    res.redirect('/admin/categories');
+    res.redirect('/admin/categories#cat-' + req.params.id);
   }
 });
 
@@ -983,10 +993,10 @@ router.post('/categories/:id/move', requireAdmin, requireRole('products'), async
 router.post('/categories/:id/toggle-visibility', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     await db.query('UPDATE categories SET is_visible = 1 - is_visible WHERE id = ?', [req.params.id]);
-    res.redirect('/admin/categories');
+    res.redirect('/admin/categories#cat-' + req.params.id);
   } catch (err) {
     console.error('Category visibility error:', err);
-    res.redirect('/admin/categories');
+    res.redirect('/admin/categories#cat-' + req.params.id);
   }
 });
 
