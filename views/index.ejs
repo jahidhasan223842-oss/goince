@@ -22,6 +22,18 @@
   <div>🔄 24h Return <span>(defective / wrong product)</span></div>
   <div>💬 WhatsApp Support</div>
 </section>
+<% if (typeof banners !== 'undefined' && banners && banners.length > 0) { %>
+  <% banners.forEach(b => { %>
+    <section class="home-banner" style="margin:16px 0; border-radius:10px; overflow:hidden; position:relative;">
+      <% if (b.image) { %><img src="<%= b.image %>" alt="<%= b.title %>" style="width:100%; display:block; max-height:320px; object-fit:cover;"><% } %>
+      <div style="position:absolute; left:0; right:0; bottom:0; padding:14px 18px; background:linear-gradient(transparent, rgba(0,0,0,0.65)); color:#fff;">
+        <h2 style="margin:0; font-size:22px; color:#fff;"><%= b.title %></h2>
+        <% if (b.subtitle) { %><p style="margin:4px 0 8px; color:#eee;"><%= b.subtitle %></p><% } %>
+        <% if (b.link_url) { %><a href="<%= b.link_url %>" class="btn-primary" style="display:inline-block;">Shop Now →</a><% } %>
+      </div>
+    </section>
+  <% }) %>
+<% } %>
 <% } %>
 
 <div class="category-bar" id="products">
@@ -100,7 +112,7 @@
         <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
           <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
         <% } else { %>
-          <form action="/cart/add/<%= p.id %>" method="POST"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+          <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
         <% } %>
       <% } %>
     </div>

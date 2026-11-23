@@ -2,7 +2,7 @@
 
 <h1>Categories</h1>
 
-<form action="/admin/categories/add" method="POST" class="admin-form" style="max-width:400px;">
+<form action="/admin/categories/add" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
   <label>Category Name</label>
   <input type="text" name="name" placeholder="e.g. Fashion, or Men's Shirt" required>
 
@@ -27,7 +27,7 @@
         <td><%= cat.parent_name || '-' %></td>
         <td><%= cat.product_count %></td>
         <td>
-          <form action="/admin/categories/edit/<%= cat.id %>" method="POST" class="inline-form" style="margin-bottom:6px;">
+          <form action="/admin/categories/edit/<%= cat.id %>" method="POST" class="inline-form" style="margin-bottom:6px;"><%- include('../partials/csrf-field') %>
             <input type="text" name="name" value="<%= cat.name %>" style="padding:6px 10px; width:120px;">
             <select name="parent_id" style="padding:6px;">
               <option value="">None</option>
@@ -39,7 +39,7 @@
             </select>
             <button type="submit" style="padding:6px 12px; font-size:13px;">Save</button>
           </form>
-          <form action="/admin/categories/delete/<%= cat.id %>" method="POST" onsubmit="return confirm('Deleting this will make its products Uncategorized, and any sub-categories will also be deleted. Sure?');">
+          <form action="/admin/categories/delete/<%= cat.id %>" method="POST" onsubmit="return confirm('Deleting this will make its products Uncategorized, and any sub-categories will also be deleted. Sure?');"><%- include('../partials/csrf-field') %>
             <button type="submit" class="link-btn-danger">Delete</button>
           </form>
         </td>

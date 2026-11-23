@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const { getCourierConfig, createConsignment, getTrackingStatus } = require('../lib/courier');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
@@ -83,12 +84,14 @@ router.post('/login', async (req, res) => {
 
   const { email, password } = req.body;
   let loginOk = false;
+  let adminRow = null;
 
   try {
     // Check the DB ("admins" table) first, because a password changed via
     // Forgot Password is the new correct password
     const [rows] = await db.query('SELECT * FROM admins WHERE email = ?', [email]);
     if (rows.length > 0) {
+      adminRow = rows[0];
       loginOk = await bcrypt.compare(password || '', rows[0].password);
     } else if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
       // No row for this email in the "admins" table — fall back to the .env check
@@ -105,18 +108,9 @@ router.post('/login', async (req, res) => {
   if (loginOk) {
     delete loginAttempts[ip]; // reset attempt count after a successful login
     req.session.isAdmin = true;
-    // Staff roles: kon admin login korlo + tar role session-e rakha, jate
-    // prottek route-e role check kora jay. DB row na thakle (.env fallback)
-    // Owner dhora hoy.
-    req.session.adminEmail = email;
-    req.session.adminRole = 'owner';
-    try {
-      const [meRows] = await db.query('SELECT id, role FROM admins WHERE email = ?', [email]);
-      if (meRows.length > 0) {
-        req.session.adminId = meRows[0].id;
-        req.session.adminRole = meRows[0].role || 'owner';
-      }
-    } catch (e) { /* admins table na thakle Owner-i thakbe */ }
+    req.session.adminId = adminRow ? adminRow.id : null;
+    req.session.adminEmail = adminRow ? adminRow.email : email;
+    req.session.adminRole = adminRow ? (adminRow.role || 'owner') : 'owner';
 
     // "Remember Me" checked -> stay logged in for 30 days; otherwise the
     // session ends when the browser is closed (a normal session cookie)
@@ -365,15 +359,24 @@ router.post('/inventory/update/:id', requireAdmin, requireRole('products'), asyn
 
 // ---------- PRODUCT LIST ----------
 router.get('/products', requireAdmin, requireRole('productsView'), async (req, res) => {
+  const { q } = req.query;
+  const where = [];
+  const params = [];
+  if (q) {
+    where.push('(p.name LIKE ? OR p.sku LIKE ? OR p.brand LIKE ?)');
+    params.push('%' + q + '%', '%' + q + '%', '%' + q + '%');
+  }
   const [products] = await db.query(
     `SELECT p.*, c.name AS category_name,
             (SELECT filename FROM product_videos WHERE product_id = p.id ORDER BY created_at DESC LIMIT 1) AS video_filename,
             (SELECT id FROM product_videos WHERE product_id = p.id ORDER BY created_at DESC LIMIT 1) AS video_id
      FROM products p
-     LEFT JOIN categories c ON p.category_id = c.id
-     ORDER BY p.created_at DESC`
+     LEFT JOIN categories c ON p.category_id = c.id`
+    + (where.length ? ' WHERE ' + where.join(' AND ') : '') + `
+     ORDER BY p.created_at DESC`,
+    params
   );
-  res.render('admin/products', { products, siteName: 'Goince' });
+  res.render('admin/products', { products, siteName: 'Goince', q: q || '' });
 });
 
 // ---------- ADD PRODUCT ----------
@@ -880,8 +883,25 @@ router.post('/categories/delete/:id', requireAdmin, requireRole('products'), asy
 
 // ---------- ORDERS LIST ----------
 router.get('/orders', requireAdmin, requireRole('ordersView'), async (req, res) => {
-  const [orders] = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
-  res.render('admin/orders', { orders, siteName: 'Goince' });
+  const { q, status, date_from, date_to } = req.query;
+  const where = [];
+  const params = [];
+  if (q) {
+    const idNum = parseInt(q.replace(/\D/g, ''), 10);
+    if (!isNaN(idNum) && String(idNum) === q.trim().replace(/^#/, '')) {
+      where.push('(id = ? OR customer_name LIKE ? OR phone LIKE ?)');
+      params.push(idNum, '%' + q + '%', '%' + q + '%');
+    } else {
+      where.push('(customer_name LIKE ? OR phone LIKE ?)');
+      params.push('%' + q + '%', '%' + q + '%');
+    }
+  }
+  if (status) { where.push('status = ?'); params.push(status); }
+  if (date_from) { where.push('DATE(created_at) >= ?'); params.push(date_from); }
+  if (date_to) { where.push('DATE(created_at) <= ?'); params.push(date_to); }
+  const sql = 'SELECT * FROM orders' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created_at DESC';
+  const [orders] = await db.query(sql, params);
+  res.render('admin/orders', { orders, siteName: 'Goince', q: q || '', status: status || '', date_from: date_from || '', date_to: date_to || '' });
 });
 
 // ---------- ORDER DETAILS ----------
@@ -890,7 +910,15 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
   if (!order) return res.redirect('/admin/orders');
   const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
   const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
-  res.render('admin/order-details', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
+  const courier = await getCourierConfig(db);
+  const courierMsg = req.query.courier === 'created' ? 'Consignment created with ' + (order.courier_name || 'the courier') + ' — tracking ' + (order.tracking_number || '') + '.' :
+    req.query.courier === 'failed' ? 'Courier API call failed — check the API keys in Settings > Courier API and try again.' :
+    req.query.courier === 'not-configured' ? 'Courier API is not configured yet — add the API keys in Settings > Courier API first.' :
+    req.query.courier === 'already' ? 'This order already has a consignment / tracking number.' :
+    req.query.courier === 'status-updated' ? 'Tracking status updated from the courier.' :
+    req.query.courier === 'status-failed' ? 'Could not fetch the tracking status — check the API keys and try again.' :
+    req.query.courier === 'no-consignment' ? 'This order has no consignment yet — create one first.' : null;
+  res.render('admin/order-details', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
 });
 
 // ---------- UPDATE ORDER STATUS ----------
@@ -915,6 +943,35 @@ router.post('/orders/:id/shipping', requireAdmin, requireRole('orders'), async (
     [courier_name || null, tracking_number || null, req.params.id]
   );
   res.redirect('/admin/orders/' + req.params.id);
+});
+
+// ---------- CREATE COURIER CONSIGNMENT (Steadfast / Pathao API) ----------
+router.post('/orders/:id/create-consignment', requireAdmin, requireRole('orders'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  if (order.courier_consignment_id || order.tracking_number) return res.redirect('/admin/orders/' + order.id + '?courier=already');
+  const config = await getCourierConfig(db);
+  if (!config.configured) return res.redirect('/admin/orders/' + order.id + '?courier=not-configured');
+  const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
+  const result = await createConsignment(order, items, config);
+  if (!result.ok) return res.redirect('/admin/orders/' + order.id + '?courier=failed');
+  await db.query(
+    'UPDATE orders SET courier_name = ?, tracking_number = ?, courier_consignment_id = ?, courier_status = ? WHERE id = ?',
+    [result.courierName, result.trackingNumber, result.consignmentId, result.status || null, order.id]
+  );
+  res.redirect('/admin/orders/' + order.id + '?courier=created');
+});
+
+// ---------- REFRESH TRACKING STATUS FROM COURIER ----------
+router.post('/orders/:id/refresh-tracking', requireAdmin, requireRole('orders'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  if (!order.courier_consignment_id && !order.tracking_number) return res.redirect('/admin/orders/' + order.id + '?courier=no-consignment');
+  const config = await getCourierConfig(db);
+  const result = await getTrackingStatus(order, config);
+  if (!result.ok) return res.redirect('/admin/orders/' + order.id + '?courier=status-failed');
+  await db.query('UPDATE orders SET courier_status = ? WHERE id = ?', [result.status, order.id]);
+  res.redirect('/admin/orders/' + order.id + '?courier=status-updated');
 });
 
 // ---------- COUPONS LIST ----------
@@ -1232,7 +1289,7 @@ router.post('/delivery-zones/delete/:id', requireAdmin, requireRole('deliveryZon
 
 router.get('/settings', requireAdmin, requireRole('settings'), async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id')"
   );
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
@@ -1260,13 +1317,49 @@ router.get('/settings', requireAdmin, requireRole('settings'), async (req, res) 
     gatewayStoreId: get('gateway_store_id', ''),
     gatewayMode: get('gateway_mode', 'sandbox'),
     gatewayPasswordSet: !!get('gateway_store_password', ''),
+    courierProvider: get('courier_provider', 'none'),
+    courierEnabled: get('courier_enabled', '0'),
+    courierMode: get('courier_mode', 'sandbox'),
+    courierSteadfastKeySet: !!get('steadfast_api_key', ''),
+    courierPathaoSecretSet: !!get('pathao_client_secret', ''),
+    courierPathaoPasswordSet: !!get('pathao_password', ''),
+    pathaoClientId: get('pathao_client_id', ''),
+    pathaoUsername: get('pathao_username', ''),
+    pathaoStoreId: get('pathao_store_id', ''),
     logoUrl: get('logo_url', '/icons/icon-192.png'),
     faviconUrl: get('favicon_url', '/icons/icon-192.png'),
     ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
     products,
     message: null,
+    pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
+      req.query.pw === 'wrong' ? 'Current password is wrong — password was not changed.' :
+      req.query.pw === 'mismatch' ? 'New passwords do not match — password was not changed.' :
+      req.query.pw === 'short' ? 'New password must be at least 6 characters.' :
+      req.query.pw === 'noaccount' ? 'No admin account found in the database — use Forgot Password instead.' : null,
     siteName: 'Goince'
   });
+});
+
+// ---------- CHANGE ADMIN PASSWORD (Settings theke, nijer password nije bodlano) ----------
+router.post('/settings/change-password', requireAdmin, async (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body;
+  if ((new_password || '').length < 6) return res.redirect('/admin/settings?pw=short');
+  if (new_password !== confirm_password) return res.redirect('/admin/settings?pw=mismatch');
+  let adminRow = null;
+  if (req.session.adminId) {
+    const [[row]] = await db.query('SELECT * FROM admins WHERE id = ?', [req.session.adminId]);
+    adminRow = row || null;
+  }
+  if (!adminRow) {
+    const [rows] = await db.query('SELECT * FROM admins ORDER BY id ASC LIMIT 1');
+    adminRow = rows[0] || null;
+  }
+  if (!adminRow) return res.redirect('/admin/settings?pw=noaccount');
+  const ok = await bcrypt.compare(current_password || '', adminRow.password);
+  if (!ok) return res.redirect('/admin/settings?pw=wrong');
+  const hashed = await bcrypt.hash(new_password, 10);
+  await db.query('UPDATE admins SET password = ? WHERE id = ?', [hashed, adminRow.id]);
+  res.redirect('/admin/settings?pw=ok');
 });
 
 router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), async (req, res) => {
@@ -1305,6 +1398,12 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
     ['gateway_enabled', req.body.gateway_enabled === '1' ? '1' : '0'],
     ['gateway_store_id', (req.body.gateway_store_id || '').trim()],
     ['gateway_mode', req.body.gateway_mode === 'live' ? 'live' : 'sandbox'],
+    ['courier_provider', ['none', 'steadfast', 'pathao'].includes(req.body.courier_provider) ? req.body.courier_provider : 'none'],
+    ['courier_enabled', req.body.courier_enabled === '1' ? '1' : '0'],
+    ['courier_mode', req.body.courier_mode === 'live' ? 'live' : 'sandbox'],
+    ['pathao_client_id', (req.body.pathao_client_id || '').trim()],
+    ['pathao_username', (req.body.pathao_username || '').trim()],
+    ['pathao_store_id', (req.body.pathao_store_id || '').trim()],
     ['logo_url', logoUrl || '/icons/icon-192.png'],
     ['favicon_url', faviconUrl || '/icons/icon-192.png'],
     ['og_image_url', ogImageUrl || '/icons/icon-512.png']
@@ -1313,6 +1412,11 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
   if ((req.body.gateway_store_password || '').trim()) {
     settingsToSave.push(['gateway_store_password', (req.body.gateway_store_password || '').trim()]);
   }
+  // Same for courier secrets: blank keeps the saved one (they are never shown in the form)
+  if ((req.body.steadfast_api_key || '').trim()) settingsToSave.push(['steadfast_api_key', (req.body.steadfast_api_key || '').trim()]);
+  if ((req.body.steadfast_secret_key || '').trim()) settingsToSave.push(['steadfast_secret_key', (req.body.steadfast_secret_key || '').trim()]);
+  if ((req.body.pathao_client_secret || '').trim()) settingsToSave.push(['pathao_client_secret', (req.body.pathao_client_secret || '').trim()]);
+  if ((req.body.pathao_password || '').trim()) settingsToSave.push(['pathao_password', (req.body.pathao_password || '').trim()]);
 
   for (const [key, value] of settingsToSave) {
     await db.query(
@@ -1324,6 +1428,13 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const [[gwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'gateway_store_password'");
   const gatewayPasswordSet = !!(gwRow && gwRow.setting_value);
+  // Courier secrets: saved or just entered (never shown in the form)
+  const [[sfKeyRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'steadfast_api_key'");
+  const courierSteadfastKeySet = !!((req.body.steadfast_api_key || '').trim() || (sfKeyRow && sfKeyRow.setting_value));
+  const [[paSecRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'pathao_client_secret'");
+  const courierPathaoSecretSet = !!((req.body.pathao_client_secret || '').trim() || (paSecRow && paSecRow.setting_value));
+  const [[paPwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'pathao_password'");
+  const courierPathaoPasswordSet = !!((req.body.pathao_password || '').trim() || (paPwRow && paPwRow.setting_value));
   res.render('admin/settings', {
     shopPhone,
     deliveryChargeInside: safeInside,
@@ -1345,6 +1456,15 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
     gatewayStoreId: (req.body.gateway_store_id || '').trim(),
     gatewayMode: req.body.gateway_mode === 'live' ? 'live' : 'sandbox',
     gatewayPasswordSet,
+    courierProvider: ['none', 'steadfast', 'pathao'].includes(req.body.courier_provider) ? req.body.courier_provider : 'none',
+    courierEnabled: req.body.courier_enabled === '1' ? '1' : '0',
+    courierMode: req.body.courier_mode === 'live' ? 'live' : 'sandbox',
+    courierSteadfastKeySet,
+    courierPathaoSecretSet,
+    courierPathaoPasswordSet,
+    pathaoClientId: (req.body.pathao_client_id || '').trim(),
+    pathaoUsername: (req.body.pathao_username || '').trim(),
+    pathaoStoreId: (req.body.pathao_store_id || '').trim(),
     logoUrl: logoUrl || '/icons/icon-192.png',
     faviconUrl: faviconUrl || '/icons/icon-192.png',
     ogImageUrl: ogImageUrl || '/icons/icon-512.png',
@@ -1352,6 +1472,45 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
     message: 'Settings updated! They will appear on the homepage and footer right away.',
     siteName: 'Goince'
   });
+});
+
+// ==================== HOMEPAGE BANNERS ====================
+
+router.get('/banners', requireAdmin, requireRole('banners'), async (req, res) => {
+  const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
+  res.render('admin/banners', { banners, editing: null, siteName: 'Goince' });
+});
+router.post('/banners/add', requireAdmin, requireRole('banners'), upload.single('image'), async (req, res) => {
+  const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || null);
+  await db.query(
+    'INSERT INTO banners (title, subtitle, image, link_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+    [(req.body.title || '').trim(), (req.body.subtitle || '').trim() || null, image, (req.body.link_url || '').trim() || null, parseInt(req.body.sort_order, 10) || 0]
+  );
+  res.redirect('/admin/banners');
+});
+router.get('/banners/edit/:id', requireAdmin, requireRole('banners'), async (req, res) => {
+  const [[editing]] = await db.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
+  if (!editing) return res.redirect('/admin/banners');
+  const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
+  res.render('admin/banners', { banners, editing, siteName: 'Goince' });
+});
+router.post('/banners/edit/:id', requireAdmin, requireRole('banners'), upload.single('image'), async (req, res) => {
+  const [[old]] = await db.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
+  if (!old) return res.redirect('/admin/banners');
+  const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || old.image);
+  await db.query(
+    'UPDATE banners SET title = ?, subtitle = ?, image = ?, link_url = ?, sort_order = ? WHERE id = ?',
+    [(req.body.title || '').trim(), (req.body.subtitle || '').trim() || null, image, (req.body.link_url || '').trim() || null, parseInt(req.body.sort_order, 10) || 0, req.params.id]
+  );
+  res.redirect('/admin/banners');
+});
+router.post('/banners/:id/toggle', requireAdmin, requireRole('banners'), async (req, res) => {
+  await db.query('UPDATE banners SET is_active = 1 - is_active WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/banners');
+});
+router.post('/banners/:id/delete', requireAdmin, requireRole('banners'), async (req, res) => {
+  await db.query('DELETE FROM banners WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/banners');
 });
 
 // ==================== CONTACT MESSAGES (website-er Contact form) ====================
@@ -1367,6 +1526,37 @@ router.post('/messages/:id/read', requireAdmin, requireRole('messages'), async (
 router.post('/messages/:id/delete', requireAdmin, requireRole('messages'), async (req, res) => {
   await db.query('DELETE FROM contact_messages WHERE id = ?', [req.params.id]);
   res.redirect('/admin/messages');
+});
+
+// ==================== REVIEWS MODERATION ====================
+
+router.get('/reviews', requireAdmin, requireRole('reviews'), async (req, res) => {
+  const { status } = req.query;
+  const where = [];
+  const params = [];
+  if (status) { where.push('r.status = ?'); params.push(status); }
+  const [reviews] = await db.query(
+    `SELECT r.*, p.name AS product_name, u.name AS user_name FROM reviews r
+     LEFT JOIN products p ON r.product_id = p.id
+     LEFT JOIN users u ON r.user_id = u.id`
+    + (where.length ? ' WHERE ' + where.join(' AND ') : '') + `
+     ORDER BY r.created_at DESC LIMIT 200`,
+    params
+  );
+  const [[{ pending }]] = await db.query("SELECT COUNT(*) AS pending FROM reviews WHERE status = 'pending'");
+  res.render('admin/reviews', { reviews, pending, status: status || '', siteName: 'Goince' });
+});
+router.post('/reviews/:id/approve', requireAdmin, requireRole('reviews'), async (req, res) => {
+  await db.query("UPDATE reviews SET status = 'approved' WHERE id = ?", [req.params.id]);
+  res.redirect('/admin/reviews');
+});
+router.post('/reviews/:id/hide', requireAdmin, requireRole('reviews'), async (req, res) => {
+  await db.query("UPDATE reviews SET status = 'hidden' WHERE id = ?", [req.params.id]);
+  res.redirect('/admin/reviews');
+});
+router.post('/reviews/:id/delete', requireAdmin, requireRole('reviews'), async (req, res) => {
+  await db.query('DELETE FROM reviews WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/reviews');
 });
 
 // ==================== TEST EMAIL (Debug tool) ====================
@@ -1467,47 +1657,46 @@ router.post('/staff/:id/delete', requireAdmin, requireRole('staff'), async (req,
 
 // ==================== REPORTS ====================
 // Daily / Weekly / Monthly / Yearly / All Time / Custom Date Range sales report
+// Shared by /admin/reports and /admin/reports/export: period -> WHERE condition
+function getReportPeriod(query) {
+  const validPeriods = ['daily', 'weekly', 'monthly', 'yearly', 'all', 'custom'];
+  const period = validPeriods.includes(query.period) ? query.period : 'daily';
+  let dateCondition = '1=1';
+  let params = [];
+  let periodLabel = 'All Time';
+  let customFrom = query.from || '';
+  let customTo = query.to || '';
+  if (period === 'daily') {
+    dateCondition = 'DATE(created_at) = CURDATE()';
+    periodLabel = "Today (" + new Date().toLocaleDateString() + ")";
+  } else if (period === 'weekly') {
+    dateCondition = 'YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)';
+    periodLabel = 'This Week';
+  } else if (period === 'monthly') {
+    dateCondition = 'YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE())';
+    periodLabel = 'This Month';
+  } else if (period === 'yearly') {
+    dateCondition = 'YEAR(created_at) = YEAR(CURDATE())';
+    periodLabel = 'This Year (' + new Date().getFullYear() + ')';
+  } else if (period === 'custom') {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (dateRegex.test(customFrom) && dateRegex.test(customTo)) {
+      dateCondition = 'DATE(created_at) BETWEEN ? AND ?';
+      params = [customFrom, customTo];
+      periodLabel = customFrom + ' to ' + customTo;
+    } else {
+      dateCondition = 'DATE(created_at) = CURDATE()';
+      periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Please select dates";
+    }
+  } else {
+    periodLabel = 'All Time';
+  }
+  return { period, dateCondition, params, periodLabel, customFrom, customTo };
+}
+
 router.get('/reports', requireAdmin, requireRole('reports'), async (req, res) => {
   try {
-    const validPeriods = ['daily', 'weekly', 'monthly', 'yearly', 'all', 'custom'];
-    const period = validPeriods.includes(req.query.period) ? req.query.period : 'daily';
-
-    // Build the WHERE condition for the selected period (parameterized, safe from SQL injection)
-    // and a readable label
-    let dateCondition = '1=1';
-    let params = [];
-    let periodLabel = 'All Time';
-    let customFrom = req.query.from || '';
-    let customTo = req.query.to || '';
-
-    if (period === 'daily') {
-      dateCondition = 'DATE(created_at) = CURDATE()';
-      periodLabel = "Today (" + new Date().toLocaleDateString() + ")";
-    } else if (period === 'weekly') {
-      dateCondition = 'YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)';
-      periodLabel = 'This Week';
-    } else if (period === 'monthly') {
-      dateCondition = 'YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE())';
-      periodLabel = 'This Month';
-    } else if (period === 'yearly') {
-      dateCondition = 'YEAR(created_at) = YEAR(CURDATE())';
-      periodLabel = 'This Year (' + new Date().getFullYear() + ')';
-    } else if (period === 'custom') {
-      // Check that the from/to date format is correct (YYYY-MM-DD)
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (dateRegex.test(customFrom) && dateRegex.test(customTo)) {
-        dateCondition = 'DATE(created_at) BETWEEN ? AND ?';
-        params = [customFrom, customTo];
-        periodLabel = customFrom + ' to ' + customTo;
-      } else {
-        // If no valid date is given, show today's date (fallback)
-        dateCondition = 'DATE(created_at) = CURDATE()';
-        periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Please select dates";
-      }
-    } else {
-      periodLabel = 'All Time';
-    }
-
+    const { period, dateCondition, params, periodLabel, customFrom, customTo } = getReportPeriod(req.query);
     // All summaries are calculated excluding cancelled orders
     const [[summary]] = await db.query(
       `SELECT
@@ -1579,6 +1768,50 @@ router.get('/reports', requireAdmin, requireRole('reports'), async (req, res) =>
   } catch (err) {
     console.error(err);
     res.status(500).send('There was a problem loading the report: ' + err.message);
+  }
+});
+
+// ---------- REPORTS CSV EXPORT (ekoi period-er orders + revenue + profit) ----------
+router.get('/reports/export', requireAdmin, requireRole('reports'), async (req, res) => {
+  try {
+    const { period, dateCondition, params, periodLabel } = getReportPeriod(req.query);
+    const [[summary]] = await db.query(
+      `SELECT COUNT(*) AS totalOrders, COALESCE(SUM(total_amount), 0) AS totalRevenue
+       FROM orders WHERE ${dateCondition} AND status != 'Cancelled'`, params);
+    let totalCost = 0, totalProfit = 0;
+    try {
+      const [[profitRow]] = await db.query(
+        `SELECT COALESCE(SUM(order_items.quantity * order_items.cost_price), 0) AS totalCost,
+                COALESCE(SUM(order_items.quantity * (order_items.price - order_items.cost_price)), 0) AS totalProfit
+         FROM order_items JOIN orders ON orders.id = order_items.order_id
+         WHERE ${dateCondition} AND orders.status != 'Cancelled'`, params);
+      totalCost = Number(profitRow.totalCost || 0);
+      totalProfit = Number(profitRow.totalProfit || 0);
+    } catch (e) { /* purono order-e cost_price na thakle 0 */ }
+    const [orders] = await db.query(
+      `SELECT id, customer_name, phone, total_amount, status, payment_status, created_at
+       FROM orders WHERE ${dateCondition} ORDER BY created_at DESC`, params);
+    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const lines = [
+      'Goince Report - ' + periodLabel,
+      'Period,' + esc(period),
+      'Total Orders,' + summary.totalOrders,
+      'Total Revenue,' + Number(summary.totalRevenue).toFixed(2),
+      'Total Cost,' + totalCost.toFixed(2),
+      'Total Profit,' + totalProfit.toFixed(2),
+      '',
+      'Order ID,Date,Customer,Phone,Total,Status,Payment Status',
+    ];
+    for (const o of orders) {
+      lines.push([o.id, new Date(o.created_at).toISOString().slice(0, 19).replace('T', ' '),
+        esc(o.customer_name), esc(o.phone), Number(o.total_amount).toFixed(2), o.status, o.payment_status || 'Unpaid'].join(','));
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="goince-report-' + period + '.csv"');
+    res.send('\uFEFF' + lines.join('\r\n'));
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('There was a problem exporting the report: ' + err.message);
   }
 });
 

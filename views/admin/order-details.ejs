@@ -88,7 +88,7 @@
 <% if (_role !== 'staff') { %>
 <div class="no-print">
   <h3 style="margin-top:30px;">Update Order Status</h3>
-  <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form">
+  <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
     <select name="status">
       <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
         <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s %></option>
@@ -98,7 +98,7 @@
   </form>
 
   <h3 style="margin-top:24px;">Update Payment Status</h3>
-  <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form">
+  <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
     <select name="payment_status">
       <% ['Unpaid','Paid','Partial','Refunded'].forEach(s => { %>
         <option value="<%= s %>" <%= order.payment_status === s ? 'selected' : '' %>><%= s %></option>
@@ -108,7 +108,7 @@
   </form>
 
   <h3 style="margin-top:24px;">Courier / Tracking Info</h3>
-  <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;">
+  <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
     <label>Courier Company</label>
     <input type="text" name="courier_name" value="<%= order.courier_name || '' %>" placeholder="e.g. Pathao, Steadfast">
 
@@ -119,6 +119,25 @@
   </form>
 </div>
 <% } %>
+
+  <h3 style="margin-top:24px;">🚚 Courier API — Book Parcel</h3>
+  <% if (typeof courierMsg !== 'undefined' && courierMsg) { %><p class="success-msg" style="text-align:left;"><%= courierMsg %></p><% } %>
+  <% if (typeof courier !== 'undefined' && courier && courier.configured) { %>
+    <p class="field-hint">Provider: <strong><%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %></strong> (<%= courier.mode %>) — one click books the parcel and saves the tracking number on this order.</p>
+    <% if (order.courier_status) { %><p><span>Delivery Status</span><strong><%= order.courier_status %></strong></p><% } %>
+    <% if (order.courier_consignment_id) { %><p><span>Consignment ID</span><%= order.courier_consignment_id %></p><% } %>
+    <% if (!order.courier_consignment_id && !order.tracking_number) { %>
+      <form action="/admin/orders/<%= order.id %>/create-consignment" method="POST" style="display:inline;">
+        <button type="submit" class="btn-primary" onclick="return confirm('Book this parcel with <%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>?<%= courier.provider === 'steadfast' ? ' Steadfast has no sandbox — this creates a real parcel.' : '' %>');">📦 Create Consignment (<%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>)</button>
+      </form>
+    <% } else { %>
+      <form action="/admin/orders/<%= order.id %>/refresh-tracking" method="POST" style="display:inline;">
+        <button type="submit" class="btn-primary" style="background:var(--navy);">🔄 Refresh Tracking Status</button>
+      </form>
+    <% } %>
+  <% } else { %>
+    <p class="field-hint">Courier API is not set up yet — set the provider and API keys in <a href="/admin/settings">Settings &gt; Courier API</a> to book parcels in one click. The manual courier/tracking fields above keep working.</p>
+  <% } %>
 
   <a href="/admin/orders" class="back-link">&larr; Back to Orders</a>
 

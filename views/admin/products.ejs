@@ -12,6 +12,15 @@
   <% } %>
 </div>
 
+<form method="GET" action="/admin/products" class="admin-search-form">
+  <input type="text" name="q" value="<%= q || '' %>" placeholder="Search by name, SKU or brand...">
+  <button type="submit" class="btn-primary">Search</button>
+  <% if (q) { %> <a href="/admin/products">Clear</a> <% } %>
+</form>
+
+<% if (products.length === 0) { %>
+  <p>No products found. Try clearing the search.</p>
+<% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
@@ -43,7 +52,7 @@
           <% if (p.video_filename) { %>
             <span style="color:green; font-size:12px;">✓ Video Ready</span><br>
             <% if (_role !== 'staff') { %><a href="/admin/products/<%= p.id %>/video/download" class="btn-sm" style="margin-top:4px; display:inline-block;">Download</a>
-            <form action="/admin/products/<%= p.id %>/video/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this video?');">
+            <form action="/admin/products/<%= p.id %>/video/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this video?');"><%- include('../partials/csrf-field') %>
               <button type="submit" class="link-btn-danger" style="font-size:12px;">Delete</button>
             </form><% } %>
           <% } else { %>
@@ -59,8 +68,8 @@
           <% if (_role !== 'staff') { %>
           <a href="/admin/products/edit/<%= p.id %>">Edit</a> |
           <a href="/admin/products/<%= p.id %>/stock-history">History</a> |
-          <form action="/admin/products/<%= p.id %>/duplicate" method="POST" style="display:inline"><button type="submit" class="link-btn-danger" style="color:#2196f3;">Duplicate</button></form> |
-          <form action="/admin/products/delete/<%= p.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');">
+          <form action="/admin/products/<%= p.id %>/duplicate" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;">Duplicate</button></form> |
+          <form action="/admin/products/delete/<%= p.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
             <button type="submit" class="link-btn-danger">Delete</button>
           </form>
           <% } else { %><span style="color:#999;">View only</span><% } %>
@@ -70,6 +79,7 @@
   </tbody>
 </table>
 </div>
+<% } %>
 
 <script>
 document.querySelectorAll('.generate-video-btn').forEach(btn => {
@@ -82,9 +92,10 @@ document.querySelectorAll('.generate-video-btn').forEach(btn => {
     status.style.color = '#666';
 
     try {
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const res = await fetch('/admin/products/' + id + '/generate-video', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...(csrfMeta ? { 'x-csrf-token': csrfMeta.content } : {}) }
       });
       const data = await res.json();
       if (data.ok) {

@@ -131,7 +131,7 @@ router.get('/', async (req, res) => {
                  COUNT(reviews.id) AS review_count,
                  AVG(reviews.rating) AS avg_rating
                FROM products
-               LEFT JOIN reviews ON reviews.product_id = products.id
+               LEFT JOIN reviews ON reviews.product_id = products.id AND reviews.status = 'approved'
                WHERE 1=1 AND ${VISIBLE_PRODUCT_SQL}`;
     const params = [];
     const selectedAudience = isSeasonalCategory && allowedAudiences.includes(requestedAudience) ? requestedAudience : '';
@@ -201,7 +201,13 @@ router.get('/', async (req, res) => {
         if (hp) heroProduct = hp;
       }
     } catch (e) {}
+    let banners = [];
+    try {
+      const [bannerRows] = await db.query("SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC");
+      banners = bannerRows;
+    } catch (e) { banners = []; }
     res.render('index', {
+      banners,
       heroProduct,
       variantProductIds: [...variantProductIds],
       optionProductIds: [...optionProductIds],
@@ -248,11 +254,11 @@ router.get('/product/:id', async (req, res) => {
     const [reviews] = await db.query(
       `SELECT reviews.*, users.name AS user_name FROM reviews
        JOIN users ON reviews.user_id = users.id
-       WHERE product_id = ? ORDER BY reviews.created_at DESC`,
+       WHERE product_id = ? AND reviews.status = 'approved' ORDER BY reviews.created_at DESC`,
       [req.params.id]
     );
     const [[avgRow]] = await db.query(
-      'SELECT AVG(rating) AS avgRating, COUNT(*) AS reviewCount FROM reviews WHERE product_id = ?',
+      'SELECT AVG(rating) AS avgRating, COUNT(*) AS reviewCount FROM reviews WHERE product_id = ? AND status = \'approved\'',
       [req.params.id]
     );
 
@@ -363,6 +369,7 @@ router.get('/product/:id', async (req, res) => {
       reviews,
       avgRating: avgRow.avgRating ? parseFloat(avgRow.avgRating).toFixed(1) : null,
       reviewCount: avgRow.reviewCount,
+      reviewPending: req.query.review === 'pending',
       deliveryCharge: deliveryCharges.inside_dhaka,
       deliveryChargeOutside: deliveryCharges.outside_dhaka,
       descriptionHtml,
@@ -380,10 +387,10 @@ router.post('/product/:id/review', async (req, res) => {
   try {
     const { rating, comment } = req.body;
     await db.query(
-      'INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)',
+      'INSERT INTO reviews (product_id, user_id, rating, comment, status) VALUES (?, ?, ?, ?, \'pending\')',
       [req.params.id, req.session.userId, rating, comment]
     );
-    res.redirect('/product/' + req.params.id);
+    res.redirect('/product/' + req.params.id + '?review=pending');
   } catch (err) {
     console.error(err);
     res.status(500).send('Review submit korte problem hoyeche.');

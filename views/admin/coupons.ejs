@@ -2,7 +2,7 @@
 
 <h1>Coupons</h1>
 
-<form action="/admin/coupons/add" method="POST" class="admin-form">
+<form action="/admin/coupons/add" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
   <label>Coupon Code</label>
   <input type="text" name="code" placeholder="e.g. WELCOME10" required>
 
@@ -33,11 +33,11 @@
           </span>
         </td>
         <td>
-          <form action="/admin/coupons/toggle/<%= c.id %>" method="POST" style="display:inline">
+          <form action="/admin/coupons/toggle/<%= c.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
             <button type="submit" class="link-btn-danger" style="color:#2196f3;"><%= c.active ? 'Deactivate' : 'Activate' %></button>
           </form>
           |
-          <form action="/admin/coupons/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');">
+          <form action="/admin/coupons/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
             <button type="submit" class="link-btn-danger">Delete</button>
           </form>
         </td>

@@ -14,7 +14,7 @@
   <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
 
   <h3>Message Pathao</h3>
-  <form action="/contact" method="POST" class="admin-form" style="max-width:480px;">
+  <form action="/contact" method="POST" class="admin-form" style="max-width:480px;"><%- include('partials/csrf-field') %>
     <label>Your Name *</label>
     <input type="text" name="name" required>
     <label>Phone (optional)</label>
