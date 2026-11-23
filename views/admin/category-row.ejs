@@ -1,0 +1,36 @@
+<% /*
+  One category row — used by the tree view (main + sub rows) and by the
+  flat search results. Locals:
+    cat          — category object (with product_count, parent_name)
+    isMain       — true for a main category, false for a sub-category
+    isFirst      — true when first in its group (▲ disabled)
+    isLast       — true when last in its group (▼ disabled)
+    subCount     — number of sub-categories (mains only)
+    subProducts  — products inside those sub-categories (mains only, for the delete warning)
+    chevronId    — main category id in tree mode (renders the ▼/▶ dropdown button), null otherwise
+*/ %>
+<div class="cat-row <%= isMain ? 'cat-main-row' : 'cat-sub-row' %>" id="cat-<%= cat.id %>">
+  <% if (chevronId) { %>
+    <button type="button" class="cat-chevron" data-cat-toggle="<%= chevronId %>" aria-expanded="true" title="Show/hide sub-categories">▼</button>
+  <% } %>
+  <span class="cat-thumb-wrap"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"><% } else { %>-<% } %></span>
+  <div class="cat-info">
+    <strong><%= cat.name %></strong>
+    <% if (isMain) { %> <span class="badge badge-main" title="Main category">Main</span><% } else { %> <span class="badge badge-sub" title="Sub-category of <%= cat.parent_name %>">Sub-category</span><% } %>
+    <% if (cat.is_featured) { %> <span title="Featured on homepage">⭐</span><% } %>
+    <% if (!isMain && cat.parent_name) { %><br><small><%= cat.parent_name %> › <%= cat.name %></small><% } %>
+    <% if (cat.description) { %><br><small><%= cat.description %></small><% } %>
+  </div>
+  <span class="cat-counts">
+    <a href="/admin/products?category=<%= cat.id %>"><%= cat.product_count %> product<%= cat.product_count == 1 ? '' : 's' %></a><% if (isMain) { %> · <%= subCount %> sub-categor<%= subCount == 1 ? 'y' : 'ies' %><% } %>
+  </span>
+  <span class="cat-actions">
+    <form action="/admin/categories/<%= cat.id %>/toggle-visibility" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:<%= cat.is_visible ? '#2e9e5b' : '#f0a500' %>;"><%= cat.is_visible ? '👁️ Shown' : '🙈 Hidden' %></button></form>
+    <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="up"><button type="submit" title="Move up" <%= isFirst ? 'disabled' : '' %>>▲</button></form>
+    <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="down"><button type="submit" title="Move down" <%= isLast ? 'disabled' : '' %>>▼</button></form>
+    <small>Order: <%= cat.sort_order %></small>
+    <% if (isMain) { %><a href="/admin/categories?parent=<%= cat.id %>#add-category">＋ Sub-category</a> | <% } %>
+    <a href="/admin/categories/edit/<%= cat.id %>">Edit</a> |
+    <form action="/admin/categories/delete/<%= cat.id %>" method="POST" style="display:inline" onsubmit="return confirm('<%= isMain ? ('Delete this main category? Its ' + subCount + ' sub-categories will also be deleted, and ' + ((+cat.product_count || 0) + (+subProducts || 0)) + ' product(s) will become Uncategorized. This cannot be undone.') : ('Delete this sub-category? Its ' + cat.product_count + ' product(s) will become Uncategorized. This cannot be undone.') %>');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
+  </span>
+</div>

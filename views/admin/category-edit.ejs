@@ -10,8 +10,11 @@
   <input type="text" name="name" value="<%= category.name %>" required>
   <label>URL Slug (auto-filled from the name — you can change it)</label>
   <input type="text" name="slug" id="cat-slug" value="<%= category.slug || '' %>" placeholder="e.g. fashion">
+  <% if (typeof childCount !== 'undefined' && childCount > 0) { %>
+  <p class="field-hint">This main category has <%= childCount %> sub-categor<%= childCount == 1 ? 'y' : 'ies' %> — move or delete them first if you want to make it a sub-category. (A category with sub-categories always stays a main category.)</p>
+  <% } %>
   <label>Parent Category — pick a main category to make this a sub-category (leave blank for a Main Category)</label>
-  <select name="parent_id">
+  <select name="parent_id" <%= (typeof childCount !== 'undefined' && childCount > 0) ? 'disabled' : '' %>>
     <option value="">-- None (Main Category) --</option>
     <% mainCategories.forEach(cat => { %>
       <option value="<%= cat.id %>" <%= category.parent_id == cat.id ? 'selected' : '' %>><%= cat.name %></option>
@@ -29,7 +32,7 @@
   <input type="hidden" name="is_visible" value="0">
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_visible" value="1" <%= category.is_visible ? 'checked' : '' %>> Show on website</label>
   <input type="hidden" name="is_featured" value="0">
-  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_featured" value="1" <%= category.is_featured ? 'checked' : '' %>> ⭐ Featured on homepage (shows first)</label>
+  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_featured" value="1" <%= category.is_featured ? 'checked' : '' %>> ⭐ Featured on homepage (main categories only — shows first)</label>
   <button type="submit" class="btn-primary">Update Category</button>
   <a href="/admin/categories">Cancel</a>
 </form>
