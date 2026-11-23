@@ -38,8 +38,36 @@
 
 <div class="category-bar" id="products">
   <a href="/" class="<%= !selectedCategory ? 'active' : '' %>">All</a>
-  <% displayCategories.forEach(cat => { %>
-    <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } %><%= cat.display_name || cat.name %></a>
+  <% displayCategories.forEach(cat => {
+    // Pill-er sub-category thakle hover-e dropdown khulbe (menuById server.js
+    // middleware theke ashe — lukano category/subtree age thekei bad, count
+    // soho). Sub-category na thakle pill ager motoi sadharon link thakbe.
+    const menuNode = (typeof menuById !== 'undefined' && menuById) ? menuById[cat.id] : null;
+    const pillKids = (menuNode && menuNode.children) ? menuNode.children : [];
+  %>
+    <% if (pillKids.length) { %>
+      <div class="cat-pill-wrap">
+        <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>" aria-haspopup="true"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } %><%= cat.display_name || cat.name %> <span class="cat-caret" aria-hidden="true">▾</span></a>
+        <div class="cat-pill-menu">
+          <ul>
+            <% pillKids.forEach(sub => { %>
+              <li>
+                <a href="/?category=<%= sub.id %>&sort=<%= sort %>"><%= sub.name %> <span class="cat-count">(<%= sub.totalProductCount %>)</span></a>
+                <% if (sub.children && sub.children.length) { %>
+                  <ul class="cat-pill-sub">
+                    <% sub.children.forEach(g => { %>
+                      <li><a href="/?category=<%= g.id %>&sort=<%= sort %>"><%= g.name %> <span class="cat-count">(<%= g.totalProductCount %>)</span></a></li>
+                    <% }) %>
+                  </ul>
+                <% } %>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+      </div>
+    <% } else { %>
+      <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } %><%= cat.display_name || cat.name %></a>
+    <% } %>
   <% }) %>
 </div>
 

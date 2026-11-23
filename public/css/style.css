@@ -103,6 +103,27 @@ a { text-decoration: none; color: inherit; }
 .subcategory-bar a { padding: 6px 14px; background: var(--surface); border-radius: 16px; border: 1px dashed var(--border-strong); font-size: 13px; color: var(--text-muted); }
 .subcategory-bar a.active { background: var(--accent); color: var(--navy); border-color: var(--accent); border-style: solid; }
 
+/* ---------- Category-bar pill dropdown (hover) ---------- */
+.cat-pill-wrap { position: relative; display: inline-flex; }
+.cat-caret { font-size: 10px; color: var(--text-muted); }
+/* Panel pill-er ekdom gaye lage (top: 100% theke 1px overlap) — majhe kono
+   faka jayga nei, tai aste mouse namaleo dropdown bondho hoy na. */
+.cat-pill-menu { display: none; position: absolute; top: calc(100% - 1px); left: 0; min-width: 220px; max-width: calc(100vw - 32px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 8px; z-index: 300; }
+.cat-pill-menu ul { list-style: none; }
+.category-bar .cat-pill-menu a { display: block; padding: 7px 10px; font-size: 14px; color: var(--text); background: none; border: none; border-radius: 8px; margin: 0; }
+.category-bar .cat-pill-menu a:hover { background: var(--bg-hover); color: var(--text-strong); }
+.category-bar .cat-pill-menu .cat-pill-sub a { padding-left: 24px; font-size: 13px; color: var(--text-muted); }
+.cat-count { color: var(--text-muted); font-weight: 400; font-size: 12px; }
+/* Mouse thakle hover-ei khulbe, keyboard-e focus korleo khulbe (touch
+   device-e hover rule cholbe na — tap korle pill-er link-e chole jabe, ar
+   sub-category mobile-e category page-r "In this category:" bar theke pawa jay). */
+@media (hover: hover) {
+  .cat-pill-wrap:hover .cat-pill-menu { display: block; }
+}
+.cat-pill-wrap:focus-within .cat-pill-menu { display: block; }
+/* Dan dik-er sesh pill-er menu jate screen-er baire na jay */
+.cat-pill-wrap:last-child .cat-pill-menu { left: auto; right: 0; }
+
 .page-title { margin: 20px 0; font-size: 28px; }
 
 .toolbar-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
@@ -949,13 +970,21 @@ a { text-decoration: none; color: inherit; }
 .mega-menu-panel { display: none; position: absolute; top: calc(100% + 10px); left: 0; width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 18px 20px 12px; z-index: 400; }
 .mega-menu-panel.open { display: block; }
 /* Mouse thakle hover-ei khulbe (touch device-e hover rule cholbe na, okhane click/tap-e khole) */
-@media (hover: hover) {
+@media (hover: hover) and (min-width: 769px) {
   .mega-menu-wrap:hover .mega-menu-panel { display: block; }
+  /* Button ar panel-er majher 10px faka jayga bridge kora: ::after strip-ta
+     wrap-er-i ongsho, tai mouse button theke panel-er dike namar somoy
+     hover chole jay na — na hole aste namale panel bondho hoye jeto. */
+  .mega-menu-wrap::after { content: ""; position: absolute; top: 100%; left: 0; right: 0; height: 10px; }
 }
 .mega-menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 24px; }
 .mega-col { min-width: 0; padding: 6px 0; }
 .mega-col-head { display: flex; align-items: center; gap: 4px; }
 .mega-col-title { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-strong); font-size: 15px; padding: 4px 0; margin: 0 !important; }
+/* .main-nav a { color: #fff }-er specificity (class+element) .mega-col-title
+   (shudhu class) theke beshi, tai title sada panel-e sada hoye adrishya hoye
+   jeto — panel-er vitore scope kore specificity barano holo. */
+.mega-menu-panel a.mega-col-title { color: var(--text-strong); }
 .mega-col-title:hover { color: var(--accent-text); }
 .mega-col-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; flex-shrink: 0; }
 .mega-col-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 4px 8px; margin-left: auto; flex-shrink: 0; }
