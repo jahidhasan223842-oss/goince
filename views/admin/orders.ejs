@@ -2,6 +2,23 @@
 
 <h1>Orders</h1>
 
+<form method="GET" action="/admin/orders" class="admin-search-form" style="flex-wrap:wrap;">
+  <input type="text" name="q" value="<%= q || '' %>" placeholder="Search by order ID, name or phone..." style="min-width:220px;">
+  <select name="status">
+    <option value="">All Statuses</option>
+    <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
+      <option value="<%= s %>" <%= (status || '') === s ? 'selected' : '' %>><%= s %></option>
+    <% }) %>
+  </select>
+  <input type="date" name="date_from" value="<%= date_from || '' %>" title="From date">
+  <input type="date" name="date_to" value="<%= date_to || '' %>" title="To date">
+  <button type="submit" class="btn-primary">Search</button>
+  <% if ((q || '') || (status || '') || (date_from || '') || (date_to || '')) { %> <a href="/admin/orders">Clear</a> <% } %>
+</form>
+
+<% if (orders.length === 0) { %>
+  <p>No orders found. Try clearing the filters.</p>
+<% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
@@ -23,5 +40,6 @@
   </tbody>
 </table>
 </div>
+<% } %>
 
 <%- include('../partials/admin-footer') %>

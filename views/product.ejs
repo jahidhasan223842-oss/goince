@@ -144,6 +144,9 @@
 
 <div class="reviews-section">
   <h2>Reviews</h2>
+  <% if (typeof reviewPending !== 'undefined' && reviewPending) { %>
+    <p style="background:#fff8e1; border:1px solid #f0a500; padding:10px; border-radius:6px;">✅ Thanks! Your review is awaiting approval and will show after the admin approves it.</p>
+  <% } %>
 
   <% if (reviews.length === 0) { %>
     <p>Be the first to review this product!</p>

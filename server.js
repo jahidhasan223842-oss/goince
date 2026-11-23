@@ -149,6 +149,22 @@ const SITE_SETTING_DEFAULTS = {
     const oNames = new Set(oCols.map(c => c.COLUMN_NAME));
     if (!oNames.has('courier_consignment_id')) await db.query("ALTER TABLE orders ADD COLUMN courier_consignment_id VARCHAR(100) DEFAULT NULL");
     if (!oNames.has('courier_status')) await db.query("ALTER TABLE orders ADD COLUMN courier_status VARCHAR(50) DEFAULT NULL");
+    // Homepage banners (Admin > Banners theke chalano jay)
+    await db.query(`CREATE TABLE IF NOT EXISTS banners (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      subtitle VARCHAR(500) DEFAULT NULL,
+      image VARCHAR(255) DEFAULT NULL,
+      link_url VARCHAR(500) DEFAULT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    // Reviews moderation: status pending / approved / hidden (purono review gulo approved thakbe)
+    const [rvCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reviews'");
+    if (!rvCols.map(c => c.COLUMN_NAME).includes('status')) {
+      await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved'");
+    }
     await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,

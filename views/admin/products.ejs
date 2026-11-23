@@ -9,6 +9,15 @@
   </span>
 </div>
 
+<form method="GET" action="/admin/products" class="admin-search-form">
+  <input type="text" name="q" value="<%= q || '' %>" placeholder="Search by name, SKU or brand...">
+  <button type="submit" class="btn-primary">Search</button>
+  <% if (q) { %> <a href="/admin/products">Clear</a> <% } %>
+</form>
+
+<% if (products.length === 0) { %>
+  <p>No products found. Try clearing the search.</p>
+<% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
@@ -65,6 +74,7 @@
   </tbody>
 </table>
 </div>
+<% } %>
 
 <script>
 document.querySelectorAll('.generate-video-btn').forEach(btn => {
