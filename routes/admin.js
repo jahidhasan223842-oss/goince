@@ -7,6 +7,7 @@ const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
 const { ROLES, requireRole } = require('../lib/roles');
+const { buildCategoryTree, flattenTree } = require('../lib/categories');
 
 function requireAdmin(req, res, next) {
   if (req.session.isAdmin) return next();
@@ -46,7 +47,9 @@ function parseCategoryForm(body) {
     sort_order: isNaN(so) ? null : so,
     is_visible: parseCategoryFlag(body.is_visible, 1),
     is_featured: parseCategoryFlag(body.is_featured, 0),
-    slug: slugify(body.slug || body.name || '').slice(0, 150)
+    slug: slugify(body.slug || body.name || '').slice(0, 150),
+    meta_title: (body.meta_title || '').trim() || null,
+    meta_description: (body.meta_description || '').trim() || null
   };
 }
 async function uniqueCategorySlug(base, excludeId) {
@@ -423,9 +426,15 @@ router.get('/products', requireAdmin, requireRole('productsView'), async (req, r
     params.push('%' + q + '%', '%' + q + '%', '%' + q + '%');
   }
   // Categories page theke product count-e click korle ekhane ashe (?category=id)
+  // — oi category-r shob sub-category-r (joto govir-e hok) product-o dekhabe.
   if (category) {
-    where.push('p.category_id = ?');
-    params.push(parseInt(category, 10) || 0);
+    const catId = parseInt(category, 10) || 0;
+    const [allCats] = await db.query('SELECT id, parent_id FROM categories');
+    const { byId } = buildCategoryTree(allCats);
+    const node = byId.get(catId);
+    const ids = node ? [catId, ...node.descendantIds] : [catId];
+    where.push(`p.category_id IN (${ids.map(() => '?').join(',')})`);
+    params.push(...ids);
   }
   const [products] = await db.query(
     `SELECT p.*, c.name AS category_name,
@@ -437,16 +446,36 @@ router.get('/products', requireAdmin, requireRole('productsView'), async (req, r
      ORDER BY p.created_at DESC`,
     params
   );
-  const [categories] = await db.query('SELECT id, name, parent_id FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, sort_order ASC, name');
-  res.render('admin/products', { products, categories, category: category || '', siteName: 'Goince', q: q || '' });
+  const [categories] = await db.query('SELECT id, name, parent_id, sort_order FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, sort_order ASC, name');
+  res.render('admin/products', { products, categories, categoryGroups: buildCategoryGroups(categories), category: category || '', siteName: 'Goince', q: q || '' });
 });
 
 // ---------- ADD PRODUCT ----------
 router.get('/products/add', requireAdmin, requireRole('products'), async (req, res) => {
   const [categories] = await db.query('SELECT * FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, name');
   const [allProducts] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
-  res.render('admin/add-product', { categories, product: null, galleryImages: [], options: [], relatedIds: [], allProducts, videos: [], siteName: 'Goince' });
+  const { roots } = buildCategoryTree(categories);
+  res.render('admin/add-product', { categories, categoryGroups: buildCategoryGroups(categories), categoryFlat: flattenTree(roots), product: null, galleryImages: [], options: [], relatedIds: [], allProducts, videos: [], siteName: 'Goince' });
 });
+
+// Category dropdown-er jonno group kora list: prottek main category ekta
+// <optgroup>, tar vitore se + tar shob sub-category (govirota onujayi
+// indent). Orphan sub-category (parent ar nei) "Other" group-e jay.
+function buildCategoryGroups(categories) {
+  const { roots, orphans } = buildCategoryTree(categories || []);
+  const groups = roots
+    .filter(r => !r.isOrphan)
+    .map(r => ({
+      label: r.name,
+      options: flattenTree([r]).map(n => ({ id: n.id, name: n.name, depth: n.depth }))
+    }));
+  if (orphans.length) {
+    const opts = [];
+    orphans.forEach(o => flattenTree([o]).forEach(n => opts.push({ id: n.id, name: n.name, depth: n.depth })));
+    groups.push({ label: 'Other', options: opts });
+  }
+  return groups;
+}
 
 router.post('/products/add', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
   try {
@@ -521,7 +550,8 @@ router.get('/products/edit/:id', requireAdmin, requireRole('products'), async (r
   const [relatedRows] = await db.query('SELECT related_id FROM related_products WHERE product_id = ?', [req.params.id]);
   const [allProducts] = await db.query('SELECT id, name FROM products WHERE id != ? ORDER BY created_at DESC', [req.params.id]);
   const [videos] = await db.query('SELECT * FROM product_videos WHERE product_id = ?', [req.params.id]);
-  res.render('admin/add-product', { categories, product: rows[0], galleryImages, options, relatedIds: relatedRows.map(r => r.related_id), allProducts, videos, siteName: 'Goince' });
+  const { roots } = buildCategoryTree(categories);
+  res.render('admin/add-product', { categories, categoryGroups: buildCategoryGroups(categories), categoryFlat: flattenTree(roots), product: rows[0], galleryImages, options, relatedIds: relatedRows.map(r => r.related_id), allProducts, videos, siteName: 'Goince' });
 });
 
 router.post('/products/edit/:id', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
@@ -893,8 +923,10 @@ router.post('/categories/add', requireAdmin, requireRole('products'), categoryUp
     const f = parseCategoryForm(req.body);
     if (!f.name) return res.redirect('back');
     if (f.parent_id) {
-      const [[parent]] = await db.query('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL', [f.parent_id]);
-      if (!parent) f.parent_id = null; // sub-category er sub-category rakhi na
+      // Unlimited nesting: jekono category-r niche sub-category banano jay.
+      // Shudhu check kori parent-ta asolei ache kina.
+      const [[parent]] = await db.query('SELECT id FROM categories WHERE id = ?', [f.parent_id]);
+      if (!parent) f.parent_id = null;
     }
     const slug = await uniqueCategorySlug(f.slug || f.name);
     const image = categoryImage(req, null);
@@ -907,8 +939,8 @@ router.post('/categories/add', requireAdmin, requireRole('products'), categoryUp
       );
       sortOrder = mx.m + 1;
     }
-    const [result] = await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [f.name, f.parent_id, image, f.description, sortOrder, f.is_visible, f.is_featured, slug]);
+    const [result] = await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug, meta_title, meta_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [f.name, f.parent_id, image, f.description, sortOrder, f.is_visible, f.is_featured, slug, f.meta_title, f.meta_description]);
     if (req.body.from === 'quick-add') return res.redirect('back');
     res.redirect('/admin/categories#cat-' + result.insertId);
   } catch (err) {
@@ -922,63 +954,54 @@ router.post('/categories/add', requireAdmin, requireRole('products'), categoryUp
 router.get('/categories', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
-    const where = [];
-    const params = [];
-    if (q) { where.push('categories.name LIKE ?'); params.push('%' + q + '%'); }
-    const [categories] = await db.query(
+    const visibility = ['shown', 'hidden'].includes(req.query.visible) ? req.query.visible : 'all';
+    // Shob category ekbare ani (choto table) — tree, search ar filter
+    // shob JavaScript-e banano hoy, jate nesting joto govir-e hok thik thake.
+    const [allRows] = await db.query(
       `SELECT categories.*, COUNT(products.id) AS product_count, parent.name AS parent_name
        FROM categories
        LEFT JOIN products ON products.category_id = categories.id
        LEFT JOIN categories AS parent ON parent.id = categories.parent_id
-       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-       GROUP BY categories.id ORDER BY (categories.parent_id IS NULL) DESC, categories.parent_id, categories.sort_order ASC, categories.id ASC`,
-      params
+       GROUP BY categories.id ORDER BY categories.sort_order ASC, categories.id ASC`
     );
-    // Search cholle: main category mile gele tar sub-category gulo-o dekhano
-    // hoy (flat list-e, parent context shoho) — na hole group-ta ordhek dekhato.
+    const { roots, orphans, byId } = buildCategoryTree(allRows);
+    const flat = flattenTree(roots);
+    // Tree mode shudhu jokhon kono filter nei; search ba Show/Hide filter
+    // cholle flat list dekhano hoy (parent context shoho).
+    const isFiltered = !!q || visibility !== 'all';
+    let categories = [];
     let searchExtras = [];
-    if (q) {
-      const matchedMainIds = categories.filter(c => !c.parent_id).map(c => c.id);
-      if (matchedMainIds.length) {
-        const [kids] = await db.query(
-          `SELECT categories.*, COUNT(products.id) AS product_count, parent.name AS parent_name
-           FROM categories
-           LEFT JOIN products ON products.category_id = categories.id
-           LEFT JOIN categories AS parent ON parent.id = categories.parent_id
-           WHERE categories.parent_id IN (${matchedMainIds.map(() => '?').join(',')})
-           GROUP BY categories.id ORDER BY categories.sort_order ASC, categories.id ASC`,
-          matchedMainIds
-        );
+    if (isFiltered) {
+      const qLower = q.toLowerCase();
+      categories = flat.filter(c =>
+        (!q || String(c.name).toLowerCase().includes(qLower)) &&
+        (visibility === 'all' || (visibility === 'shown' ? c.is_visible !== 0 : c.is_visible === 0))
+      );
+      // Search-e kono category mile gele tar sub-category (joto govir-e hok)
+      // gulo-o dekhano hoy — na hole group-ta ordhek dekhato.
+      if (q) {
         const seen = new Set(categories.map(c => c.id));
-        searchExtras = kids.filter(k => !seen.has(k.id));
+        categories.forEach(c => {
+          (byId.get(c.id)?.descendantIds || []).forEach(did => {
+            const d = byId.get(did);
+            if (d && !seen.has(did) && (visibility === 'all' || (visibility === 'shown' ? d.is_visible !== 0 : d.is_visible === 0))) {
+              seen.add(did);
+              searchExtras.push(d);
+            }
+          });
+        });
       }
     }
-    // Tree view-er jonno: main gulo, prottek main-er sub-category, ar
-    // orphan sub-category (jar parent ar nei — purono DB-te hote pare).
-    const byOrder = (a, b) => (a.sort_order - b.sort_order) || (a.id - b.id);
-    const mains = categories.filter(c => !c.parent_id).sort(byOrder);
-    const mainIds = new Set(mains.map(m => m.id));
-    const childrenByParent = {};
-    const orphanSubs = [];
-    categories.forEach(c => {
-      if (!c.parent_id) return;
-      if (mainIds.has(c.parent_id)) (childrenByParent[c.parent_id] = childrenByParent[c.parent_id] || []).push(c);
-      else orphanSubs.push(c);
-    });
-    Object.values(childrenByParent).forEach(list => list.sort(byOrder));
-    orphanSubs.sort(byOrder);
-    // ?parent=<id> (from the "+ Sub-category" link on a main category row):
-    // pre-select that main category in the Add form. Only a real main
-    // category counts — a sub-category id or a bogus id is ignored.
+    // ?parent=<id> (row-er "+ Sub-category" link theke): Add form-e oi
+    // category-ta age theke beche thakbe. Jekono asol category cholbe
+    // (main hok ba sub) — bogus id ignore kora hoy.
     let selectedParent = null;
     const parentParam = parseInt(req.query.parent, 10);
-    if (!isNaN(parentParam)) {
-      const [[p]] = await db.query('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL', [parentParam]);
-      if (p) selectedParent = p.id;
-    }
-    // Add form-er parent dropdown-e shob main category (search filter-e bad geleo)
-    const [mainCategories] = await db.query('SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order ASC, id ASC');
-    res.render('admin/categories', { categories, mains, childrenByParent, orphanSubs, searchExtras, mainCategories, q, selectedParent, siteName: 'Goince' });
+    if (!isNaN(parentParam) && byId.get(parentParam)) selectedParent = parentParam;
+    res.render('admin/categories', {
+      categories, mains: roots.filter(r => !r.parent_id), treeRoots: roots.filter(r => !r.isOrphan), orphanSubs: orphans,
+      searchExtras, allCategories: flat, q, visibility, selectedParent, siteName: 'Goince'
+    });
   } catch (err) {
     console.error('Category list error:', err);
     res.status(500).send('There was a problem loading the category list. Please check whether the "parent_id" column exists in the database (run sql/update.sql -f).');
@@ -990,11 +1013,16 @@ router.get('/categories/edit/:id', requireAdmin, requireRole('products'), async 
   try {
     const [[category]] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     if (!category) return res.redirect('/admin/categories');
-    const [mainCategories] = await db.query('SELECT * FROM categories WHERE parent_id IS NULL AND id != ? ORDER BY sort_order ASC, id ASC', [req.params.id]);
-    // Main category-r niche sub-category thakle take sub-category banano
-    // jabe na (3 level support nei) — form-e parent dropdown bondho thakbe.
-    const [[cc]] = await db.query('SELECT COUNT(*) AS n FROM categories WHERE parent_id = ?', [req.params.id]);
-    res.render('admin/category-edit', { category, mainCategories, childCount: cc.n, siteName: 'Goince' });
+    // Parent dropdown-e shob category (govirota onujayi indent kora) —
+    // nijeke ar nijer sub-category (joto govir-e hok) beche neya jabe na,
+    // na hole cycle toiri hoto. Baki shob kichu cholbe: puro subtree
+    // notun parent-er niche sora jay.
+    const [allRows] = await db.query('SELECT * FROM categories ORDER BY sort_order ASC, id ASC');
+    const { roots, byId } = buildCategoryTree(allRows);
+    const allCategories = flattenTree(roots);
+    const node = byId.get(+req.params.id);
+    const blockedIds = node ? [node.id, ...node.descendantIds] : [+req.params.id];
+    res.render('admin/category-edit', { category, allCategories, blockedIds, childCount: node ? node.children.length : 0, siteName: 'Goince' });
   } catch (err) {
     console.error('Category edit page error:', err);
     res.status(500).send('There was a problem loading the category.');
@@ -1008,19 +1036,20 @@ router.post('/categories/edit/:id', requireAdmin, requireRole('products'), categ
     const f = parseCategoryForm(req.body);
     if (!f.name) return res.redirect('/admin/categories/edit/' + req.params.id);
     if (f.sort_order === null) f.sort_order = old.sort_order; // khali rakhle ager order-i thakbe
-    // Sub-category ache emon main-ke karor sub-category banano jabe na —
-    // na hole 3rd level toiri hoye jeto, jeta shop-e support kore na.
-    const [[cc]] = await db.query('SELECT COUNT(*) AS n FROM categories WHERE parent_id = ?', [req.params.id]);
-    if (cc.n > 0) f.parent_id = null;
-    if (f.parent_id === parseInt(req.params.id, 10)) f.parent_id = null; // nijer parent nije hote parbe na
-    if (f.parent_id) {
-      const [[parent]] = await db.query('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL', [f.parent_id]);
-      if (!parent) f.parent_id = null;
+    // Cycle check: nijeke ba nijer kono sub-category-ke (joto govir-e hok)
+    // parent banano jabe na — hole parent-ta ager motoi thakbe.
+    if (f.parent_id === parseInt(req.params.id, 10)) f.parent_id = old.parent_id;
+    if (f.parent_id && f.parent_id !== old.parent_id) {
+      const [allRows] = await db.query('SELECT id, parent_id FROM categories');
+      const { byId } = buildCategoryTree(allRows);
+      const node = byId.get(+req.params.id);
+      const parent = byId.get(f.parent_id);
+      if (!parent || (node && node.descendantIds.includes(f.parent_id))) f.parent_id = old.parent_id;
     }
     const slug = await uniqueCategorySlug(f.slug || f.name, req.params.id);
     const image = categoryImage(req, old.image_url);
-    await db.query('UPDATE categories SET name = ?, parent_id = ?, image_url = ?, description = ?, sort_order = ?, is_visible = ?, is_featured = ?, slug = ? WHERE id = ?',
-      [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug, req.params.id]);
+    await db.query('UPDATE categories SET name = ?, parent_id = ?, image_url = ?, description = ?, sort_order = ?, is_visible = ?, is_featured = ?, slug = ?, meta_title = ?, meta_description = ? WHERE id = ?',
+      [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug, f.meta_title, f.meta_description, req.params.id]);
     res.redirect('/admin/categories#cat-' + req.params.id);
   } catch (err) {
     console.error('Category edit error:', err);
@@ -1071,19 +1100,55 @@ router.post('/categories/:id/toggle-visibility', requireAdmin, requireRole('prod
 
 router.post('/categories/delete/:id', requireAdmin, requireRole('products'), async (req, res) => {
   try {
-    // Live DB-te foreign key nao thakte pare (parent_id pore jog hoyeche),
-    // tai code thekei shob porishkar kora hoy: age product gulo Uncategorized,
-    // tarpor sub-category, tarpor main category. Product kokhono haray na.
+    // Unlimited nesting: delete shob level-e hoy. Live DB-te foreign key
+    // nao thakte pare (parent_id pore jog hoyeche), tai code thekei shob
+    // porishkar kora hoy: age shob level-er product Uncategorized, tarpor
+    // category + tar puro subtree delete. Product kokhono haray na.
     const id = parseInt(req.params.id, 10);
-    const [subs] = await db.query('SELECT id FROM categories WHERE parent_id = ?', [id]);
-    const ids = [id, ...subs.map(s => s.id)];
+    const [allRows] = await db.query('SELECT id, parent_id FROM categories');
+    const { byId } = buildCategoryTree(allRows);
+    const node = byId.get(id);
+    const ids = node ? [id, ...node.descendantIds] : [id];
     await db.query(`UPDATE products SET category_id = NULL WHERE category_id IN (${ids.map(() => '?').join(',')})`, ids);
-    await db.query('DELETE FROM categories WHERE parent_id = ?', [id]);
-    await db.query('DELETE FROM categories WHERE id = ?', [id]);
+    await db.query(`DELETE FROM categories WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
     res.redirect('/admin/categories');
   } catch (err) {
     console.error('Category delete error:', err);
     res.status(500).send('There was a problem deleting the category.');
+  }
+});
+
+// ---------- CATEGORY BULK ACTIONS (hide / show / delete selected) ----------
+router.post('/categories/bulk', requireAdmin, requireRole('products'), async (req, res) => {
+  try {
+    let ids = req.body.ids;
+    if (!Array.isArray(ids)) ids = ids ? [ids] : [];
+    ids = [...new Set(ids.map(v => parseInt(v, 10)).filter(v => !isNaN(v)))];
+    const action = req.body.action;
+    if (!ids.length || !['hide', 'show', 'delete'].includes(action)) return res.redirect('/admin/categories');
+    if (action === 'hide' || action === 'show') {
+      await db.query(
+        `UPDATE categories SET is_visible = ? WHERE id IN (${ids.map(() => '?').join(',')})`,
+        [action === 'show' ? 1 : 0, ...ids]
+      );
+    } else {
+      // Delete: prottek-ti category-r puro subtree (joto govir-e hok) soho.
+      const [allRows] = await db.query('SELECT id, parent_id FROM categories');
+      const { byId } = buildCategoryTree(allRows);
+      const allIds = new Set();
+      ids.forEach(i => {
+        allIds.add(i);
+        const n = byId.get(i);
+        if (n) n.descendantIds.forEach(d => allIds.add(d));
+      });
+      const list = [...allIds];
+      await db.query(`UPDATE products SET category_id = NULL WHERE category_id IN (${list.map(() => '?').join(',')})`, list);
+      await db.query(`DELETE FROM categories WHERE id IN (${list.map(() => '?').join(',')})`, list);
+    }
+    res.redirect('/admin/categories');
+  } catch (err) {
+    console.error('Category bulk error:', err);
+    res.redirect('/admin/categories');
   }
 });
 

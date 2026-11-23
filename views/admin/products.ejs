@@ -14,7 +14,16 @@
 
 <form method="GET" action="/admin/products" class="admin-search-form">
   <input type="text" name="q" value="<%= q || '' %>" placeholder="Search by name, SKU or brand...">
-  <% if (typeof categories !== 'undefined' && categories.length) { %>
+  <% if (typeof categoryGroups !== 'undefined' && categoryGroups.length) { %>
+  <select name="category">
+    <option value="">All Categories</option>
+    <% categoryGroups.forEach(g => { %>
+    <optgroup label="<%= g.label %>">
+      <% g.options.forEach(o => { %><option value="<%= o.id %>" <%= String(typeof category !== 'undefined' ? category : '') === String(o.id) ? 'selected' : '' %>><%= '— '.repeat(o.depth) %><%= o.name %></option><% }) %>
+    </optgroup>
+    <% }) %>
+  </select>
+  <% } else if (typeof categories !== 'undefined' && categories.length) { %>
   <select name="category">
     <option value="">All Categories</option>
     <% categories.forEach(c => { %><option value="<%= c.id %>" <%= String(typeof category !== 'undefined' ? category : '') === String(c.id) ? 'selected' : '' %>><%= c.parent_id ? '— ' : '' %><%= c.name %></option><% }) %>

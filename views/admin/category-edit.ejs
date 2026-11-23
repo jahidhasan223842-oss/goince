@@ -11,13 +11,14 @@
   <label>URL Slug (auto-filled from the name — you can change it)</label>
   <input type="text" name="slug" id="cat-slug" value="<%= category.slug || '' %>" placeholder="e.g. fashion">
   <% if (typeof childCount !== 'undefined' && childCount > 0) { %>
-  <p class="field-hint">This main category has <%= childCount %> sub-categor<%= childCount == 1 ? 'y' : 'ies' %> — move or delete them first if you want to make it a sub-category. (A category with sub-categories always stays a main category.)</p>
+  <p class="field-hint">This category has <%= childCount %> sub-categor<%= childCount == 1 ? 'y' : 'ies' %> — they will move with it if you change its parent.</p>
   <% } %>
-  <label>Parent Category — pick a main category to make this a sub-category (leave blank for a Main Category)</label>
-  <select name="parent_id" <%= (typeof childCount !== 'undefined' && childCount > 0) ? 'disabled' : '' %>>
+  <label>Parent Category — pick any category to make this its sub-category (leave blank for a Main Category)</label>
+  <select name="parent_id">
     <option value="">-- None (Main Category) --</option>
-    <% mainCategories.forEach(cat => { %>
-      <option value="<%= cat.id %>" <%= category.parent_id == cat.id ? 'selected' : '' %>><%= cat.name %></option>
+    <% (typeof allCategories !== 'undefined' ? allCategories : []).forEach(cat => { %>
+      <% const blocked = (typeof blockedIds !== 'undefined' && blockedIds || []).some(id => String(id) === String(cat.id)); %>
+      <option value="<%= cat.id %>" <%= category.parent_id == cat.id ? 'selected' : '' %> <%= blocked ? 'disabled' : '' %>><%= '— '.repeat(cat.depth || 0) %><%= cat.name %><%= blocked ? ' (cannot be its own parent)' : '' %></option>
     <% }) %>
   </select>
   <label>Photo — upload a new image</label>
@@ -27,6 +28,11 @@
   <input type="text" name="image_url" value="<%= category.image_url || '' %>" placeholder="https://...">
   <label>Description (optional — shown under the category name)</label>
   <textarea name="description" rows="2" placeholder="What is this category about?"><%= category.description || '' %></textarea>
+  <h4 style="margin:18px 0 4px;">🔍 SEO (Google)</h4>
+  <label>Meta Title (optional — uses the category name if blank)</label>
+  <input type="text" name="meta_title" value="<%= category.meta_title || '' %>" placeholder="e.g. Fashion — Goince">
+  <label>Meta Description (optional — uses the description above if blank)</label>
+  <textarea name="meta_description" rows="2" placeholder="What shows in Google search results..."><%= category.meta_description || '' %></textarea>
   <label>Sort Order (lower number shows first)</label>
   <input type="number" name="sort_order" value="<%= category.sort_order %>" min="0">
   <input type="hidden" name="is_visible" value="0">

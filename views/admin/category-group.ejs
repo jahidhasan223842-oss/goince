@@ -1,0 +1,24 @@
+<% /*
+  Recursive category group — one row plus its children nested inside it,
+  at any depth. Locals:
+    node     — category node from lib/categories (children, depth,
+               descendantIds, totalProductCount)
+    isFirst  — true when first among its siblings (▲ disabled)
+    isLast   — true when last among its siblings (▼ disabled)
+  The chevron opens the children container; nested groups indent further
+  through the .cat-children padding in the stylesheet.
+*/ %>
+<div class="cat-group">
+  <%- include('category-row', { cat: node, depth: node.depth, isFirst: isFirst, isLast: isLast, chevronId: node.children.length ? node.id : null }) %>
+  <% if (node.children.length) { %>
+    <div class="cat-children" id="cat-children-<%= node.id %>">
+      <% node.children.forEach((child, ci) => { %>
+        <%- include('category-group', { node: child, isFirst: ci === 0, isLast: ci === node.children.length - 1 }) %>
+      <% }) %>
+    </div>
+  <% } else if (!node.parent_id) { %>
+    <div class="cat-children" id="cat-children-<%= node.id %>">
+      <div class="cat-empty-sub">No sub-categories yet — <a href="/admin/categories?parent=<%= node.id %>#add-category">＋ Add one</a></div>
+    </div>
+  <% } %>
+</div>

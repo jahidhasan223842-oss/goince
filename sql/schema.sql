@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS categories (
   is_visible TINYINT(1) NOT NULL DEFAULT 1,
   is_featured TINYINT(1) NOT NULL DEFAULT 0,
   slug VARCHAR(150) DEFAULT NULL,
+  meta_title VARCHAR(255) DEFAULT NULL,
+  meta_description TEXT DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY idx_categories_slug (slug),
   FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE

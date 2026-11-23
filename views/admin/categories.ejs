@@ -4,7 +4,7 @@
   <h1>Categories</h1>
   <span><a href="/admin/products/add" class="btn-primary">+ Add New Product</a></span>
 </div>
-<p class="field-hint">Categories group your products on the shop. Add a photo, set the order, hide a category without deleting it, or mark it as featured for the homepage. Click ▼ on a main category to see the sub-categories inside it.</p>
+<p class="field-hint">Categories group your products on the shop. Add a photo, set the order, hide a category without deleting it, or mark it as featured for the homepage. Click ▼ on a category to see the sub-categories inside it — nesting is unlimited.</p>
 
 <form id="add-category" action="/admin/categories/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
   <h3>➕ Add New Category</h3>
@@ -12,11 +12,11 @@
   <input type="text" name="name" placeholder="e.g. Fashion, or Men's Shirt" required>
   <label>URL Slug (auto-filled from the name — you can change it)</label>
   <input type="text" name="slug" id="cat-slug" placeholder="e.g. fashion">
-  <label>Parent Category — pick a main category to make this a sub-category (leave blank for a Main Category)</label>
+  <label>Parent Category — pick any category to make this its sub-category (leave blank for a Main Category)</label>
   <select name="parent_id">
     <option value="">-- None (Main Category) --</option>
-    <% mainCategories.forEach(cat => { %>
-      <option value="<%= cat.id %>" <%= (typeof selectedParent !== 'undefined' && selectedParent && selectedParent == cat.id) ? 'selected' : '' %>><%= cat.name %></option>
+    <% (typeof allCategories !== 'undefined' ? allCategories : []).forEach(cat => { %>
+      <option value="<%= cat.id %>" <%= (typeof selectedParent !== 'undefined' && selectedParent && selectedParent == cat.id) ? 'selected' : '' %>><%= '— '.repeat(cat.depth || 0) %><%= cat.name %></option>
     <% }) %>
   </select>
   <label>Photo — upload an image</label>
@@ -25,6 +25,11 @@
   <input type="text" name="image_url" placeholder="https://...">
   <label>Description (optional — shown under the category name)</label>
   <textarea name="description" rows="2" placeholder="What is this category about?"></textarea>
+  <h4 style="margin:18px 0 4px;">🔍 SEO (Google)</h4>
+  <label>Meta Title (optional — uses the category name if blank)</label>
+  <input type="text" name="meta_title" placeholder="e.g. Fashion — Goince">
+  <label>Meta Description (optional — uses the description above if blank)</label>
+  <textarea name="meta_description" rows="2" placeholder="What shows in Google search results..."></textarea>
   <label>Sort Order (lower number shows first — leave empty to add at the end)</label>
   <input type="number" name="sort_order" placeholder="Auto — added at the end" min="0">
   <input type="hidden" name="is_visible" value="0">
@@ -36,56 +41,65 @@
 
 <form method="GET" action="/admin/categories" class="admin-search-form" style="margin-top:24px;">
   <input type="text" name="q" value="<%= q || '' %>" placeholder="Search categories by name...">
+  <select name="visible" style="padding:8px; border:1px solid var(--border-strong); border-radius:4px;">
+    <option value="all" <%= (typeof visibility === 'undefined' || visibility === 'all') ? 'selected' : '' %>>All — shown &amp; hidden</option>
+    <option value="shown" <%= visibility === 'shown' ? 'selected' : '' %>>Shown on website</option>
+    <option value="hidden" <%= visibility === 'hidden' ? 'selected' : '' %>>Hidden from website</option>
+  </select>
   <button type="submit" class="btn-primary">Search</button>
-  <% if (q) { %> <a href="/admin/categories">Clear</a> <% } %>
+  <% if (q || (typeof visibility !== 'undefined' && visibility !== 'all')) { %> <a href="/admin/categories">Clear</a> <% } %>
 </form>
 
-<% const hasResults = categories.length > 0 || (typeof searchExtras !== 'undefined' && searchExtras && searchExtras.length > 0); %>
+<% const isFiltered = !!(q || (typeof visibility !== 'undefined' && visibility !== 'all')); %>
+<% const hasResults = isFiltered
+  ? (categories.length > 0 || (typeof searchExtras !== 'undefined' && searchExtras && searchExtras.length > 0))
+  : ((typeof treeRoots !== 'undefined' && treeRoots.length > 0) || (typeof orphanSubs !== 'undefined' && orphanSubs && orphanSubs.length > 0)); %>
 <% if (!hasResults) { %>
   <p>No categories found. Try clearing the search.</p>
-<% } else if (q) { %>
-  <!-- SEARCH MODE: flat list, parent context shown, collapsed state ignored -->
-  <div class="cat-list">
-    <% categories.forEach(cat => { %>
-      <%- include('category-row', { cat: cat, isMain: !cat.parent_id, isFirst: false, isLast: false, subCount: 0, subProducts: 0, chevronId: null }) %>
-    <% }) %>
-    <% (typeof searchExtras !== 'undefined' ? searchExtras : []).forEach(cat => { %>
-      <%- include('category-row', { cat: cat, isMain: false, isFirst: false, isLast: false, subCount: 0, subProducts: 0, chevronId: null }) %>
-    <% }) %>
-  </div>
 <% } else { %>
-  <!-- TREE MODE: each main category is a group; its sub-categories live inside it -->
-  <div style="margin:16px 0 4px;">
-    <button type="button" class="cat-tree-btn" id="cat-expand-all">Expand All</button>
-    <button type="button" class="cat-tree-btn" id="cat-collapse-all">Collapse All</button>
-  </div>
-  <div class="cat-tree">
-    <% mains.forEach((main, mi) => { %>
-      <% const kids = childrenByParent[main.id] || []; %>
-      <% const subProducts = kids.reduce((s, k) => s + (+k.product_count || 0), 0); %>
-      <div class="cat-group">
-        <%- include('category-row', { cat: main, isMain: true, isFirst: mi === 0, isLast: mi === mains.length - 1, subCount: kids.length, subProducts: subProducts, chevronId: main.id }) %>
-        <div class="cat-children" id="cat-children-<%= main.id %>">
-          <% if (!kids.length) { %>
-            <div class="cat-empty-sub">No sub-categories yet — <a href="/admin/categories?parent=<%= main.id %>#add-category">＋ Add one</a></div>
-          <% } %>
-          <% kids.forEach((sub, si) => { %>
-            <%- include('category-row', { cat: sub, isMain: false, isFirst: si === 0, isLast: si === kids.length - 1, subCount: 0, subProducts: 0, chevronId: null }) %>
+  <!-- Bulk actions: checkboxes live in the rows (outside the row's own
+       forms — HTML does not allow nested forms), so this form's script
+       collects the checked ids when a bulk button is pressed. -->
+  <form id="cat-bulk-form" action="/admin/categories/bulk" method="POST" class="cat-bulk-bar"><%- include('../partials/csrf-field') %>
+    <label><input type="checkbox" id="cat-check-all"> Select all</label>
+    <span class="cat-bulk-count" id="cat-bulk-count"></span>
+    <button type="submit" name="action" value="hide">Hide selected</button>
+    <button type="submit" name="action" value="show">Show selected</button>
+    <button type="submit" name="action" value="delete" class="link-btn-danger">Delete selected</button>
+  </form>
+  <% if (isFiltered) { %>
+    <!-- FILTER MODE: flat list, parent context shown, collapsed state ignored -->
+    <div class="cat-list">
+      <% categories.forEach(cat => { %>
+        <%- include('category-row', { cat: cat, depth: cat.depth || 0, isFirst: false, isLast: false, chevronId: null }) %>
+      <% }) %>
+      <% (typeof searchExtras !== 'undefined' ? searchExtras : []).forEach(cat => { %>
+        <%- include('category-row', { cat: cat, depth: cat.depth || 0, isFirst: false, isLast: false, chevronId: null }) %>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <!-- TREE MODE: every category is a group; its sub-categories live
+         inside it, at any depth. -->
+    <div style="margin:16px 0 4px;">
+      <button type="button" class="cat-tree-btn" id="cat-expand-all">Expand All</button>
+      <button type="button" class="cat-tree-btn" id="cat-collapse-all">Collapse All</button>
+    </div>
+    <div class="cat-tree">
+      <% (typeof treeRoots !== 'undefined' ? treeRoots : []).forEach((root, ri) => { %>
+        <%- include('category-group', { node: root, isFirst: ri === 0, isLast: ri === treeRoots.length - 1 }) %>
+      <% }) %>
+      <% if (typeof orphanSubs !== 'undefined' && orphanSubs && orphanSubs.length) { %>
+        <div class="cat-group cat-orphans">
+          <div class="cat-row">
+            <div class="cat-info"><strong>Other sub-categories</strong><br><small>Their parent category was deleted. Open Edit on one to give it a new parent, or delete it.</small></div>
+          </div>
+          <% orphanSubs.forEach((sub, oi) => { %>
+            <%- include('category-group', { node: sub, isFirst: oi === 0, isLast: oi === orphanSubs.length - 1 }) %>
           <% }) %>
         </div>
-      </div>
-    <% }) %>
-    <% if (typeof orphanSubs !== 'undefined' && orphanSubs && orphanSubs.length) { %>
-      <div class="cat-group cat-orphans">
-        <div class="cat-row">
-          <div class="cat-info"><strong>Other sub-categories</strong><br><small>Their main category was deleted. Open Edit on one to give it a new parent, or delete it.</small></div>
-        </div>
-        <% orphanSubs.forEach((sub, oi) => { %>
-          <%- include('category-row', { cat: sub, isMain: false, isFirst: oi === 0, isLast: oi === orphanSubs.length - 1, subCount: 0, subProducts: 0, chevronId: null }) %>
-        <% }) %>
-      </div>
-    <% } %>
-  </div>
+      <% } %>
+    </div>
+  <% } %>
 <% } %>
 
 <script>
@@ -101,9 +115,9 @@
   slugInput.addEventListener('input', function () { slugInput.dataset.touched = '1'; });
 })();
 
-// Category tree: main category-r dropdown (▼/▶) — sub-category gulo tar
-// vitore thake. Default: shob khola. Bondho/khola obostha localStorage-e
-// mone rakha hoy, jate porer bar-eo eki vabe dekha jay.
+// Category tree: category-r dropdown (▼/▶) — sub-category gulo tar
+// vitore thake, joto govir-e hok. Default: shob khola. Bondho/khola
+// obostha localStorage-e mone rakha hoy, jate porer bar-eo eki vabe dekha jay.
 (function () {
   var KEY = 'goince-category-tree';
   function loadCollapsed() {
@@ -120,47 +134,82 @@
     btn.textContent = open ? '▼' : '▶';
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
-  var toggles = document.querySelectorAll('[data-cat-toggle]');
-  if (!toggles.length) return;
-  // Saved state restore (default: expanded)
-  loadCollapsed().forEach(function (id) { setGroup(id, false); });
-  // URL-e #cat-<id> thakle (move/toggle-er por redirect) oi row-ta je
-  // group-er vitore ache seta khule dao, ar row-ta dekhiye dao.
-  var m = (window.location.hash || '').match(/^#cat-(\d+)$/);
-  if (m) {
-    var row = document.getElementById('cat-' + m[1]);
-    if (row) {
-      var group = row.closest('.cat-group');
-      if (group) {
-        var gid = null;
-        group.querySelectorAll('[data-cat-toggle]').forEach(function (b) { gid = b.getAttribute('data-cat-toggle'); });
-        if (gid) {
-          setGroup(gid, true);
-          saveCollapsed(loadCollapsed().filter(function (x) { return String(x) !== String(gid); }));
-        }
+  // #cat-<id> anchor-er row-ta joto govir-e thakuk, tar shob ancestor
+  // group khule dao, jate row-ta dekha jay.
+  function openAncestors(row) {
+    var el = row.parentElement;
+    while (el) {
+      if (el.classList && el.classList.contains('cat-children') && el.id.indexOf('cat-children-') === 0) {
+        var gid = el.id.replace('cat-children-', '');
+        setGroup(gid, true);
+        saveCollapsed(loadCollapsed().filter(function (x) { return String(x) !== String(gid); }));
       }
-      row.scrollIntoView({ block: 'nearest' });
+      el = el.parentElement;
     }
   }
-  toggles.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var id = btn.getAttribute('data-cat-toggle');
-      var kids = document.getElementById('cat-children-' + id);
-      var open = kids.classList.contains('collapsed');
-      setGroup(id, open);
-      var list = loadCollapsed();
-      if (open) list = list.filter(function (x) { return String(x) !== String(id); });
-      else if (!list.some(function (x) { return String(x) === String(id); })) list.push(id);
-      saveCollapsed(list);
+  var toggles = document.querySelectorAll('[data-cat-toggle]');
+  if (toggles.length) {
+    // Saved state restore (default: expanded)
+    loadCollapsed().forEach(function (id) { setGroup(id, false); });
+    // URL-e #cat-<id> thakle (move/toggle-er por redirect) oi row-ta khule dekhao.
+    var m = (window.location.hash || '').match(/^#cat-(\d+)$/);
+    if (m) {
+      var row = document.getElementById('cat-' + m[1]);
+      if (row) { openAncestors(row); row.scrollIntoView({ block: 'nearest' }); }
+    }
+    toggles.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-cat-toggle');
+        var kids = document.getElementById('cat-children-' + id);
+        var open = kids.classList.contains('collapsed');
+        setGroup(id, open);
+        var list = loadCollapsed();
+        if (open) list = list.filter(function (x) { return String(x) !== String(id); });
+        else if (!list.some(function (x) { return String(x) === String(id); })) list.push(id);
+        saveCollapsed(list);
+      });
+    });
+    var expandAll = document.getElementById('cat-expand-all');
+    var collapseAll = document.getElementById('cat-collapse-all');
+    function allIds() {
+      return Array.prototype.map.call(document.querySelectorAll('[data-cat-toggle]'), function (b) { return b.getAttribute('data-cat-toggle'); });
+    }
+    if (expandAll) expandAll.addEventListener('click', function () { allIds().forEach(function (id) { setGroup(id, true); }); saveCollapsed([]); });
+    if (collapseAll) collapseAll.addEventListener('click', function () { var ids = allIds(); ids.forEach(function (id) { setGroup(id, false); }); saveCollapsed(ids); });
+  }
+  // Bulk actions: row-er checkbox gulo kono form-er vitore nei (nested
+  // form HTML-e nishiddho), tai submit-er somoy checked id gulo ei
+  // form-e hidden input hishebe bosano hoy.
+  var bulkForm = document.getElementById('cat-bulk-form');
+  var checkAll = document.getElementById('cat-check-all');
+  var countEl = document.getElementById('cat-bulk-count');
+  function checkedBoxes() {
+    return Array.prototype.filter.call(document.querySelectorAll('.cat-check'), function (c) { return c.checked; });
+  }
+  function updateCount() {
+    if (!countEl) return;
+    var n = checkedBoxes().length;
+    countEl.textContent = n ? n + ' selected' : '';
+  }
+  document.querySelectorAll('.cat-check').forEach(function (c) { c.addEventListener('change', updateCount); });
+  if (checkAll) checkAll.addEventListener('change', function () {
+    document.querySelectorAll('.cat-check').forEach(function (c) { c.checked = checkAll.checked; });
+    updateCount();
+  });
+  if (bulkForm) bulkForm.addEventListener('submit', function (e) {
+    var checked = checkedBoxes();
+    if (!checked.length) { e.preventDefault(); alert('Please select at least one category first.'); return; }
+    var action = (e.submitter && e.submitter.value) || (document.activeElement && document.activeElement.value) || '';
+    if (action === 'delete' && !confirm('Delete ' + checked.length + ' selected categor' + (checked.length === 1 ? 'y' : 'ies') + ' and all of their sub-categories? Their products will become Uncategorized. This cannot be undone.')) {
+      e.preventDefault();
+      return;
+    }
+    checked.forEach(function (c) {
+      var h = document.createElement('input');
+      h.type = 'hidden'; h.name = 'ids'; h.value = c.value;
+      bulkForm.appendChild(h);
     });
   });
-  var expandAll = document.getElementById('cat-expand-all');
-  var collapseAll = document.getElementById('cat-collapse-all');
-  function allIds() {
-    return Array.prototype.map.call(document.querySelectorAll('[data-cat-toggle]'), function (b) { return b.getAttribute('data-cat-toggle'); });
-  }
-  if (expandAll) expandAll.addEventListener('click', function () { allIds().forEach(function (id) { setGroup(id, true); }); saveCollapsed([]); });
-  if (collapseAll) collapseAll.addEventListener('click', function () { var ids = allIds(); ids.forEach(function (id) { setGroup(id, false); }); saveCollapsed(ids); });
 })();
 </script>
 
