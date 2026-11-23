@@ -127,11 +127,11 @@
     <% if (order.courier_status) { %><p><span>Delivery Status</span><strong><%= order.courier_status %></strong></p><% } %>
     <% if (order.courier_consignment_id) { %><p><span>Consignment ID</span><%= order.courier_consignment_id %></p><% } %>
     <% if (!order.courier_consignment_id && !order.tracking_number) { %>
-      <form action="/admin/orders/<%= order.id %>/create-consignment" method="POST" style="display:inline;">
+      <form action="/admin/orders/<%= order.id %>/create-consignment" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
         <button type="submit" class="btn-primary" onclick="return confirm('Book this parcel with <%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>?<%= courier.provider === 'steadfast' ? ' Steadfast has no sandbox — this creates a real parcel.' : '' %>');">📦 Create Consignment (<%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>)</button>
       </form>
     <% } else { %>
-      <form action="/admin/orders/<%= order.id %>/refresh-tracking" method="POST" style="display:inline;">
+      <form action="/admin/orders/<%= order.id %>/refresh-tracking" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
         <button type="submit" class="btn-primary" style="background:var(--navy);">🔄 Refresh Tracking Status</button>
       </form>
     <% } %>

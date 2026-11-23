@@ -36,12 +36,12 @@
         </td>
         <td style="white-space:nowrap;">
           <% if (r.status !== 'approved') { %>
-            <form action="/admin/reviews/<%= r.id %>/approve" method="POST" style="display:inline"><button type="submit" class="link-btn-danger" style="color:green;">Approve</button></form> |
+            <form action="/admin/reviews/<%= r.id %>/approve" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:green;">Approve</button></form> |
           <% } %>
           <% if (r.status !== 'hidden') { %>
-            <form action="/admin/reviews/<%= r.id %>/hide" method="POST" style="display:inline"><button type="submit" class="link-btn-danger" style="color:#f0a500;">Hide</button></form> |
+            <form action="/admin/reviews/<%= r.id %>/hide" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#f0a500;">Hide</button></form> |
           <% } %>
-          <form action="/admin/reviews/<%= r.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this review permanently?');"><button type="submit" class="link-btn-danger">Delete</button></form>
+          <form action="/admin/reviews/<%= r.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this review permanently?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
         </td>
       </tr>
     <% }) %>
