@@ -1,11 +1,17 @@
 <%- include('../partials/admin-header') %>
 
-<h1>Categories</h1>
+<div class="admin-page-header">
+  <h1>Categories</h1>
+  <span><a href="/admin/products/add" class="btn-primary">+ Add New Product</a></span>
+</div>
+<p class="field-hint">Categories group your products on the shop. Add a photo, set the order, hide a category without deleting it, or mark it as featured for the homepage.</p>
 
-<form action="/admin/categories/add" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
+<form action="/admin/categories/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
+  <h3>➕ Add New Category</h3>
   <label>Category Name</label>
   <input type="text" name="name" placeholder="e.g. Fashion, or Men's Shirt" required>
-
+  <label>URL Slug (auto-filled from the name — you can change it)</label>
+  <input type="text" name="slug" id="cat-slug" placeholder="e.g. fashion">
   <label>Parent Category (leave blank to make this a Main Category)</label>
   <select name="parent_id">
     <option value="">-- None (Main Category) --</option>
@@ -13,40 +19,75 @@
       <option value="<%= cat.id %>"><%= cat.name %></option>
     <% }) %>
   </select>
-
+  <label>Photo — upload an image</label>
+  <input type="file" name="image" accept="image/*">
+  <label>Or image link (URL)</label>
+  <input type="text" name="image_url" placeholder="https://...">
+  <label>Description (optional — shown under the category name)</label>
+  <textarea name="description" rows="2" placeholder="What is this category about?"></textarea>
+  <label>Sort Order (lower number shows first)</label>
+  <input type="number" name="sort_order" value="0" min="0">
+  <input type="hidden" name="is_visible" value="0">
+  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_visible" value="1" checked> Show on website</label>
+  <input type="hidden" name="is_featured" value="0">
+  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_featured" value="1"> ⭐ Featured on homepage (shows first)</label>
   <button type="submit" class="btn-primary">Add Category</button>
 </form>
 
+<form method="GET" action="/admin/categories" class="admin-search-form" style="margin-top:24px;">
+  <input type="text" name="q" value="<%= q || '' %>" placeholder="Search categories by name...">
+  <button type="submit" class="btn-primary">Search</button>
+  <% if (q) { %> <a href="/admin/categories">Clear</a> <% } %>
+</form>
+
+<% if (categories.length === 0) { %>
+  <p>No categories found. Try clearing the search.</p>
+<% } else { %>
 <div class="table-responsive">
-<table class="admin-table" style="margin-top:24px;">
-  <thead><tr><th>Name</th><th>Parent (if any)</th><th>Products</th><th>Actions</th></tr></thead>
+<table class="admin-table" style="margin-top:16px;">
+  <thead><tr><th>Image</th><th>Name</th><th>Products</th><th>Visible</th><th>Order</th><th>Actions</th></tr></thead>
   <tbody>
     <% categories.forEach(cat => { %>
       <tr>
-        <td><%= cat.parent_id ? '— ' : '' %><%= cat.name %></td>
-        <td><%= cat.parent_name || '-' %></td>
-        <td><%= cat.product_count %></td>
+        <td><% if (cat.image_url) { %><img src="<%= cat.image_url %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"><% } else { %>-<% } %></td>
         <td>
-          <form action="/admin/categories/edit/<%= cat.id %>" method="POST" class="inline-form" style="margin-bottom:6px;"><%- include('../partials/csrf-field') %>
-            <input type="text" name="name" value="<%= cat.name %>" style="padding:6px 10px; width:120px;">
-            <select name="parent_id" style="padding:6px;">
-              <option value="">None</option>
-              <% mainCategories.forEach(mc => { %>
-                <% if (mc.id != cat.id) { %>
-                  <option value="<%= mc.id %>" <%= cat.parent_id == mc.id ? 'selected' : '' %>><%= mc.name %></option>
-                <% } %>
-              <% }) %>
-            </select>
-            <button type="submit" style="padding:6px 12px; font-size:13px;">Save</button>
-          </form>
-          <form action="/admin/categories/delete/<%= cat.id %>" method="POST" onsubmit="return confirm('Deleting this will make its products Uncategorized, and any sub-categories will also be deleted. Sure?');"><%- include('../partials/csrf-field') %>
-            <button type="submit" class="link-btn-danger">Delete</button>
-          </form>
+          <strong><%= cat.parent_id ? '— ' : '' %><%= cat.name %></strong>
+          <% if (cat.is_featured) { %> <span title="Featured on homepage">⭐</span><% } %>
+          <% if (cat.parent_name) { %><br><small><%= cat.parent_name %> › <%= cat.name %></small><% } %>
+          <% if (cat.description) { %><br><small><%= cat.description %></small><% } %>
+        </td>
+        <td><a href="/admin/products?category=<%= cat.id %>"><%= cat.product_count %></a></td>
+        <td>
+          <form action="/admin/categories/<%= cat.id %>/toggle-visibility" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:<%= cat.is_visible ? '#2e9e5b' : '#f0a500' %>;"><%= cat.is_visible ? '👁️ Shown' : '🙈 Hidden' %></button></form>
+        </td>
+        <td style="white-space:nowrap;">
+          <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="up"><button type="submit" title="Move up">▲</button></form>
+          <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="down"><button type="submit" title="Move down">▼</button></form>
+          <br><small>Order: <%= cat.sort_order %></small>
+        </td>
+        <td style="white-space:nowrap;">
+          <a href="/admin/categories/edit/<%= cat.id %>">Edit</a> |
+          <form action="/admin/categories/delete/<%= cat.id %>" method="POST" style="display:inline" onsubmit="return confirm('Deleting this will make its products Uncategorized, and any sub-categories will also be deleted. Sure?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
         </td>
       </tr>
     <% }) %>
   </tbody>
 </table>
 </div>
+<% } %>
+
+<script>
+// Slug auto-fill from the category name (same idea as products)
+(function () {
+  var nameInput = document.querySelector('input[name="name"]');
+  var slugInput = document.getElementById('cat-slug');
+  if (!nameInput || !slugInput) return;
+  nameInput.addEventListener('input', function () {
+    if (slugInput.dataset.touched) return;
+    slugInput.value = nameInput.value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  });
+  slugInput.addEventListener('input', function () { slugInput.dataset.touched = '1'; });
+})();
+</script>
 
 <%- include('../partials/admin-footer') %>

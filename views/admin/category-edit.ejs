@@ -1,0 +1,51 @@
+<%- include('../partials/admin-header') %>
+
+<div class="admin-page-header">
+  <h1>Edit Category</h1>
+  <span><a href="/admin/categories">← Back to Categories</a></span>
+</div>
+
+<form action="/admin/categories/edit/<%= category.id %><%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
+  <label>Category Name</label>
+  <input type="text" name="name" value="<%= category.name %>" required>
+  <label>URL Slug (auto-filled from the name — you can change it)</label>
+  <input type="text" name="slug" id="cat-slug" value="<%= category.slug || '' %>" placeholder="e.g. fashion">
+  <label>Parent Category (leave blank to make this a Main Category)</label>
+  <select name="parent_id">
+    <option value="">-- None (Main Category) --</option>
+    <% mainCategories.forEach(cat => { %>
+      <option value="<%= cat.id %>" <%= category.parent_id == cat.id ? 'selected' : '' %>><%= cat.name %></option>
+    <% }) %>
+  </select>
+  <label>Photo — upload a new image</label>
+  <input type="file" name="image" accept="image/*">
+  <% if (category.image_url) { %><p class="field-hint">Current image: <a href="<%= category.image_url %>" target="_blank"><img src="<%= category.image_url %>" class="admin-thumb" style="vertical-align:middle;" onerror="this.src='/uploads/no-image.png'"></a> (leave empty to keep it)</p><% } %>
+  <label>Or image link (URL)</label>
+  <input type="text" name="image_url" value="<%= category.image_url || '' %>" placeholder="https://...">
+  <label>Description (optional — shown under the category name)</label>
+  <textarea name="description" rows="2" placeholder="What is this category about?"><%= category.description || '' %></textarea>
+  <label>Sort Order (lower number shows first)</label>
+  <input type="number" name="sort_order" value="<%= category.sort_order %>" min="0">
+  <input type="hidden" name="is_visible" value="0">
+  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_visible" value="1" <%= category.is_visible ? 'checked' : '' %>> Show on website</label>
+  <input type="hidden" name="is_featured" value="0">
+  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_featured" value="1" <%= category.is_featured ? 'checked' : '' %>> ⭐ Featured on homepage (shows first)</label>
+  <button type="submit" class="btn-primary">Update Category</button>
+  <a href="/admin/categories">Cancel</a>
+</form>
+
+<script>
+// Slug auto-fill from the category name (same idea as products)
+(function () {
+  var nameInput = document.querySelector('input[name="name"]');
+  var slugInput = document.getElementById('cat-slug');
+  if (!nameInput || !slugInput) return;
+  nameInput.addEventListener('input', function () {
+    if (slugInput.dataset.touched) return;
+    slugInput.value = nameInput.value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  });
+  slugInput.addEventListener('input', function () { slugInput.dataset.touched = '1'; });
+})();
+</script>
+
+<%- include('../partials/admin-footer') %>

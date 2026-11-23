@@ -27,6 +27,43 @@ async function uniqueSlug(base, excludeId) {
     candidate = slug + '-' + (n++);
   }
 }
+// ---------- CATEGORIES: advanced fields ----------
+// Checkbox helper: form-e checkbox na thakle (quick-add) is_visible default 1,
+// is_featured default 0. Hidden 0 + checkbox 1 ekshathe ashle array hoy (qs/multer),
+// tai array handle kora hoyeche.
+function parseCategoryFlag(v, def) {
+  if (v === undefined || v === null || v === '') return def;
+  if (Array.isArray(v)) return v.includes('1') ? 1 : 0;
+  return v === '1' ? 1 : 0;
+}
+function parseCategoryForm(body) {
+  return {
+    name: (body.name || '').trim(),
+    parent_id: body.parent_id ? parseInt(body.parent_id, 10) || null : null,
+    description: (body.description || '').trim() || null,
+    sort_order: parseInt(body.sort_order, 10) || 0,
+    is_visible: parseCategoryFlag(body.is_visible, 1),
+    is_featured: parseCategoryFlag(body.is_featured, 0),
+    slug: slugify(body.slug || body.name || '').slice(0, 150)
+  };
+}
+async function uniqueCategorySlug(base, excludeId) {
+  let slug = slugify(base) || 'category';
+  slug = slug.slice(0, 150);
+  let candidate = slug, n = 2;
+  while (true) {
+    const [rows] = await db.query('SELECT id FROM categories WHERE slug = ? AND id != ?', [candidate, excludeId || 0]);
+    if (!rows.length) return candidate;
+    candidate = (slug + '-' + (n++)).slice(0, 150);
+  }
+}
+// Category photo: notun file upload hole seta, na hole URL field, na hole ager chobi
+function categoryImage(req, oldImage) {
+  if (req.file) return '/uploads/' + req.file.filename;
+  const url = (req.body.image_url || '').trim();
+  if (url) return url;
+  return oldImage || null;
+}
 function parseProductAdvanced(body) {
   const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
   return {
@@ -359,12 +396,17 @@ router.post('/inventory/update/:id', requireAdmin, requireRole('products'), asyn
 
 // ---------- PRODUCT LIST ----------
 router.get('/products', requireAdmin, requireRole('productsView'), async (req, res) => {
-  const { q } = req.query;
+  const { q, category } = req.query;
   const where = [];
   const params = [];
   if (q) {
     where.push('(p.name LIKE ? OR p.sku LIKE ? OR p.brand LIKE ?)');
     params.push('%' + q + '%', '%' + q + '%', '%' + q + '%');
+  }
+  // Categories page theke product count-e click korle ekhane ashe (?category=id)
+  if (category) {
+    where.push('p.category_id = ?');
+    params.push(parseInt(category, 10) || 0);
   }
   const [products] = await db.query(
     `SELECT p.*, c.name AS category_name,
@@ -376,7 +418,8 @@ router.get('/products', requireAdmin, requireRole('productsView'), async (req, r
      ORDER BY p.created_at DESC`,
     params
   );
-  res.render('admin/products', { products, siteName: 'Goince', q: q || '' });
+  const [categories] = await db.query('SELECT id, name, parent_id FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, sort_order ASC, name');
+  res.render('admin/products', { products, categories, category: category || '', siteName: 'Goince', q: q || '' });
 });
 
 // ---------- ADD PRODUCT ----------
@@ -823,13 +866,23 @@ router.post('/products/delete/:id', requireAdmin, requireRole('products'), async
 });
 
 // ---------- CATEGORY QUICK ADD (used from the Add Product form) ----------
-router.post('/categories/add', requireAdmin, requireRole('products'), async (req, res) => {
+// Shudhu name + parent pathay (urlencoded) — full form na, tai is_visible/
+// is_featured na thakleo category visible thakbe (parseCategoryForm default).
+// Quick-add hole 'back'-e ferot jay, Categories page theke add hole list-e.
+router.post('/categories/add', requireAdmin, requireRole('products'), upload.single('image'), async (req, res) => {
   try {
-    const { name, parent_id } = req.body;
-    if (name && name.trim()) {
-      await db.query('INSERT INTO categories (name, parent_id) VALUES (?, ?)', [name.trim(), parent_id || null]);
+    const f = parseCategoryForm(req.body);
+    if (!f.name) return res.redirect('back');
+    if (f.parent_id) {
+      const [[parent]] = await db.query('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL', [f.parent_id]);
+      if (!parent) f.parent_id = null; // sub-category er sub-category rakhi na
     }
-    res.redirect('back');
+    const slug = await uniqueCategorySlug(f.slug || f.name);
+    const image = categoryImage(req, null);
+    await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug]);
+    if (req.body.from === 'quick-add') return res.redirect('back');
+    res.redirect('/admin/categories');
   } catch (err) {
     console.error('Category add error:', err);
     res.status(500).send('There was a problem adding the category. Please check whether the "parent_id" column exists in the database (run sql/update.sql).');
@@ -840,32 +893,100 @@ router.post('/categories/add', requireAdmin, requireRole('products'), async (req
 
 router.get('/categories', requireAdmin, requireRole('products'), async (req, res) => {
   try {
+    const q = (req.query.q || '').trim();
+    const where = [];
+    const params = [];
+    if (q) { where.push('categories.name LIKE ?'); params.push('%' + q + '%'); }
     const [categories] = await db.query(
       `SELECT categories.*, COUNT(products.id) AS product_count, parent.name AS parent_name
        FROM categories
        LEFT JOIN products ON products.category_id = categories.id
        LEFT JOIN categories AS parent ON parent.id = categories.parent_id
-       GROUP BY categories.id ORDER BY (categories.parent_id IS NULL) DESC, categories.parent_id, categories.name`
+       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+       GROUP BY categories.id ORDER BY (categories.parent_id IS NULL) DESC, categories.parent_id, categories.sort_order ASC, categories.id ASC`,
+      params
     );
-    // Shudhu main (top-level) category gulo dropdown e dekhano hoy, sub-category er sub-category rakhi na (simple 2-level structure)
-    const mainCategories = categories.filter(c => !c.parent_id);
-    res.render('admin/categories', { categories, mainCategories, siteName: 'Goince' });
+    // Add form-er parent dropdown-e shob main category (search filter-e bad geleo)
+    const [mainCategories] = await db.query('SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order ASC, id ASC');
+    res.render('admin/categories', { categories, mainCategories, q, siteName: 'Goince' });
   } catch (err) {
     console.error('Category list error:', err);
     res.status(500).send('There was a problem loading the category list. Please check whether the "parent_id" column exists in the database (run sql/update.sql -f).');
   }
 });
 
-router.post('/categories/edit/:id', requireAdmin, requireRole('products'), async (req, res) => {
+// ---------- CATEGORY EDIT PAGE (alada clean page — table-er vitore choto form na) ----------
+router.get('/categories/edit/:id', requireAdmin, requireRole('products'), async (req, res) => {
   try {
-    const { name, parent_id } = req.body;
-    if (name && name.trim()) {
-      await db.query('UPDATE categories SET name = ?, parent_id = ? WHERE id = ?', [name.trim(), parent_id || null, req.params.id]);
+    const [[category]] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    if (!category) return res.redirect('/admin/categories');
+    const [mainCategories] = await db.query('SELECT * FROM categories WHERE parent_id IS NULL AND id != ? ORDER BY sort_order ASC, id ASC', [req.params.id]);
+    res.render('admin/category-edit', { category, mainCategories, siteName: 'Goince' });
+  } catch (err) {
+    console.error('Category edit page error:', err);
+    res.status(500).send('There was a problem loading the category.');
+  }
+});
+
+router.post('/categories/edit/:id', requireAdmin, requireRole('products'), upload.single('image'), async (req, res) => {
+  try {
+    const [[old]] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    if (!old) return res.redirect('/admin/categories');
+    const f = parseCategoryForm(req.body);
+    if (!f.name) return res.redirect('/admin/categories/edit/' + req.params.id);
+    if (f.parent_id === parseInt(req.params.id, 10)) f.parent_id = null; // nijer parent nije hote parbe na
+    if (f.parent_id) {
+      const [[parent]] = await db.query('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL', [f.parent_id]);
+      if (!parent) f.parent_id = null;
     }
+    const slug = await uniqueCategorySlug(f.slug || f.name, req.params.id);
+    const image = categoryImage(req, old.image_url);
+    await db.query('UPDATE categories SET name = ?, parent_id = ?, image_url = ?, description = ?, sort_order = ?, is_visible = ?, is_featured = ?, slug = ? WHERE id = ?',
+      [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug, req.params.id]);
     res.redirect('/admin/categories');
   } catch (err) {
     console.error('Category edit error:', err);
     res.status(500).send('There was a problem updating the category.');
+  }
+});
+
+// ---------- CATEGORY REORDER (▲▼ — eki parent-er moddhe neighbour-er sathe sort_order bodol) ----------
+router.post('/categories/:id/move', requireAdmin, requireRole('products'), async (req, res) => {
+  try {
+    const direction = req.body.direction === 'down' ? 'down' : 'up';
+    const [[cat]] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+    if (!cat) return res.redirect('/admin/categories');
+    const [siblings] = await db.query(
+      'SELECT * FROM categories WHERE ' + (cat.parent_id ? 'parent_id = ?' : 'parent_id IS NULL') + ' ORDER BY sort_order ASC, id ASC',
+      cat.parent_id ? [cat.parent_id] : []
+    );
+    const idx = siblings.findIndex(s => s.id == cat.id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx >= 0 && siblings[swapIdx]) {
+      const other = siblings[swapIdx];
+      if (cat.sort_order === other.sort_order) {
+        // sort_order ek hole shudhu swap korle kichu bodlabe na — ektu shoriye dao
+        await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [direction === 'up' ? other.sort_order - 1 : other.sort_order + 1, cat.id]);
+      } else {
+        await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [other.sort_order, cat.id]);
+        await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [cat.sort_order, other.id]);
+      }
+    }
+    res.redirect('/admin/categories');
+  } catch (err) {
+    console.error('Category move error:', err);
+    res.redirect('/admin/categories');
+  }
+});
+
+// ---------- CATEGORY SHOW / HIDE (delete na kore website theke lukano) ----------
+router.post('/categories/:id/toggle-visibility', requireAdmin, requireRole('products'), async (req, res) => {
+  try {
+    await db.query('UPDATE categories SET is_visible = 1 - is_visible WHERE id = ?', [req.params.id]);
+    res.redirect('/admin/categories');
+  } catch (err) {
+    console.error('Category visibility error:', err);
+    res.redirect('/admin/categories');
   }
 });
 

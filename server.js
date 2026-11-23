@@ -167,6 +167,33 @@ const SITE_SETTING_DEFAULTS = {
     if (!rvCols.map(c => c.COLUMN_NAME).includes('status')) {
       await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved'");
     }
+    // Categories advanced fields (Admin > Categories theke chalano jay):
+    // photo, description, sort order, show/hide, featured, slug
+    const [cCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'categories'");
+    const cNames = new Set(cCols.map(c => c.COLUMN_NAME));
+    for (const [col, def] of [
+      ['image_url', 'VARCHAR(500) DEFAULT NULL'],
+      ['description', 'TEXT DEFAULT NULL'],
+      ['sort_order', 'INT NOT NULL DEFAULT 0'],
+      ['is_visible', 'TINYINT(1) NOT NULL DEFAULT 1'],
+      ['is_featured', 'TINYINT(1) NOT NULL DEFAULT 0'],
+      ['slug', 'VARCHAR(150) DEFAULT NULL']
+    ]) if (!cNames.has(col)) await db.query(`ALTER TABLE categories ADD COLUMN ${col} ${def}`);
+    // Purono category gulo backfill: slug = name theke, sort_order = id order
+    const slugifyCat = (t) => String(t || '').toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 150);
+    const [oldCats] = await db.query('SELECT id, name FROM categories WHERE slug IS NULL OR slug = ""');
+    for (const c of oldCats) {
+      let s = slugifyCat(c.name) || 'category';
+      let cand = s, n = 2;
+      while (true) {
+        const [dups] = await db.query('SELECT id FROM categories WHERE slug = ? AND id != ?', [cand, c.id]);
+        if (!dups.length) break;
+        cand = s + '-' + (n++);
+      }
+      await db.query('UPDATE categories SET slug = ? WHERE id = ?', [cand, c.id]);
+    }
+    await db.query('UPDATE categories SET sort_order = id WHERE sort_order = 0');
+    try { await db.query('CREATE UNIQUE INDEX idx_categories_slug ON categories (slug)'); } catch (e) { /* slug-e duplicate thakle index lagbe na */ }
     await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,

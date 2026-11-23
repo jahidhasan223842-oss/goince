@@ -39,7 +39,7 @@
 <div class="category-bar" id="products">
   <a href="/" class="<%= !selectedCategory ? 'active' : '' %>">All</a>
   <% displayCategories.forEach(cat => { %>
-    <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><%= cat.display_name || cat.name %></a>
+    <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } %><%= cat.display_name || cat.name %></a>
   <% }) %>
 </div>
 
