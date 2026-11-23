@@ -386,7 +386,7 @@ router.get('/products/edit/:id', requireAdmin, async (req, res) => {
 
 router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 5 }]), async (req, res) => {
   try {
-    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience } = req.body;
+    const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_management, size_values, custom_sizes } = req.body;
     const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
     const audience = allowedAudiences.includes(target_audience) ? target_audience : 'all';
     const id = req.params.id;
@@ -458,7 +458,7 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
       <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
         <h1>😕 There Was a Problem Updating the Product</h1>
         <p><strong>Actual Error:</strong> ${err.sqlMessage || err.message}</p>
-        <a href="/admin/products/edit/${id}" style="color:#f0a500; font-weight:bold;">&larr; Try Again</a>
+        <a href="/admin/products/edit/${req.params.id}" style="color:#f0a500; font-weight:bold;">&larr; Try Again</a>
       </div>
     `);
   }
