@@ -5,7 +5,31 @@
 
 <% if (message) { %><p class="success-msg" style="text-align:left;"><%= message %></p><% } %>
 
-<form action="/admin/settings" method="POST" class="admin-form">
+<form action="/admin/settings" method="POST" class="admin-form" enctype="multipart/form-data">
+  <h3>🖼️ Logo — kothay konta, koto size</h3>
+  <p class="field-hint">File upload koro, ba image-er link (URL) likho — file dile setai use hobe. Save korlei website + admin panel-e shathe shathe bodle jabe.</p>
+  <table class="admin-table" style="margin-bottom:16px;">
+    <thead><tr><th>Logo-r jayga</th><th>Website-e size</th><th>Upload korar size</th></tr></thead>
+    <tbody>
+      <tr><td>Main Logo — header, admin sidebar, login page, invoice</td><td>Header 28×28 · Sidebar 32×32 · Login 64×64 · Invoice 52×52</td><td><strong>512×512 PNG</strong> (transparent background hole valo; header navy rong-er, tai halka rong-er logo valo dekhabe)</td></tr>
+      <tr><td>Favicon — browser tab, bookmark, phone home screen</td><td>Tab-e 16×16 / 32×32</td><td><strong>192×192 PNG</strong></td></tr>
+      <tr><td>Social Share Image — Facebook/WhatsApp-e link share korle je chobi dekhabe</td><td>Facebook 1200×630</td><td><strong>1200×630 JPG/PNG</strong></td></tr>
+    </tbody>
+  </table>
+  <label>Main Logo (ekhon: <img src="<%= logoUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
+  <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp">
+  <label>…ba Main Logo-r link (URL)</label>
+  <input type="url" name="logo_url" value="<%= logoUrl %>" placeholder="https://example.com/logo.png">
+  <label>Favicon (ekhon: <img src="<%= faviconUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
+  <input type="file" name="favicon_file" accept="image/png,image/jpeg,image/webp">
+  <label>…ba Favicon-er link (URL)</label>
+  <input type="url" name="favicon_url" value="<%= faviconUrl %>" placeholder="https://example.com/favicon.png">
+  <label>Social Share Image (ekhon: <img src="<%= ogImageUrl %>" alt="" style="width:56px; height:28px; vertical-align:middle; border-radius:6px; object-fit:cover;">)</label>
+  <input type="file" name="og_file" accept="image/png,image/jpeg,image/webp">
+  <label>…ba Social Image-r link (URL)</label>
+  <input type="url" name="og_image_url" value="<%= ogImageUrl %>" placeholder="https://example.com/og-image.jpg">
+
+  <hr style="margin:20px 0;">
   <h3>🏪 Dokan-er tottho</h3>
   <label>Shop Phone Number (WhatsApp / Call button-e ei number-e call hobe)</label>
   <input type="text" name="shop_phone" value="<%= shopPhone %>" placeholder="+8801XXXXXXXXX" required>

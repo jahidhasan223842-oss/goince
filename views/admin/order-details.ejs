@@ -11,7 +11,7 @@
 <div id="invoice-print-area" class="invoice-doc">
   <div class="invoice-doc-header">
     <div class="invoice-brand">
-      <img src="/icons/icon-512.png" alt="<%= siteName %>" class="invoice-logo">
+      <img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-512.png' %>" alt="<%= siteName %>" class="invoice-logo">
       <div>
         <h2><%= siteName %></h2>
         <p class="invoice-brand-tagline">Online Shop</p>
