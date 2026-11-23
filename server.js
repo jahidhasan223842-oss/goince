@@ -90,13 +90,48 @@ if (process.env.FORCE_HTTPS === 'true') {
 }
 
 // ---------- Middleware ----------
+// Halka in-memory rate limiter (kono notun dependency chara): login / signup /
+// checkout-e ek IP theke brute-force ba spam order atkanor jonno. Admin login-er
+// nijer lockout (routes/admin.js) etar sathe alada vabe kaj kore.
+function createRateLimiter({ windowMs, max, message }) {
+  const hits = new Map();
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, h] of hits) if (h.resetAt <= now) hits.delete(ip);
+  }, windowMs).unref();
+  return (req, res, next) => {
+    if (req.method !== 'POST') return next();
+    const ip = req.ip || 'unknown';
+    const now = Date.now();
+    const h = hits.get(ip) || { count: 0, resetAt: now + windowMs };
+    if (h.resetAt <= now) { h.count = 0; h.resetAt = now + windowMs; }
+    h.count += 1;
+    hits.set(ip, h);
+    if (h.count > max) return res.status(429).send(message);
+    next();
+  };
+}
+app.use(createRateLimiter({
+  windowMs: 15 * 60 * 1000, max: 60,
+  message: 'Too many requests — 15 minute pore abar try koro.'
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cookieParser());
 
+// SESSION_SECRET na thakle production-e server chalano jabe na — hardcoded
+// secret diye chalale jekono session forge kora jeto (age 'change_this_secret'
+// chilo, seta sorano holo). Development-e ekbar-er jonno random secret banano hoy.
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET .env-e set koro — production-e eta chara server cholbe na.');
+  }
+  console.warn('WARNING: SESSION_SECRET set kora nei — development-er jonno temporary random secret use hocche. Live-e obosshoi .env-e lomba random secret dite hobe.');
+}
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'change_this_secret',
+  secret: sessionSecret || crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: true,
   cookie: {

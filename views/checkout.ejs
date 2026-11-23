@@ -36,11 +36,12 @@
       <input type="email" name="email" placeholder="you@example.com">
 
       <label>Phone Number</label>
-      <input type="text" name="phone" required>
+      <input type="tel" name="phone" required pattern="^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$" title="Bangladeshi mobile number dao — jemon 01XXXXXXXXX" placeholder="01XXXXXXXXX">
 
       <label>Delivery Address</label>
       <textarea name="address" rows="3" required></textarea>
 
+      <p class="field-hint">📦 Inside Dhaka: 1–2 din, Outside Dhaka: 3–5 din. Order korar age phone-e confirm kora hobe.</p>
       <label>Delivery Area</label>
       <select name="delivery_area" id="delivery_area" onchange="updateTotal()">
         <option value="inside_dhaka" data-charge="<%= deliveryCharges.inside_dhaka %>">Inside Dhaka (৳<%= deliveryCharges.inside_dhaka %>)</option>
@@ -57,7 +58,6 @@
         <% paymentMethods.forEach(m => { %>
           <option value="<%= m.method_name %>" data-number="<%= m.number || '' %>"><%= m.method_name %></option>
         <% }) %>
-        <option value="Card">Card (Visa/Mastercard)</option>
       </select>
 
       <div id="payment-number-box" class="payment-number-box" style="display:none;">
@@ -108,12 +108,6 @@
     if (method === 'Cash on Delivery') {
       txnField.style.display = 'none';
       numberBox.style.display = 'none';
-      txnInput.required = false;
-    } else if (method === 'Card') {
-      txnField.style.display = 'block';
-      numberBox.style.display = 'none';
-      txnLabel.textContent = 'Note';
-      txnInput.placeholder = 'Card payment gateway coming soon — will be processed as COD for now';
       txnInput.required = false;
     } else {
       // bKash / Nagad / Rocket

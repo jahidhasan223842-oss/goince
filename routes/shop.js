@@ -30,6 +30,17 @@ async function getPaymentMethods() {
   return rows;
 }
 
+// Bangladeshi mobile number: 01XXXXXXXXX ba +8801XXXXXXXXX — 013-019 diye shuru hote hobe
+function normalizeBdPhone(raw) {
+  let p = String(raw || '').replace(/[^0-9+]/g, '');
+  if (p.startsWith('+880')) p = '0' + p.slice(4);
+  else if (p.startsWith('880')) p = '0' + p.slice(3);
+  return p;
+}
+function isValidBdPhone(raw) {
+  return /^01[3-9][0-9]{8}$/.test(normalizeBdPhone(raw));
+}
+
 // ---------- HOMEPAGE ----------
 router.get('/', async (req, res) => {
   try {
@@ -113,7 +124,23 @@ router.get('/', async (req, res) => {
 
     const [products] = await db.query(sql, params);
 
+    // Best sellers: shobcheye beshi bikri hoya product (homepage hero-r niche)
+    let bestSellers = [];
+    if (!categoryId && !search) {
+      try {
+        const [rows] = await db.query(
+          `SELECT products.*, COALESCE(SUM(order_items.quantity), 0) AS sold
+           FROM products LEFT JOIN order_items ON order_items.product_id = products.id
+           WHERE products.stock > 0
+           GROUP BY products.id ORDER BY sold DESC, products.created_at DESC LIMIT 4`);
+        bestSellers = rows;
+      } catch (e) { bestSellers = []; }
+    }
+
     res.render('index', {
+      bestSellers,
+      pageTitle: search ? `Search: ${search} - Goince` : 'Goince - Online Shop | Cash on Delivery in Bangladesh',
+      metaDescription: 'Goince - Bangladesh-er online shop. Cash on Delivery, Dhaka-r vitore 1-2 din, Dhaka-r baire 3-5 dine delivery.',
       products,
       categories,
       mainCategories,
@@ -231,6 +258,8 @@ router.get('/product/:id', async (req, res) => {
     const descriptionHtml = product.description ? marked.parse(product.description) : '';
 
     res.render('product', {
+      pageTitle: `${product.name} - Goince`,
+      metaDescription: (product.short_description || product.name).slice(0, 160),
       product,
       galleryImages,
       options,
@@ -400,12 +429,12 @@ router.get('/cart', async (req, res) => {
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
   const total = subtotal - discount;
 
-  // Estimated delivery: aaj theke 3-5 din
+  // Estimated delivery: Dhaka-r vitore 1-2 din, baire 3-5 din (shipping policy-r sathe miliye)
   const today = new Date();
-  const minDate = new Date(today); minDate.setDate(today.getDate() + 3);
+  const minDate = new Date(today); minDate.setDate(today.getDate() + 1);
   const maxDate = new Date(today); maxDate.setDate(today.getDate() + 5);
   const dateOpts = { day: 'numeric', month: 'short' };
-  const estimatedDelivery = `${minDate.toLocaleDateString('en-GB', dateOpts)} - ${maxDate.toLocaleDateString('en-GB', dateOpts)}`;
+  const estimatedDelivery = `${minDate.toLocaleDateString('en-GB', dateOpts)} - ${maxDate.toLocaleDateString('en-GB', dateOpts)} (Dhaka 1-2 din, baire 3-5 din)`;
 
   let wishlistProductIds = [];
   if (req.session.userId) {
@@ -569,18 +598,31 @@ router.post('/checkout', async (req, res) => {
   if (cart.length === 0) return res.redirect('/cart');
 
   const { customer_name, email, phone, address, payment_method, transaction_id, delivery_area } = req.body;
+  const deliveryCharges = await getDeliveryCharges();
+  const paymentMethods = await getPaymentMethods();
+  const allowedMethods = ['Cash on Delivery', ...paymentMethods.map(m => m.method_name)];
+  const selectedMethod = payment_method || 'Cash on Delivery';
+  // Card gateway nei — keu form bodle 'Card' pathaleo seta COD hishebe noy, error hobe
+  const _coupon = req.session.coupon || null;
+  const _sub0 = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const _disc0 = _coupon ? (_sub0 * _coupon.discount_percent / 100) : 0;
+  if (!allowedMethods.includes(selectedMethod)) {
+    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryCharge: deliveryCharges.inside_dhaka, total: _sub0 - _disc0 + deliveryCharges.inside_dhaka, paymentMethods, error: 'Invalid payment method.', siteName: 'Goince' });
+  }
+  if (!customer_name || !address || !isValidBdPhone(phone)) {
+    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryCharge: deliveryCharges.inside_dhaka, total: _sub0 - _disc0 + deliveryCharges.inside_dhaka, paymentMethods, error: 'Sothik naam, thikana ar Bangladeshi mobile number (01XXXXXXXXX) dao.', siteName: 'Goince' });
+  }
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const coupon = req.session.coupon || null;
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
-  const deliveryCharges = await getDeliveryCharges();
   const deliveryCharge = deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka;
+  const normalizedPhone = normalizeBdPhone(phone);
   const total = subtotal - discount + deliveryCharge;
   const userId = req.session.userId || null;
 
   // bKash/Nagad/Rocket (ba admin-er jog kora onno mobile banking method) e
-  // Transaction ID chara order confirm kora jabe na — Cash on Delivery/Card e lagbe na
-  const selectedMethod = payment_method || 'Cash on Delivery';
-  const needsTransactionId = selectedMethod !== 'Cash on Delivery' && selectedMethod !== 'Card';
+  // Transaction ID chara order confirm kora jabe na — Cash on Delivery-e lagbe na
+  const needsTransactionId = selectedMethod !== 'Cash on Delivery';
   if (needsTransactionId && !(transaction_id || '').trim()) {
     const paymentMethods = await getPaymentMethods();
     return res.render('checkout', {
@@ -597,7 +639,7 @@ router.post('/checkout', async (req, res) => {
     const [orderResult] = await connection.query(
       `INSERT INTO orders (user_id, customer_name, email, phone, address, payment_method, transaction_id, delivery_charge, coupon_code, discount_amount, total_amount)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, customer_name, email || null, phone, address, payment_method || 'Cash on Delivery', transaction_id || null, deliveryCharge, coupon ? coupon.code : null, discount, total]
+      [userId, customer_name, email || null, normalizedPhone, address, payment_method || 'Cash on Delivery', transaction_id || null, deliveryCharge, coupon ? coupon.code : null, discount, total]
     );
     const orderId = orderResult.insertId;
 
@@ -657,6 +699,31 @@ router.post('/checkout', async (req, res) => {
   } finally {
     connection.release();
   }
+});
+
+// ---------- ABOUT / CONTACT ----------
+router.get('/about', (req, res) => {
+  res.render('about', { siteName: 'Goince', pageTitle: 'About Us - Goince', metaDescription: 'Goince somporke jano — Bangladesh-er online shop, Cash on Delivery, fast delivery.' });
+});
+router.get('/contact', (req, res) => {
+  res.render('contact', { siteName: 'Goince', pageTitle: 'Contact Us - Goince', metaDescription: 'Goince-er sathe jogajog koro — phone, WhatsApp, order support.' });
+});
+
+// ---------- TRACK ORDER (guest — Order ID + phone) ----------
+router.get('/track-order', (req, res) => {
+  res.render('track-order', { siteName: 'Goince', pageTitle: 'Track Order - Goince', metaDescription: 'Order ID ar phone number diye tomar order-er status dekho.', order: null, items: [], error: null });
+});
+router.post('/track-order', async (req, res) => {
+  const orderId = parseInt(req.body.order_id) || 0;
+  const phone = normalizeBdPhone(req.body.phone || '');
+  const render = (order, items, error) => res.render('track-order', { siteName: 'Goince', pageTitle: 'Track Order - Goince', metaDescription: 'Order ID ar phone number diye tomar order-er status dekho.', order, items, error });
+  if (!orderId || !isValidBdPhone(phone)) return render(null, [], 'Order ID ar sothik mobile number (01XXXXXXXXX) dao.');
+  try {
+    const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!order || normalizeBdPhone(order.phone) !== phone) return render(null, [], 'Ei Order ID / phone number-e kono order pawa jayni.');
+    const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+    return render(order, items, null);
+  } catch (err) { console.error(err); return render(null, [], 'Order khujte problem hoyeche — pore abar try koro.'); }
 });
 
 // ---------- STATIC POLICY PAGES (Google Merchant Center-er jonno dorkar) ----------
@@ -740,6 +807,9 @@ router.get('/sitemap.xml', async (req, res) => {
     xml += `  <url><loc>${baseUrl}/terms</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
     xml += `  <url><loc>${baseUrl}/privacy-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
     xml += `  <url><loc>${baseUrl}/return-policy</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}/about</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}/contact</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>\n`;
+    xml += `  <url><loc>${baseUrl}/track-order</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>\n`;
 
     categories.forEach(c => {
       xml += `  <url><loc>${baseUrl}/?category=${c.id}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
