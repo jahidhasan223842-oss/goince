@@ -1,72 +1,72 @@
 <%- include('../partials/admin-header') %>
 
 <h1>Settings</h1>
-<p class="field-hint">Ekhane ja bodlabe, homepage / footer-e shathe shathe dekhabe — kono code change lagbe na. Khali rakhle default lekha dekhabe.</p>
+<p class="field-hint">Changes made here appear on the homepage and footer right away — no code changes needed. Leave a field blank to use the default text.</p>
 
 <% if (message) { %><p class="success-msg" style="text-align:left;"><%= message %></p><% } %>
 
 <form action="/admin/settings" method="POST" class="admin-form" enctype="multipart/form-data">
   <h3>🖼️ Logo — kothay konta, koto size</h3>
-  <p class="field-hint">File upload koro, ba image-er link (URL) likho — file dile setai use hobe. Save korlei website + admin panel-e shathe shathe bodle jabe.</p>
+  <p class="field-hint">Upload a file, or enter an image link (URL) — if you upload a file, that will be used. Saving updates the website and admin panel right away.</p>
   <table class="admin-table" style="margin-bottom:16px;">
-    <thead><tr><th>Logo-r jayga</th><th>Website-e size</th><th>Upload korar size</th></tr></thead>
+    <thead><tr><th>Where the logo appears</th><th>Display size</th><th>Upload size</th></tr></thead>
     <tbody>
-      <tr><td>Main Logo — header, admin sidebar, login page, invoice</td><td>Header 28×28 · Sidebar 32×32 · Login 64×64 · Invoice 52×52</td><td><strong>512×512 PNG</strong> (transparent background hole valo; header navy rong-er, tai halka rong-er logo valo dekhabe)</td></tr>
+      <tr><td>Main Logo — header, admin sidebar, login page, invoice</td><td>Header 28×28 · Sidebar 32×32 · Login 64×64 · Invoice 52×52</td><td><strong>512×512 PNG</strong> (a transparent background works best; the header is navy, so a light-coloured logo looks best)</td></tr>
       <tr><td>Favicon — browser tab, bookmark, phone home screen</td><td>Tab-e 16×16 / 32×32</td><td><strong>192×192 PNG</strong></td></tr>
       <tr><td>Social Share Image — Facebook/WhatsApp-e link share korle je chobi dekhabe</td><td>Facebook 1200×630</td><td><strong>1200×630 JPG/PNG</strong></td></tr>
     </tbody>
   </table>
-  <label>Main Logo (ekhon: <img src="<%= logoUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
+  <label>Main Logo (current: <img src="<%= logoUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
   <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp">
-  <label>…ba Main Logo-r link (URL)</label>
+  <label>…or Main Logo link (URL)</label>
   <input type="url" name="logo_url" value="<%= logoUrl %>" placeholder="https://example.com/logo.png">
-  <label>Favicon (ekhon: <img src="<%= faviconUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
+  <label>Favicon (current: <img src="<%= faviconUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
   <input type="file" name="favicon_file" accept="image/png,image/jpeg,image/webp">
-  <label>…ba Favicon-er link (URL)</label>
+  <label>…or Favicon link (URL)</label>
   <input type="url" name="favicon_url" value="<%= faviconUrl %>" placeholder="https://example.com/favicon.png">
-  <label>Social Share Image (ekhon: <img src="<%= ogImageUrl %>" alt="" style="width:56px; height:28px; vertical-align:middle; border-radius:6px; object-fit:cover;">)</label>
+  <label>Social Share Image (current: <img src="<%= ogImageUrl %>" alt="" style="width:56px; height:28px; vertical-align:middle; border-radius:6px; object-fit:cover;">)</label>
   <input type="file" name="og_file" accept="image/png,image/jpeg,image/webp">
-  <label>…ba Social Image-r link (URL)</label>
+  <label>…or Social Image link (URL)</label>
   <input type="url" name="og_image_url" value="<%= ogImageUrl %>" placeholder="https://example.com/og-image.jpg">
 
   <hr style="margin:20px 0;">
-  <h3>🏪 Dokan-er tottho</h3>
-  <label>Shop Phone Number (WhatsApp / Call button-e ei number-e call hobe)</label>
+  <h3>🏪 Shop Information</h3>
+  <label>Shop Phone Number (customers will call this number from the WhatsApp / Call button)</label>
   <input type="text" name="shop_phone" value="<%= shopPhone %>" placeholder="+8801XXXXXXXXX" required>
 
-  <label>Shop Address (footer-e dekhabe — khali rakhle dekhabe na)</label>
-  <input type="text" name="shop_address" value="<%= shopAddress %>" placeholder="jemon: Dhaka, Bangladesh">
+  <label>Shop Address (shown in the footer — leave blank to hide it)</label>
+  <input type="text" name="shop_address" value="<%= shopAddress %>" placeholder="e.g. Dhaka, Bangladesh">
 
-  <label>Facebook Page URL (footer-e link dekhabe — khali rakhle dekhabe na)</label>
+  <label>Facebook Page URL (linked in the footer — leave blank to hide it)</label>
   <input type="url" name="facebook_url" value="<%= facebookUrl %>" placeholder="https://www.facebook.com/goince">
 
-  <label>YouTube Channel URL (footer-e link dekhabe)</label>
+  <label>YouTube Channel URL (linked in the footer)</label>
   <input type="url" name="youtube_url" value="<%= youtubeUrl %>" placeholder="https://www.youtube.com/@goince">
 
-  <label>Instagram URL (footer-e link dekhabe)</label>
+  <label>Instagram URL (linked in the footer)</label>
   <input type="url" name="instagram_url" value="<%= instagramUrl %>" placeholder="https://www.instagram.com/goince">
 
-  <label>Shop Email (footer-e dekhabe)</label>
+  <label>Shop Email (shown in the footer)</label>
   <input type="email" name="shop_email" value="<%= shopEmail %>" placeholder="support@goince.com">
 
-  <label>Opening Hours (footer-e dekhabe)</label>
-  <input type="text" name="footer_hours" value="<%= footerHours %>" placeholder="jemon: Sat–Thu, 9 AM – 9 PM">
+  <label>Opening Hours (shown in the footer)</label>
+  <input type="text" name="footer_hours" value="<%= footerHours %>" placeholder="e.g. Sat–Thu, 9 AM – 9 PM">
 
-  <label>Footer About Text (footer-er Goince lekha)</label>
+  <label>Footer About Text (the Goince text in the footer)</label>
   <textarea name="footer_about" rows="2" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);"><%= footerAbout %></textarea>
 
   <hr style="margin:20px 0;">
   <h3>🎉 Homepage — Hero &amp; Announcement</h3>
-  <label>Announcement Bar (sob page-er upore choto line — khali rakhle bar-ta thakbe na)</label>
-  <input type="text" name="announcement_text" value="<%= announcementText %>" placeholder="jemon: Eid Offer — sob product-e 10% off!">
+  <label>Announcement Bar (a small line above every page — leave blank to hide the bar)</label>
+  <input type="text" name="announcement_text" value="<%= announcementText %>" placeholder="e.g. Eid Offer — 10% off all products!">
 
-  <label>Hero Title (homepage-r boro lekha)</label>
+  <label>Hero Title (the large heading on the homepage)</label>
   <input type="text" name="hero_title" value="<%= heroTitle %>" placeholder="Cash on Delivery — sara Bangladesh-e delivery">
 
-  <label>Hero Subtitle (hero title-r nicher choto lekha)</label>
+  <label>Hero Subtitle (the smaller text below the hero title)</label>
   <input type="text" name="hero_subtitle" value="<%= heroSubtitle %>" placeholder="Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.">
 
-  <label>Hero Banner-er Product (banner-e je product-er photo dekhabe — khali rakhle Best Seller dekhabe)</label>
+  <label>Hero Banner Product (the product photo shown in the banner — leave blank to show the Best Seller)</label>
   <select name="hero_product_id" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
     <option value="">— Best Seller (auto) —</option>
     <% products.forEach(p => { %><option value="<%= p.id %>" <%= String(heroProductId) === String(p.id) ? 'selected' : '' %>><%= p.name %></option><% }) %>
@@ -79,7 +79,7 @@
 
   <label>Delivery Charge - Outside Dhaka (৳)</label>
   <input type="number" step="0.01" min="0" name="delivery_charge_outside" value="<%= deliveryChargeOutside %>" required>
-  <p class="field-hint">Notun zone add korte ba zone-er charge bodlate <a href="/admin/delivery-zones">Delivery Zones page-e</a> jao — checkout-e customer okhan thekei zone beche nebe.</p>
+  <p class="field-hint">To add a new zone or change a zone's charge, go to the <a href="/admin/delivery-zones">Delivery Zones page</a> — customers choose their zone from there at checkout.</p>
 
   <hr style="margin:20px 0;">
   <h3>Mobile Banking Numbers</h3>
@@ -90,7 +90,7 @@
 
   <hr style="margin:20px 0;">
   <h3>💳 Payment Gateway (Online Payment API)</h3>
-  <p class="field-hint">Gateway connect korle customer card/bKash/Nagad diye online-e pay korte parbe. <strong>Manual</strong> mane sudhu COD + bKash/Nagad number (ekhon jemon cholche). <strong>Gateway</strong> mane sudhu online payment — manual method bondho thakbe. <strong>Both</strong> mane duitai dekhabe. Gateway off thakle website-e kothao dekhabe na.</p>
+  <p class="field-hint">With a gateway connected, customers can pay online by card, bKash, or Nagad. <strong>Manual</strong> means only COD + bKash/Nagad numbers (as it works now). <strong>Gateway</strong> means online payment only — manual methods will be hidden. <strong>Both</strong> shows both options. If the gateway is off, it will not appear anywhere on the website.</p>
   <label>Payment Mode</label>
   <select name="payment_mode" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
     <option value="manual" <%= paymentMode === 'manual' ? 'selected' : '' %>>Manual only (COD + bKash/Nagad number)</option>
@@ -104,17 +104,17 @@
     <option value="shurjopay" <%= gatewayProvider === 'shurjopay' ? 'selected' : '' %>>ShurjoPay</option>
     <option value="bkash" <%= gatewayProvider === 'bkash' ? 'selected' : '' %>>bKash PGW</option>
   </select>
-  <label><input type="checkbox" name="gateway_enabled" value="1" <%= gatewayEnabled === '1' ? 'checked' : '' %>> Gateway enable koro</label>
+  <label><input type="checkbox" name="gateway_enabled" value="1" <%= gatewayEnabled === '1' ? 'checked' : '' %>> Enable gateway</label>
   <label>Gateway Mode</label>
   <select name="gateway_mode" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
     <option value="sandbox" <%= gatewayMode === 'sandbox' ? 'selected' : '' %>>Sandbox (test)</option>
-    <option value="live" <%= gatewayMode === 'live' ? 'selected' : '' %>>Live (asol taka)</option>
+    <option value="live" <%= gatewayMode === 'live' ? 'selected' : '' %>>Live (real money)</option>
   </select>
-  <label>Store ID / Merchant ID (gateway-er account theke pabe)</label>
-  <input type="text" name="gateway_store_id" value="<%= gatewayStoreId %>" placeholder="jemon: goince001">
-  <label>Store Password / API Key <%= gatewayPasswordSet ? '(ekta save kora ache — bodlate chaile notun-ta likho, na chaile khali rakho)' : '(ekhono deya hoyni)' %></label>
-  <input type="password" name="gateway_store_password" placeholder="khali rakhle purono-ta-i thakbe" autocomplete="new-password">
-  <p class="field-hint">⚠️ Gateway-er asol taka lenden chalu korte provider-er merchant account lagbe (SSLCommerz/ShurjoPay/bKash PGW). Ekhane config save korle checkout-e option-ta asbe, kintu asol payment neyar jonno provider-er API diye order verify korar kaj-ta alada ekta step — credential pele janio, ami connect kore dibo.</p>
+  <label>Store ID / Merchant ID (from your gateway account)</label>
+  <input type="text" name="gateway_store_id" value="<%= gatewayStoreId %>" placeholder="e.g. goince001">
+  <label>Store Password / API Key <%= gatewayPasswordSet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="gateway_store_password" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <p class="field-hint">⚠️ To accept real payments through a gateway, you need a merchant account with the provider (SSLCommerz/ShurjoPay/bKash PGW). Saving the config here will show the option at checkout, but taking real payments also requires an API verification step for orders — that still needs to be set up with your merchant credentials.</p>
 
   <button type="submit" class="btn-primary">Save Settings</button>
 </form>

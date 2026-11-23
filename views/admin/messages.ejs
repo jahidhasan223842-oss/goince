@@ -1,10 +1,10 @@
 <%- include('../partials/admin-header') %>
 
 <h1>Contact Messages</h1>
-<p class="field-hint">Website-er Contact form theke asha message — ekhane pore uttor dio (phone/WhatsApp-e). <strong><%= unread %> ta notun / na-pora.</strong></p>
+<p class="field-hint">Messages sent from the website's Contact form — reply to them by phone or WhatsApp. <strong><%= unread %> new / unread.</strong></p>
 
 <% if (messages.length === 0) { %>
-  <p>Kono message asheni ekhono.</p>
+  <p>No messages yet.</p>
 <% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
@@ -19,7 +19,7 @@
         <td><%= m.message %></td>
         <td style="white-space:nowrap;">
           <% if (!m.is_read) { %><form action="/admin/messages/<%= m.id %>/read" method="POST" style="display:inline;"><button type="submit" class="link-btn-danger" style="color:#2196f3;">Mark read</button></form> | <% } %>
-          <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Ei message-ta delete korbe?');"><button type="submit" class="link-btn-danger">Delete</button></form>
+          <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this message?');"><button type="submit" class="link-btn-danger">Delete</button></form>
         </td>
       </tr>
     <% }) %>

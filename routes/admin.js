@@ -1,4 +1,4 @@
-// Admin panel er shob route: Login, Dashboard, Product/Order/Coupon/Customer Manage
+// All admin panel routes: Login, Dashboard, Product/Order/Coupon/Customer Manage
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -12,7 +12,7 @@ function requireAdmin(req, res, next) {
 }
 
 // ---------- ADMIN LOGIN (5 bar bhul dile 10 minute er jonno lock) ----------
-const loginAttempts = {}; // { ip: { count, lockUntil } } — in-memory, server restart hole reset hoye jabe
+const loginAttempts = {}; // { ip: { count, lockUntil } } — in-memory, resets when the server restarts
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minute
 
@@ -25,11 +25,11 @@ router.post('/login', async (req, res) => {
   const now = Date.now();
   const record = loginAttempts[ip];
 
-  // Ei IP ekhono lock ache kina check kora
+  // Check whether this IP is still locked
   if (record && record.lockUntil && now < record.lockUntil) {
     const minutesLeft = Math.ceil((record.lockUntil - now) / 60000);
     return res.render('admin/login', {
-      error: `Onek bar bhul password diyecho. Doya kore ${minutesLeft} minute por abar try koro.`,
+      error: `Too many incorrect password attempts. Please try again in ${minutesLeft} minute(s).`,
       siteName: 'Goince'
     });
   }
@@ -38,18 +38,18 @@ router.post('/login', async (req, res) => {
   let loginOk = false;
 
   try {
-    // Age DB ("admins" table)-e check kora, karon Forgot Password diye
-    // password change korle oita-i notun sothik password
+    // Check the DB ("admins" table) first, because a password changed via
+    // Forgot Password is the new correct password
     const [rows] = await db.query('SELECT * FROM admins WHERE email = ?', [email]);
     if (rows.length > 0) {
       loginOk = await bcrypt.compare(password || '', rows[0].password);
     } else if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-      // "admins" table e ei email er row nei — .env diye fallback check
+      // No row for this email in the "admins" table — fall back to the .env check
       loginOk = true;
     }
   } catch (err) {
-    // "admins" table na thakle (sql/update.sql run kora hoyni), purono
-    // .env-based check diye login cholte thakbe
+    // If the "admins" table does not exist (sql/update.sql was not run), the old
+    // .env-based check keeps login working
     if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
       loginOk = true;
     }
@@ -82,9 +82,9 @@ router.post('/login', async (req, res) => {
 
   const attemptsLeft = MAX_LOGIN_ATTEMPTS - (loginAttempts[ip].count || 0);
   const warning = attemptsLeft > 0 && attemptsLeft <= 2
-    ? ` (Ar ${attemptsLeft} bar bhul hole 10 minute er jonno lock hoye jabe.)`
+    ? ` (${attemptsLeft} more incorrect attempt(s) will lock this account for 10 minutes.)`
     : '';
-  res.render('admin/login', { error: `Email or password ভুল হয়েছে!${warning}`, siteName: 'Goince' });
+  res.render('admin/login', { error: `Incorrect email or password!${warning}`, siteName: 'Goince' });
 });
 
 router.get('/logout', (req, res) => {
@@ -101,13 +101,13 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
     if (!email) {
-      return res.render('admin/forgot-password', { error: 'Email ditei hobe.', message: null, siteName: 'Goince' });
+      return res.render('admin/forgot-password', { error: 'Please enter your email address.', message: null, siteName: 'Goince' });
     }
 
     const [rows] = await db.query('SELECT * FROM admins WHERE email = ?', [email]);
 
     // Account thakuk ba na thakuk, same message dekhabo (security best practice)
-    const genericMessage = 'Ei email diye admin account thakle, password reset korar link pathano hoyeche. Email check koro.';
+    const genericMessage = 'If an admin account exists for this email, a password reset link has been sent. Please check your email.';
 
     if (rows.length > 0) {
       const admin = rows[0];
@@ -122,10 +122,10 @@ router.post('/forgot-password', async (req, res) => {
       const sent = await sendPasswordResetEmail(admin.email, 'Admin', resetLink);
 
       if (!sent) {
-        // Email setup na thakle, test korar jonno link ta screen e dekhiye dilam
+        // If email is not set up, show the link on screen for testing
         return res.render('admin/forgot-password', {
           error: null,
-          message: `Email pathano jayni (email setup kora nei). Test korar jonno link: ${resetLink}`,
+          message: `The email could not be sent (email is not set up). For testing, here is the link: ${resetLink}`,
           siteName: 'Goince'
         });
       }
@@ -135,7 +135,7 @@ router.post('/forgot-password', async (req, res) => {
   } catch (err) {
     console.error('Admin forgot password error:', err);
     res.render('admin/forgot-password', {
-      error: '"admins" table paoya jayni. sql/update.sql run kora hoyeche kina check koro.',
+      error: 'The "admins" table was not found. Please check whether sql/update.sql has been run.',
       message: null, siteName: 'Goince'
     });
   }
@@ -147,7 +147,7 @@ router.get('/reset-password/:token', async (req, res) => {
     [req.params.token]
   );
   if (rows.length === 0) {
-    return res.render('admin/reset-password', { error: 'Link ta expire hoye geche ba shothik na. Abar try koro.', token: null, siteName: 'Goince' });
+    return res.render('admin/reset-password', { error: 'This link has expired or is not valid. Please try again.', token: null, siteName: 'Goince' });
   }
   res.render('admin/reset-password', { error: null, token: req.params.token, siteName: 'Goince' });
 });
@@ -157,10 +157,10 @@ router.post('/reset-password/:token', async (req, res) => {
     const { password, confirm_password } = req.body;
 
     if (!password || password.length < 6) {
-      return res.render('admin/reset-password', { error: 'Password kompokkhe 6 character howa lagbe.', token: req.params.token, siteName: 'Goince' });
+      return res.render('admin/reset-password', { error: 'Your password must be at least 6 characters long.', token: req.params.token, siteName: 'Goince' });
     }
     if (password !== confirm_password) {
-      return res.render('admin/reset-password', { error: 'Duto password mile ni.', token: req.params.token, siteName: 'Goince' });
+      return res.render('admin/reset-password', { error: 'The two passwords do not match.', token: req.params.token, siteName: 'Goince' });
     }
 
     const [rows] = await db.query(
@@ -168,7 +168,7 @@ router.post('/reset-password/:token', async (req, res) => {
       [req.params.token]
     );
     if (rows.length === 0) {
-      return res.render('admin/reset-password', { error: 'Link ta expire hoye geche. Abar Forgot Password theke try koro.', token: null, siteName: 'Goince' });
+      return res.render('admin/reset-password', { error: 'This link has expired. Please try again from Forgot Password.', token: null, siteName: 'Goince' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -177,10 +177,10 @@ router.post('/reset-password/:token', async (req, res) => {
       [hashedPassword, rows[0].id]
     );
 
-    res.render('admin/login', { error: null, message: 'Password shofolvabe change hoyeche! Ekhon login koro.', siteName: 'Goince' });
+    res.render('admin/login', { error: null, message: 'Your password has been changed successfully! Please log in now.', siteName: 'Goince' });
   } catch (err) {
     console.error('Admin reset password error:', err);
-    res.render('admin/reset-password', { error: 'Kichu ekta shomossha hoyeche.', token: req.params.token, siteName: 'Goince' });
+    res.render('admin/reset-password', { error: 'Something went wrong.', token: req.params.token, siteName: 'Goince' });
   }
 });
 
@@ -274,7 +274,7 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error('Dashboard analytics error:', err);
-    res.status(500).send('Dashboard load korte problem hoyeche. Server log check korun.');
+    res.status(500).send('There was a problem loading the dashboard. Please check the server logs.');
   }
 });
 
@@ -293,7 +293,7 @@ router.get('/inventory', requireAdmin, async (req, res) => {
   res.render('admin/inventory', { products, filter, siteName: 'Goince' });
 });
 
-// ---------- QUICK STOCK UPDATE (ekhane thekei stock change kora jay) ----------
+// ---------- QUICK STOCK UPDATE (stock can be changed right from here) ----------
 router.post('/inventory/update/:id', requireAdmin, async (req, res) => {
   const stock = Math.max(0, parseInt(req.body.stock) || 0);
   await db.query('UPDATE products SET stock = ? WHERE id = ?', [stock, req.params.id]);
@@ -331,7 +331,7 @@ router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCo
       [category_id || null, audience, name, description, short_description || null, specifications || null, price, compare_at_price || null, stock || 0, image, source_link || null]
     );
 
-    // Gallery e extra images thakle shegulo product_images table e jog kora
+    // Add any extra gallery images to the product_images table
     if (req.files && req.files.gallery) {
       for (const file of req.files.gallery) {
         await db.query('INSERT INTO product_images (product_id, image) VALUES (?, ?)', [result.insertId, file.filename]);
@@ -366,9 +366,9 @@ router.post('/products/add', requireAdmin, upload.fields([{ name: 'image', maxCo
     console.error(err);
     res.status(500).send(`
       <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
-        <h1>😕 Product Add Korte Problem Hoyeche</h1>
+        <h1>😕 There Was a Problem Adding the Product</h1>
         <p><strong>Actual Error:</strong> ${err.sqlMessage || err.message}</p>
-        <a href="/admin/products/add" style="color:#f0a500; font-weight:bold;">&larr; Abar Try Koro</a>
+        <a href="/admin/products/add" style="color:#f0a500; font-weight:bold;">&larr; Try Again</a>
       </div>
     `);
   }
@@ -404,7 +404,7 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
       );
     }
 
-    // Notun gallery image add kora hole, purono gulor sathe jog hobe (mucbe na)
+    // New gallery images are added alongside the existing ones (they are not removed)
     if (req.files && req.files.gallery) {
       for (const file of req.files.gallery) {
         await db.query('INSERT INTO product_images (product_id, image) VALUES (?, ?)', [id, file.filename]);
@@ -456,9 +456,9 @@ router.post('/products/edit/:id', requireAdmin, upload.fields([{ name: 'image', 
     console.error(err);
     res.status(500).send(`
       <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
-        <h1>😕 Product Update Korte Problem Hoyeche</h1>
+        <h1>😕 There Was a Problem Updating the Product</h1>
         <p><strong>Actual Error:</strong> ${err.sqlMessage || err.message}</p>
-        <a href="/admin/products/edit/${id}" style="color:#f0a500; font-weight:bold;">&larr; Abar Try Koro</a>
+        <a href="/admin/products/edit/${id}" style="color:#f0a500; font-weight:bold;">&larr; Try Again</a>
       </div>
     `);
   }
@@ -470,7 +470,7 @@ router.post('/products/:id/gallery/delete/:imageId', requireAdmin, async (req, r
   res.redirect('/admin/products/edit/' + req.params.id);
 });
 
-// ==================== PRODUCT OPTIONS (Color / Size / Weight — apni nijei label ঠিক korte parben) ====================
+// ==================== PRODUCT OPTIONS (Color / Size / Weight — you can set the label yourself) ====================
 router.post('/products/:id/options/add', requireAdmin, upload.single('option_image'), async (req, res) => {
   try {
     const productId = req.params.id;
@@ -480,9 +480,9 @@ router.post('/products/:id/options/add', requireAdmin, upload.single('option_ima
     const image = req.file ? req.file.filename : null;
 
     if (valueName) {
-      // Product-e ager theke option thakle, ek-i label rakhar jonno (jate ekta
-      // product-e 2 rokom label mixed hoye na jay) — submittedLabel dile shob
-      // purono row-o rename hoye jabe, na dile ager label-i thakbe
+      // If the product already has options, keep the same label (so one
+      // product does not end up with 2 different labels mixed together) — if a
+      // submittedLabel is given, all old rows are renamed too; otherwise the old label stays
       const [existing] = await db.query('SELECT option_label FROM product_options WHERE product_id = ? LIMIT 1', [productId]);
       const label = submittedLabel || (existing.length > 0 ? existing[0].option_label : 'Option');
 
@@ -500,11 +500,11 @@ router.post('/products/:id/options/add', requireAdmin, upload.single('option_ima
     console.error('Option add error:', err);
     res.status(500).send(`
       <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
-        <h1>😕 Option Add Korte Problem Hoyeche</h1>
+        <h1>😕 There Was a Problem Adding the Option</h1>
         <p><strong>Error:</strong> ${err.sqlMessage || err.message}</p>
-        <p>Shombhoboto <code>sql/add_product_options.sql</code> file ta run kora hoyni. Ei command ta try koro:<br>
+        <p>The <code>sql/add_product_options.sql</code> file probably has not been run yet. Please try this command:<br>
         <code>mysql -u root -p goince_db &lt; sql/add_product_options.sql</code></p>
-        <a href="/admin/products/edit/${req.params.id}" style="color:#f0a500; font-weight:bold;">&larr; Product edit page e ferot jao</a>
+        <a href="/admin/products/edit/${req.params.id}" style="color:#f0a500; font-weight:bold;">&larr; Back to the product edit page</a>
       </div>
     `);
   }
@@ -521,7 +521,7 @@ router.post('/products/delete/:id', requireAdmin, async (req, res) => {
   res.redirect('/admin/products');
 });
 
-// ---------- CATEGORY QUICK ADD (Add-product form theke use hoy) ----------
+// ---------- CATEGORY QUICK ADD (used from the Add Product form) ----------
 router.post('/categories/add', requireAdmin, async (req, res) => {
   try {
     const { name, parent_id } = req.body;
@@ -531,7 +531,7 @@ router.post('/categories/add', requireAdmin, async (req, res) => {
     res.redirect('back');
   } catch (err) {
     console.error('Category add error:', err);
-    res.status(500).send('Category add korte problem hoyeche. Database e "parent_id" column ache kina check koro (sql/update.sql run koro).');
+    res.status(500).send('There was a problem adding the category. Please check whether the "parent_id" column exists in the database (run sql/update.sql).');
   }
 });
 
@@ -551,7 +551,7 @@ router.get('/categories', requireAdmin, async (req, res) => {
     res.render('admin/categories', { categories, mainCategories, siteName: 'Goince' });
   } catch (err) {
     console.error('Category list error:', err);
-    res.status(500).send('Category list load korte problem hoyeche. Database e "parent_id" column ache kina check koro (sql/update.sql -f diye run koro).');
+    res.status(500).send('There was a problem loading the category list. Please check whether the "parent_id" column exists in the database (run sql/update.sql -f).');
   }
 });
 
@@ -564,19 +564,19 @@ router.post('/categories/edit/:id', requireAdmin, async (req, res) => {
     res.redirect('/admin/categories');
   } catch (err) {
     console.error('Category edit error:', err);
-    res.status(500).send('Category update korte problem hoyeche.');
+    res.status(500).send('There was a problem updating the category.');
   }
 });
 
 router.post('/categories/delete/:id', requireAdmin, async (req, res) => {
   try {
-    // Category delete korle, tar under e thaka product gulo "Uncategorized" hoye jabe
-    // (product delete hobe na, shudhu category_id NULL hoye jabe — DB schema e ON DELETE SET NULL ache)
+    // Deleting a category makes the products under it "Uncategorized"
+    // (products are not deleted, only category_id becomes NULL — the DB schema has ON DELETE SET NULL)
     await db.query('DELETE FROM categories WHERE id = ?', [req.params.id]);
     res.redirect('/admin/categories');
   } catch (err) {
     console.error('Category delete error:', err);
-    res.status(500).send('Category delete korte problem hoyeche.');
+    res.status(500).send('There was a problem deleting the category.');
   }
 });
 
@@ -654,7 +654,7 @@ router.post('/coupons/delete/:id', requireAdmin, async (req, res) => {
 
 // ==================== CUSTOMER MANAGEMENT ====================
 
-// ---------- CUSTOMER LIST (name/email/phone diye search kora jay) ----------
+// ---------- CUSTOMER LIST (can be searched by name/email/phone) ----------
 router.get('/customers', requireAdmin, async (req, res) => {
   const q = (req.query.q || '').trim();
   let sql = `SELECT users.*, COUNT(orders.id) AS order_count,
@@ -682,14 +682,14 @@ router.post('/customers/add', requireAdmin, async (req, res) => {
 
     if (!name || !email || !password) {
       return res.render('admin/add-customer', {
-        customer: null, error: 'Name, Email, Password — shob field pouron koro.', siteName: 'Goince'
+        customer: null, error: 'Please fill in all fields: Name, Email, and Password.', siteName: 'Goince'
       });
     }
 
     const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email.trim().toLowerCase()]);
     if (existing.length > 0) {
       return res.render('admin/add-customer', {
-        customer: null, error: 'Ei email diye already ekta account ache.', siteName: 'Goince'
+        customer: null, error: 'An account already exists with this email.', siteName: 'Goince'
       });
     }
 
@@ -701,7 +701,7 @@ router.post('/customers/add', requireAdmin, async (req, res) => {
     res.redirect('/admin/customers');
   } catch (err) {
     console.error(err);
-    res.render('admin/add-customer', { customer: null, error: 'Kichu ekta shomossha hoyeche.', siteName: 'Goince' });
+    res.render('admin/add-customer', { customer: null, error: 'Something went wrong.', siteName: 'Goince' });
   }
 });
 
@@ -720,28 +720,28 @@ router.post('/customers/edit/:id', requireAdmin, async (req, res) => {
     if (!name || !email) {
       const [rows] = await db.query('SELECT * FROM users WHERE id = ?', [id]);
       return res.render('admin/add-customer', {
-        customer: rows[0], error: 'Name ebong Email obosshoi thakte hobe.', siteName: 'Goince'
+        customer: rows[0], error: 'Name and Email are required.', siteName: 'Goince'
       });
     }
 
-    // Email onno kono user er sathe conflict korche kina check kora
+    // Check whether the email conflicts with another user
     const [existing] = await db.query('SELECT id FROM users WHERE email = ? AND id != ?', [email.trim().toLowerCase(), id]);
     if (existing.length > 0) {
       const [rows] = await db.query('SELECT * FROM users WHERE id = ?', [id]);
       return res.render('admin/add-customer', {
-        customer: rows[0], error: 'Ei email diye onno ekta account already ache.', siteName: 'Goince'
+        customer: rows[0], error: 'Another account already exists with this email.', siteName: 'Goince'
       });
     }
 
     if (password && password.trim()) {
-      // Password o change korte chaile
+      // If the password should also be changed
       const hashedPassword = await bcrypt.hash(password, 10);
       await db.query(
         'UPDATE users SET name=?, email=?, phone=?, address=?, password=? WHERE id=?',
         [name.trim(), email.trim().toLowerCase(), phone || null, address || null, hashedPassword, id]
       );
     } else {
-      // Password field khali rakhle, purono password e thake jabe
+      // If the password field is left blank, the old password stays
       await db.query(
         'UPDATE users SET name=?, email=?, phone=?, address=? WHERE id=?',
         [name.trim(), email.trim().toLowerCase(), phone || null, address || null, id]
@@ -750,7 +750,7 @@ router.post('/customers/edit/:id', requireAdmin, async (req, res) => {
     res.redirect('/admin/customers');
   } catch (err) {
     console.error(err);
-    res.status(500).send('Customer update korte problem hoyeche.');
+    res.status(500).send('There was a problem updating the customer.');
   }
 });
 
@@ -769,8 +769,8 @@ router.post('/customers/:id/toggle-block', requireAdmin, async (req, res) => {
 });
 
 // ---------- CUSTOMER DETAIL (profile + full order history) ----------
-// Eta shobar niche rakha hoyeche, karon Express route match kore order onujayi —
-// eta age thakle "/customers/add" o "/customers/edit/5" ke bhul kore :id hishebe dhore nito.
+// This is kept at the bottom because Express matches routes in order —
+// if it came first, "/customers/add" and "/customers/edit/5" would be mistaken for :id.
 router.get('/customers/:id', requireAdmin, async (req, res) => {
   const [[customer]] = await db.query('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!customer) return res.redirect('/admin/customers');
@@ -973,7 +973,7 @@ router.get('/settings', requireAdmin, async (req, res) => {
 
 router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), async (req, res) => {
   const shopPhone = (req.body.shop_phone || '').trim();
-  // Logo upload: file dile setai use hobe, na dile URL field-er value, duitai khali thakle ager-ta-i thakbe
+  // Logo upload: an uploaded file wins; otherwise the URL field value is used; if both are blank, the previous logo stays
   const logoFromFile = (req.files && req.files.logo_file && req.files.logo_file[0]) ? ('/uploads/' + req.files.logo_file[0].filename) : '';
   const faviconFromFile = (req.files && req.files.favicon_file && req.files.favicon_file[0]) ? ('/uploads/' + req.files.favicon_file[0].filename) : '';
   const ogFromFile = (req.files && req.files.og_file && req.files.og_file[0]) ? ('/uploads/' + req.files.og_file[0].filename) : '';
@@ -983,7 +983,7 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
   const deliveryChargeInside = parseFloat(req.body.delivery_charge_inside);
   const deliveryChargeOutside = parseFloat(req.body.delivery_charge_outside);
 
-  // Delivery charge songkha (number) hote hobe, na hole purono value e ferot jabe
+  // The delivery charge must be a number, otherwise the previous value is kept
   const safeInside = isNaN(deliveryChargeInside) ? 60 : deliveryChargeInside;
   const safeOutside = isNaN(deliveryChargeOutside) ? 120 : deliveryChargeOutside;
 
@@ -1011,7 +1011,7 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
     ['favicon_url', faviconUrl || '/icons/icon-192.png'],
     ['og_image_url', ogImageUrl || '/icons/icon-512.png']
   ];
-  // Gateway password khali rakhle purono-ta-i thakbe (form-e kokhono dekhano hoy na)
+  // If the gateway password is left blank, the previous one stays (it is never shown in the form)
   if ((req.body.gateway_store_password || '').trim()) {
     settingsToSave.push(['gateway_store_password', (req.body.gateway_store_password || '').trim()]);
   }
@@ -1051,7 +1051,7 @@ router.post('/settings', requireAdmin, upload.fields([{ name: 'logo_file', maxCo
     faviconUrl: faviconUrl || '/icons/icon-192.png',
     ogImageUrl: ogImageUrl || '/icons/icon-512.png',
     products,
-    message: 'Settings update hoyeche! Homepage/footer-e shathe shathe dekhabe.',
+    message: 'Settings updated! They will appear on the homepage and footer right away.',
     siteName: 'Goince'
   });
 });
@@ -1091,8 +1091,8 @@ router.get('/reports', requireAdmin, async (req, res) => {
     const validPeriods = ['daily', 'weekly', 'monthly', 'yearly', 'all', 'custom'];
     const period = validPeriods.includes(req.query.period) ? req.query.period : 'daily';
 
-    // Period onujayi WHERE condition (parameterized, SQL injection thekay nirapod)
-    // ebong ekta readable label toiri kora
+    // Build the WHERE condition for the selected period (parameterized, safe from SQL injection)
+    // and a readable label
     let dateCondition = '1=1';
     let params = [];
     let periodLabel = 'All Time';
@@ -1112,22 +1112,22 @@ router.get('/reports', requireAdmin, async (req, res) => {
       dateCondition = 'YEAR(created_at) = YEAR(CURDATE())';
       periodLabel = 'This Year (' + new Date().getFullYear() + ')';
     } else if (period === 'custom') {
-      // from/to date format thik ache kina check kora (YYYY-MM-DD)
+      // Check that the from/to date format is correct (YYYY-MM-DD)
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (dateRegex.test(customFrom) && dateRegex.test(customTo)) {
         dateCondition = 'DATE(created_at) BETWEEN ? AND ?';
         params = [customFrom, customTo];
-        periodLabel = customFrom + ' theke ' + customTo;
+        periodLabel = customFrom + ' to ' + customTo;
       } else {
-        // Valid date na dile aajker date dekhano (fallback)
+        // If no valid date is given, show today's date (fallback)
         dateCondition = 'DATE(created_at) = CURDATE()';
-        periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Tarikh select korun";
+        periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Please select dates";
       }
     } else {
       periodLabel = 'All Time';
     }
 
-    // Cancelled order bad diye shob summary calculate kora hocche
+    // All summaries are calculated excluding cancelled orders
     const [[summary]] = await db.query(
       `SELECT
          COUNT(*) AS totalOrders,
@@ -1146,13 +1146,13 @@ router.get('/reports', requireAdmin, async (req, res) => {
       params
     );
 
-    // Cancelled order koyta hoyeche shetao alada kore dekhano
+    // The number of cancelled orders is also shown separately
     const [[cancelledSummary]] = await db.query(
       `SELECT COUNT(*) AS cancelledOrders FROM orders WHERE ${dateCondition} AND status = 'Cancelled'`,
       params
     );
 
-    // Ei period-e shob theke beshi bikri hoya product (top 5)
+    // The best-selling products in this period (top 5)
     const [topProducts] = await db.query(
       `SELECT order_items.product_name,
               SUM(order_items.quantity) AS unitsSold,
@@ -1166,7 +1166,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
       params
     );
 
-    // Ei period-er order-gulo (recent 20 ta, shob status shoho)
+    // The orders in this period (most recent 20, all statuses)
     const [orders] = await db.query(
       `SELECT id, customer_name, total_amount, status, created_at
        FROM orders
@@ -1182,7 +1182,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Report load korte problem hoyeche: ' + err.message);
+    res.status(500).send('There was a problem loading the report: ' + err.message);
   }
 });
 

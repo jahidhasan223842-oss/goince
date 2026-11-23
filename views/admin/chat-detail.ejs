@@ -19,7 +19,7 @@
 <a href="/admin/chats" class="back-link">&larr; Back to all chats</a>
 
 <script>
-  // Notun message asche kina, kichukhon por por check kora (polling)
+  // Check for new messages every few seconds (polling)
   const chatBox = document.getElementById('chat-box');
   const conversationId = <%= conversation.id %>;
 
