@@ -723,6 +723,7 @@
 <hr>
 <h3>Quick Add Category</h3>
 <form action="/admin/categories/add" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+  <input type="hidden" name="from" value="quick-add">
   <input type="text" name="name" placeholder="New category name" required>
   <select name="parent_id">
     <option value="">-- Main Category --</option>

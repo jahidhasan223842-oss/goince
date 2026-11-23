@@ -8,7 +8,14 @@ CREATE TABLE IF NOT EXISTS categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   parent_id INT DEFAULT NULL,
+  image_url VARCHAR(500) DEFAULT NULL,
+  description TEXT DEFAULT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_visible TINYINT(1) NOT NULL DEFAULT 1,
+  is_featured TINYINT(1) NOT NULL DEFAULT 0,
+  slug VARCHAR(150) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY idx_categories_slug (slug),
   FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE
 );
 

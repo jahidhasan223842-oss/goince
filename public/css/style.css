@@ -94,8 +94,9 @@ a { text-decoration: none; color: inherit; }
 
 /* Category bar */
 .category-bar { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
-.category-bar a { padding: 8px 16px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border-strong); font-size: 14px; }
+.category-bar a { padding: 8px 16px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border-strong); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
 .category-bar a.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.category-bar a img.cat-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
 
 .subcategory-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 20px; flex-wrap: wrap; padding-left: 10px; }
 .subcategory-label { font-size: 13px; color: var(--text-muted); margin-right: 4px; }

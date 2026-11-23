@@ -90,13 +90,16 @@ router.get('/', async (req, res) => {
     const requestedAudience = String(req.query.audience || '').toLowerCase();
     const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
 
-    const [categories] = await db.query('SELECT * FROM categories ORDER BY (parent_id IS NULL) DESC, parent_id, name');
-    const mainCategories = categories.filter(c => !c.parent_id);
+    const [categories] = await db.query('SELECT * FROM categories ORDER BY is_featured DESC, sort_order ASC, id ASC');
+    // Website-e shudhu visible category dekhabe (hidden gulo admin-e thakbe,
+    // direct link-e khola geleo bar-e dekhabe na). Featured age, tarpor sort order.
+    const visibleCategories = categories.filter(c => c.is_visible !== 0);
+    const mainCategories = visibleCategories.filter(c => !c.parent_id);
     const seasonalRoot = mainCategories.find(c => String(c.name).trim().toLowerCase() === 'seasonal products');
     // Seasonal parent menu-te na dekhiye season-gulo direct dekhano
     const displayCategories = mainCategories.flatMap(c => {
       if (seasonalRoot && c.id === seasonalRoot.id) {
-        return categories
+        return visibleCategories
           .filter(sub => sub.parent_id == seasonalRoot.id)
           .map(sub => ({ ...sub, display_name: sub.name.replace(/ Collection$/i, ' Products') }));
       }
@@ -115,13 +118,15 @@ router.get('/', async (req, res) => {
       }
       if (selected && !selected.parent_id) {
         // Main category select kora hoyeche — tar shob sub-category o filter e jog hobe
-        subCategories = categories.filter(c => c.parent_id == categoryId);
-        categoryIdsToFilter = [categoryId, ...subCategories.map(c => c.id)];
+        // (lukano sub-category-r product-o parent-e dekhabe — lukano shudhu bar theke)
+        const allSubs = categories.filter(c => c.parent_id == categoryId);
+        subCategories = visibleCategories.filter(c => c.parent_id == categoryId);
+        categoryIdsToFilter = [categoryId, ...allSubs.map(c => c.id)];
       } else if (selected) {
         // Sub-category select kora hoyeche, shudhu oi ta-i filter hobe
         categoryIdsToFilter = [categoryId];
         // Parent er sub-category list o dekhabo, jate navigation e context thake
-        subCategories = seasonalRoot && selected.parent_id == seasonalRoot.id ? [] : categories.filter(c => c.parent_id == selected.parent_id);
+        subCategories = seasonalRoot && selected.parent_id == seasonalRoot.id ? [] : visibleCategories.filter(c => c.parent_id == selected.parent_id);
       }
     }
 
