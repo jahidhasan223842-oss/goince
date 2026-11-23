@@ -4,7 +4,7 @@
   <h1>Categories</h1>
   <span><a href="/admin/products/add" class="btn-primary">+ Add New Product</a></span>
 </div>
-<p class="field-hint">Categories group your products on the shop. Add a photo, set the order, hide a category without deleting it, or mark it as featured for the homepage.</p>
+<p class="field-hint">Categories group your products on the shop. Add a photo, set the order, hide a category without deleting it, or mark it as featured for the homepage. Click ▼ on a main category to see the sub-categories inside it.</p>
 
 <form id="add-category" action="/admin/categories/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
   <h3>➕ Add New Category</h3>
@@ -25,12 +25,12 @@
   <input type="text" name="image_url" placeholder="https://...">
   <label>Description (optional — shown under the category name)</label>
   <textarea name="description" rows="2" placeholder="What is this category about?"></textarea>
-  <label>Sort Order (lower number shows first)</label>
-  <input type="number" name="sort_order" value="0" min="0">
+  <label>Sort Order (lower number shows first — leave empty to add at the end)</label>
+  <input type="number" name="sort_order" placeholder="Auto — added at the end" min="0">
   <input type="hidden" name="is_visible" value="0">
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_visible" value="1" checked> Show on website</label>
   <input type="hidden" name="is_featured" value="0">
-  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_featured" value="1"> ⭐ Featured on homepage (shows first)</label>
+  <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_featured" value="1"> ⭐ Featured on homepage (main categories only — shows first)</label>
   <button type="submit" class="btn-primary">Add Category</button>
 </form>
 
@@ -40,42 +40,52 @@
   <% if (q) { %> <a href="/admin/categories">Clear</a> <% } %>
 </form>
 
-<% if (categories.length === 0) { %>
+<% const hasResults = categories.length > 0 || (typeof searchExtras !== 'undefined' && searchExtras && searchExtras.length > 0); %>
+<% if (!hasResults) { %>
   <p>No categories found. Try clearing the search.</p>
-<% } else { %>
-<div class="table-responsive">
-<table class="admin-table" style="margin-top:16px;">
-  <thead><tr><th>Image</th><th>Name</th><th>Products</th><th>Visible</th><th>Order</th><th>Actions</th></tr></thead>
-  <tbody>
+<% } else if (q) { %>
+  <!-- SEARCH MODE: flat list, parent context shown, collapsed state ignored -->
+  <div class="cat-list">
     <% categories.forEach(cat => { %>
-      <tr id="cat-<%= cat.id %>">
-        <td><% if (cat.image_url) { %><img src="<%= cat.image_url %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"><% } else { %>-<% } %></td>
-        <td style="<%= cat.parent_id ? 'padding-left:28px;' : '' %>">
-          <strong><%= cat.name %></strong>
-          <% if (cat.parent_id) { %> <span class="badge badge-sub" title="Sub-category of <%= cat.parent_name %>">Sub-category</span><% } else { %> <span class="badge badge-main" title="Main category">Main</span><% } %>
-          <% if (cat.is_featured) { %> <span title="Featured on homepage">⭐</span><% } %>
-          <% if (cat.parent_name) { %><br><small><%= cat.parent_name %> › <%= cat.name %></small><% } %>
-          <% if (cat.description) { %><br><small><%= cat.description %></small><% } %>
-        </td>
-        <td><a href="/admin/products?category=<%= cat.id %>"><%= cat.product_count %></a></td>
-        <td>
-          <form action="/admin/categories/<%= cat.id %>/toggle-visibility" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:<%= cat.is_visible ? '#2e9e5b' : '#f0a500' %>;"><%= cat.is_visible ? '👁️ Shown' : '🙈 Hidden' %></button></form>
-        </td>
-        <td style="white-space:nowrap;">
-          <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="up"><button type="submit" title="Move up">▲</button></form>
-          <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="down"><button type="submit" title="Move down">▼</button></form>
-          <br><small>Order: <%= cat.sort_order %></small>
-        </td>
-        <td style="white-space:nowrap;">
-          <% if (!cat.parent_id) { %><a href="/admin/categories?parent=<%= cat.id %>#add-category">＋ Sub-category</a> | <% } %>
-          <a href="/admin/categories/edit/<%= cat.id %>">Edit</a> |
-          <form action="/admin/categories/delete/<%= cat.id %>" method="POST" style="display:inline" onsubmit="return confirm('Deleting this will make its products Uncategorized, and any sub-categories will also be deleted. Sure?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
-        </td>
-      </tr>
+      <%- include('category-row', { cat: cat, isMain: !cat.parent_id, isFirst: false, isLast: false, subCount: 0, subProducts: 0, chevronId: null }) %>
     <% }) %>
-  </tbody>
-</table>
-</div>
+    <% (typeof searchExtras !== 'undefined' ? searchExtras : []).forEach(cat => { %>
+      <%- include('category-row', { cat: cat, isMain: false, isFirst: false, isLast: false, subCount: 0, subProducts: 0, chevronId: null }) %>
+    <% }) %>
+  </div>
+<% } else { %>
+  <!-- TREE MODE: each main category is a group; its sub-categories live inside it -->
+  <div style="margin:16px 0 4px;">
+    <button type="button" class="cat-tree-btn" id="cat-expand-all">Expand All</button>
+    <button type="button" class="cat-tree-btn" id="cat-collapse-all">Collapse All</button>
+  </div>
+  <div class="cat-tree">
+    <% mains.forEach((main, mi) => { %>
+      <% const kids = childrenByParent[main.id] || []; %>
+      <% const subProducts = kids.reduce((s, k) => s + (+k.product_count || 0), 0); %>
+      <div class="cat-group">
+        <%- include('category-row', { cat: main, isMain: true, isFirst: mi === 0, isLast: mi === mains.length - 1, subCount: kids.length, subProducts: subProducts, chevronId: main.id }) %>
+        <div class="cat-children" id="cat-children-<%= main.id %>">
+          <% if (!kids.length) { %>
+            <div class="cat-empty-sub">No sub-categories yet — <a href="/admin/categories?parent=<%= main.id %>#add-category">＋ Add one</a></div>
+          <% } %>
+          <% kids.forEach((sub, si) => { %>
+            <%- include('category-row', { cat: sub, isMain: false, isFirst: si === 0, isLast: si === kids.length - 1, subCount: 0, subProducts: 0, chevronId: null }) %>
+          <% }) %>
+        </div>
+      </div>
+    <% }) %>
+    <% if (typeof orphanSubs !== 'undefined' && orphanSubs && orphanSubs.length) { %>
+      <div class="cat-group cat-orphans">
+        <div class="cat-row">
+          <div class="cat-info"><strong>Other sub-categories</strong><br><small>Their main category was deleted. Open Edit on one to give it a new parent, or delete it.</small></div>
+        </div>
+        <% orphanSubs.forEach((sub, oi) => { %>
+          <%- include('category-row', { cat: sub, isMain: false, isFirst: oi === 0, isLast: oi === orphanSubs.length - 1, subCount: 0, subProducts: 0, chevronId: null }) %>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
 <% } %>
 
 <script>
@@ -89,6 +99,68 @@
     slugInput.value = nameInput.value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   });
   slugInput.addEventListener('input', function () { slugInput.dataset.touched = '1'; });
+})();
+
+// Category tree: main category-r dropdown (▼/▶) — sub-category gulo tar
+// vitore thake. Default: shob khola. Bondho/khola obostha localStorage-e
+// mone rakha hoy, jate porer bar-eo eki vabe dekha jay.
+(function () {
+  var KEY = 'goince-category-tree';
+  function loadCollapsed() {
+    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCollapsed(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* private mode hole ignore */ }
+  }
+  function setGroup(id, open) {
+    var kids = document.getElementById('cat-children-' + id);
+    var btn = document.querySelector('[data-cat-toggle="' + id + '"]');
+    if (!kids || !btn) return;
+    kids.classList.toggle('collapsed', !open);
+    btn.textContent = open ? '▼' : '▶';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  var toggles = document.querySelectorAll('[data-cat-toggle]');
+  if (!toggles.length) return;
+  // Saved state restore (default: expanded)
+  loadCollapsed().forEach(function (id) { setGroup(id, false); });
+  // URL-e #cat-<id> thakle (move/toggle-er por redirect) oi row-ta je
+  // group-er vitore ache seta khule dao, ar row-ta dekhiye dao.
+  var m = (window.location.hash || '').match(/^#cat-(\d+)$/);
+  if (m) {
+    var row = document.getElementById('cat-' + m[1]);
+    if (row) {
+      var group = row.closest('.cat-group');
+      if (group) {
+        var gid = null;
+        group.querySelectorAll('[data-cat-toggle]').forEach(function (b) { gid = b.getAttribute('data-cat-toggle'); });
+        if (gid) {
+          setGroup(gid, true);
+          saveCollapsed(loadCollapsed().filter(function (x) { return String(x) !== String(gid); }));
+        }
+      }
+      row.scrollIntoView({ block: 'nearest' });
+    }
+  }
+  toggles.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.getAttribute('data-cat-toggle');
+      var kids = document.getElementById('cat-children-' + id);
+      var open = kids.classList.contains('collapsed');
+      setGroup(id, open);
+      var list = loadCollapsed();
+      if (open) list = list.filter(function (x) { return String(x) !== String(id); });
+      else if (!list.some(function (x) { return String(x) === String(id); })) list.push(id);
+      saveCollapsed(list);
+    });
+  });
+  var expandAll = document.getElementById('cat-expand-all');
+  var collapseAll = document.getElementById('cat-collapse-all');
+  function allIds() {
+    return Array.prototype.map.call(document.querySelectorAll('[data-cat-toggle]'), function (b) { return b.getAttribute('data-cat-toggle'); });
+  }
+  if (expandAll) expandAll.addEventListener('click', function () { allIds().forEach(function (id) { setGroup(id, true); }); saveCollapsed([]); });
+  if (collapseAll) collapseAll.addEventListener('click', function () { var ids = allIds(); ids.forEach(function (id) { setGroup(id, false); }); saveCollapsed(ids); });
 })();
 </script>
 

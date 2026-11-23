@@ -37,19 +37,22 @@ function parseCategoryFlag(v, def) {
   return v === '1' ? 1 : 0;
 }
 function parseCategoryForm(body) {
+  // sort_order khali/invalid hole null — add-e sheshe bosbe, edit-e ager-ta thakbe
+  const so = parseInt(body.sort_order, 10);
   return {
     name: (body.name || '').trim(),
     parent_id: body.parent_id ? parseInt(body.parent_id, 10) || null : null,
     description: (body.description || '').trim() || null,
-    sort_order: parseInt(body.sort_order, 10) || 0,
+    sort_order: isNaN(so) ? null : so,
     is_visible: parseCategoryFlag(body.is_visible, 1),
     is_featured: parseCategoryFlag(body.is_featured, 0),
     slug: slugify(body.slug || body.name || '').slice(0, 150)
   };
 }
 async function uniqueCategorySlug(base, excludeId) {
-  let slug = slugify(base) || 'category';
-  slug = slug.slice(0, 150);
+  // Base-ta 140-e kete rakhi, jate '-2'/'-3' suffix jog korleo 150-r moddhe
+  // thake — na hole 150 character-er slug nijer sathei mile infinite loop hoto.
+  let slug = (slugify(base) || 'category').slice(0, 140);
   let candidate = slug, n = 2;
   while (true) {
     const [rows] = await db.query('SELECT id FROM categories WHERE slug = ? AND id != ?', [candidate, excludeId || 0]);
@@ -63,6 +66,22 @@ function categoryImage(req, oldImage) {
   const url = (req.body.image_url || '').trim();
   if (url) return url;
   return oldImage || null;
+}
+// Category photo upload-er multer error (bhul file type / 5MB-r beshi) hole
+// generic 500 page na dekhiye porishkar message dekhano — na hole form-er
+// data hariye jay. Shudhu category add/edit form-e bebohar hoy.
+function categoryUpload(req, res, next) {
+  upload.single('image')(req, res, (err) => {
+    if (!err) return next();
+    console.error('Category image upload error:', err.message);
+    return res.status(400).send(`
+      <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
+        <h1>Photo upload failed</h1>
+        <p>${err.message || 'There was a problem uploading the photo.'}</p>
+        <p>Only <strong>jpg, png or webp</strong> photos are allowed, and the file must be under <strong>5MB</strong>.</p>
+        <p><a href="/admin/categories" style="color:#f0a500; font-weight:bold;">&larr; Back to Categories</a></p>
+      </div>`);
+  });
 }
 function parseProductAdvanced(body) {
   const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
@@ -869,7 +888,7 @@ router.post('/products/delete/:id', requireAdmin, requireRole('products'), async
 // Shudhu name + parent pathay (urlencoded) — full form na, tai is_visible/
 // is_featured na thakleo category visible thakbe (parseCategoryForm default).
 // Quick-add hole 'back'-e ferot jay, Categories page theke add hole list-e.
-router.post('/categories/add', requireAdmin, requireRole('products'), upload.single('image'), async (req, res) => {
+router.post('/categories/add', requireAdmin, requireRole('products'), categoryUpload, async (req, res) => {
   try {
     const f = parseCategoryForm(req.body);
     if (!f.name) return res.redirect('back');
@@ -879,8 +898,17 @@ router.post('/categories/add', requireAdmin, requireRole('products'), upload.sin
     }
     const slug = await uniqueCategorySlug(f.slug || f.name);
     const image = categoryImage(req, null);
+    // Sort order na dile group-er sheshe bosbe (0 dile shobar age chole jeto)
+    let sortOrder = f.sort_order;
+    if (sortOrder === null) {
+      const [[mx]] = await db.query(
+        'SELECT COALESCE(MAX(sort_order), 0) AS m FROM categories WHERE ' + (f.parent_id ? 'parent_id = ?' : 'parent_id IS NULL'),
+        f.parent_id ? [f.parent_id] : []
+      );
+      sortOrder = mx.m + 1;
+    }
     const [result] = await db.query('INSERT INTO categories (name, parent_id, image_url, description, sort_order, is_visible, is_featured, slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [f.name, f.parent_id, image, f.description, f.sort_order, f.is_visible, f.is_featured, slug]);
+      [f.name, f.parent_id, image, f.description, sortOrder, f.is_visible, f.is_featured, slug]);
     if (req.body.from === 'quick-add') return res.redirect('back');
     res.redirect('/admin/categories#cat-' + result.insertId);
   } catch (err) {
@@ -906,6 +934,39 @@ router.get('/categories', requireAdmin, requireRole('products'), async (req, res
        GROUP BY categories.id ORDER BY (categories.parent_id IS NULL) DESC, categories.parent_id, categories.sort_order ASC, categories.id ASC`,
       params
     );
+    // Search cholle: main category mile gele tar sub-category gulo-o dekhano
+    // hoy (flat list-e, parent context shoho) — na hole group-ta ordhek dekhato.
+    let searchExtras = [];
+    if (q) {
+      const matchedMainIds = categories.filter(c => !c.parent_id).map(c => c.id);
+      if (matchedMainIds.length) {
+        const [kids] = await db.query(
+          `SELECT categories.*, COUNT(products.id) AS product_count, parent.name AS parent_name
+           FROM categories
+           LEFT JOIN products ON products.category_id = categories.id
+           LEFT JOIN categories AS parent ON parent.id = categories.parent_id
+           WHERE categories.parent_id IN (${matchedMainIds.map(() => '?').join(',')})
+           GROUP BY categories.id ORDER BY categories.sort_order ASC, categories.id ASC`,
+          matchedMainIds
+        );
+        const seen = new Set(categories.map(c => c.id));
+        searchExtras = kids.filter(k => !seen.has(k.id));
+      }
+    }
+    // Tree view-er jonno: main gulo, prottek main-er sub-category, ar
+    // orphan sub-category (jar parent ar nei — purono DB-te hote pare).
+    const byOrder = (a, b) => (a.sort_order - b.sort_order) || (a.id - b.id);
+    const mains = categories.filter(c => !c.parent_id).sort(byOrder);
+    const mainIds = new Set(mains.map(m => m.id));
+    const childrenByParent = {};
+    const orphanSubs = [];
+    categories.forEach(c => {
+      if (!c.parent_id) return;
+      if (mainIds.has(c.parent_id)) (childrenByParent[c.parent_id] = childrenByParent[c.parent_id] || []).push(c);
+      else orphanSubs.push(c);
+    });
+    Object.values(childrenByParent).forEach(list => list.sort(byOrder));
+    orphanSubs.sort(byOrder);
     // ?parent=<id> (from the "+ Sub-category" link on a main category row):
     // pre-select that main category in the Add form. Only a real main
     // category counts — a sub-category id or a bogus id is ignored.
@@ -917,7 +978,7 @@ router.get('/categories', requireAdmin, requireRole('products'), async (req, res
     }
     // Add form-er parent dropdown-e shob main category (search filter-e bad geleo)
     const [mainCategories] = await db.query('SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order ASC, id ASC');
-    res.render('admin/categories', { categories, mainCategories, q, selectedParent, siteName: 'Goince' });
+    res.render('admin/categories', { categories, mains, childrenByParent, orphanSubs, searchExtras, mainCategories, q, selectedParent, siteName: 'Goince' });
   } catch (err) {
     console.error('Category list error:', err);
     res.status(500).send('There was a problem loading the category list. Please check whether the "parent_id" column exists in the database (run sql/update.sql -f).');
@@ -930,19 +991,27 @@ router.get('/categories/edit/:id', requireAdmin, requireRole('products'), async 
     const [[category]] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     if (!category) return res.redirect('/admin/categories');
     const [mainCategories] = await db.query('SELECT * FROM categories WHERE parent_id IS NULL AND id != ? ORDER BY sort_order ASC, id ASC', [req.params.id]);
-    res.render('admin/category-edit', { category, mainCategories, siteName: 'Goince' });
+    // Main category-r niche sub-category thakle take sub-category banano
+    // jabe na (3 level support nei) — form-e parent dropdown bondho thakbe.
+    const [[cc]] = await db.query('SELECT COUNT(*) AS n FROM categories WHERE parent_id = ?', [req.params.id]);
+    res.render('admin/category-edit', { category, mainCategories, childCount: cc.n, siteName: 'Goince' });
   } catch (err) {
     console.error('Category edit page error:', err);
     res.status(500).send('There was a problem loading the category.');
   }
 });
 
-router.post('/categories/edit/:id', requireAdmin, requireRole('products'), upload.single('image'), async (req, res) => {
+router.post('/categories/edit/:id', requireAdmin, requireRole('products'), categoryUpload, async (req, res) => {
   try {
     const [[old]] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     if (!old) return res.redirect('/admin/categories');
     const f = parseCategoryForm(req.body);
     if (!f.name) return res.redirect('/admin/categories/edit/' + req.params.id);
+    if (f.sort_order === null) f.sort_order = old.sort_order; // khali rakhle ager order-i thakbe
+    // Sub-category ache emon main-ke karor sub-category banano jabe na —
+    // na hole 3rd level toiri hoye jeto, jeta shop-e support kore na.
+    const [[cc]] = await db.query('SELECT COUNT(*) AS n FROM categories WHERE parent_id = ?', [req.params.id]);
+    if (cc.n > 0) f.parent_id = null;
     if (f.parent_id === parseInt(req.params.id, 10)) f.parent_id = null; // nijer parent nije hote parbe na
     if (f.parent_id) {
       const [[parent]] = await db.query('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL', [f.parent_id]);
@@ -959,26 +1028,26 @@ router.post('/categories/edit/:id', requireAdmin, requireRole('products'), uploa
   }
 });
 
-// ---------- CATEGORY REORDER (▲▼ — eki parent-er moddhe neighbour-er sathe sort_order bodol) ----------
+// ---------- CATEGORY REORDER (▲▼ — eki parent-er moddhe neighbour-er sathe jayga bodol) ----------
+// Group-er shob row notun kore number kora hoy (10, 20, 30...) — purono
+// swap-e sort_order soman thakle ba 3rd row-r sathe mile gele move-ta
+// chokhe na-ow porte parto; renumber korle seta kokhono hobe na.
 router.post('/categories/:id/move', requireAdmin, requireRole('products'), async (req, res) => {
   try {
     const direction = req.body.direction === 'down' ? 'down' : 'up';
     const [[cat]] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     if (!cat) return res.redirect('/admin/categories');
     const [siblings] = await db.query(
-      'SELECT * FROM categories WHERE ' + (cat.parent_id ? 'parent_id = ?' : 'parent_id IS NULL') + ' ORDER BY sort_order ASC, id ASC',
+      'SELECT id FROM categories WHERE ' + (cat.parent_id ? 'parent_id = ?' : 'parent_id IS NULL') + ' ORDER BY sort_order ASC, id ASC',
       cat.parent_id ? [cat.parent_id] : []
     );
     const idx = siblings.findIndex(s => s.id == cat.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (idx >= 0 && siblings[swapIdx]) {
-      const other = siblings[swapIdx];
-      if (cat.sort_order === other.sort_order) {
-        // sort_order ek hole shudhu swap korle kichu bodlabe na — ektu shoriye dao
-        await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [direction === 'up' ? other.sort_order - 1 : other.sort_order + 1, cat.id]);
-      } else {
-        await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [other.sort_order, cat.id]);
-        await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [cat.sort_order, other.id]);
+      const order = siblings.slice();
+      const tmp = order[idx]; order[idx] = order[swapIdx]; order[swapIdx] = tmp;
+      for (let i = 0; i < order.length; i++) {
+        await db.query('UPDATE categories SET sort_order = ? WHERE id = ?', [(i + 1) * 10, order[i].id]);
       }
     }
     // Anchor-e ferot jai, jate page-er upore na giye oi row-tei thake
@@ -1002,9 +1071,15 @@ router.post('/categories/:id/toggle-visibility', requireAdmin, requireRole('prod
 
 router.post('/categories/delete/:id', requireAdmin, requireRole('products'), async (req, res) => {
   try {
-    // Deleting a category makes the products under it "Uncategorized"
-    // (products are not deleted, only category_id becomes NULL — the DB schema has ON DELETE SET NULL)
-    await db.query('DELETE FROM categories WHERE id = ?', [req.params.id]);
+    // Live DB-te foreign key nao thakte pare (parent_id pore jog hoyeche),
+    // tai code thekei shob porishkar kora hoy: age product gulo Uncategorized,
+    // tarpor sub-category, tarpor main category. Product kokhono haray na.
+    const id = parseInt(req.params.id, 10);
+    const [subs] = await db.query('SELECT id FROM categories WHERE parent_id = ?', [id]);
+    const ids = [id, ...subs.map(s => s.id)];
+    await db.query(`UPDATE products SET category_id = NULL WHERE category_id IN (${ids.map(() => '?').join(',')})`, ids);
+    await db.query('DELETE FROM categories WHERE parent_id = ?', [id]);
+    await db.query('DELETE FROM categories WHERE id = ?', [id]);
     res.redirect('/admin/categories');
   } catch (err) {
     console.error('Category delete error:', err);

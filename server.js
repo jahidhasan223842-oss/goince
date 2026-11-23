@@ -179,8 +179,10 @@ const SITE_SETTING_DEFAULTS = {
       ['is_featured', 'TINYINT(1) NOT NULL DEFAULT 0'],
       ['slug', 'VARCHAR(150) DEFAULT NULL']
     ]) if (!cNames.has(col)) await db.query(`ALTER TABLE categories ADD COLUMN ${col} ${def}`);
-    // Purono category gulo backfill: slug = name theke, sort_order = id order
-    const slugifyCat = (t) => String(t || '').toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 150);
+    // Purono category gulo backfill: slug = name theke, sort_order = id order.
+    // Slug 140-e kata hoy, jate duplicate hole '-2' suffix jog korleo
+    // 150 character-er column-e dhore (na hole update fail korte pare).
+    const slugifyCat = (t) => String(t || '').toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 140);
     const [oldCats] = await db.query('SELECT id, name FROM categories WHERE slug IS NULL OR slug = ""');
     for (const c of oldCats) {
       let s = slugifyCat(c.name) || 'category';
