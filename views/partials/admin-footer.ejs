@@ -15,23 +15,8 @@
         themeButton.title = next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
       }
     }
-    function toggleAdminSidebar() {
-      const isOpen = document.body.classList.toggle('admin-sidebar-open');
-      const menuButton = document.querySelector('.admin-sidebar-toggle');
-      if (menuButton) menuButton.setAttribute('aria-expanded', String(isOpen));
-    }
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') {
-        document.body.classList.remove('admin-sidebar-open');
-        const menuButton = document.querySelector('.admin-sidebar-toggle');
-        if (menuButton) menuButton.setAttribute('aria-expanded', 'false');
-      }
-    });
     document.querySelectorAll('.admin-sidebar nav a').forEach(function (link) {
       if (link.pathname === window.location.pathname) link.setAttribute('aria-current', 'page');
-      link.addEventListener('click', function () {
-        document.body.classList.remove('admin-sidebar-open');
-      });
     });
     const themeButton = document.querySelector('.theme-toggle-fixed');
     if (themeButton) {

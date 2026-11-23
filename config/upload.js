@@ -16,13 +16,14 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
-    const allowed = /jpeg|jpg|png|webp/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    if (ext) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files (jpg, png, webp) are allowed!'));
+    const ext = path.extname(file.originalname).toLowerCase();
+    // Product video field-e video file cholbe; baki shob field-e sudhu chobi
+    if (file.fieldname === 'video') {
+      if (/\.(mp4|webm|mov)$/.test(ext)) return cb(null, true);
+      return cb(new Error('Only video files (mp4, webm, mov) are allowed!'));
     }
+    if (/\.(jpeg|jpg|png|webp)$/.test(ext)) return cb(null, true);
+    cb(new Error('Only image files (jpg, png, webp) are allowed!'));
   }
 });
 

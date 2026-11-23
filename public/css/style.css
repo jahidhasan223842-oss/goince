@@ -389,7 +389,7 @@ a { text-decoration: none; color: inherit; }
 .only-print { display: none; }
 
 @media print {
-  .admin-sidebar, .no-print, .site-header, .site-footer { display: none !important; }
+  .admin-sidebar, .no-print, .site-header, .site-footer, .theme-toggle-btn, .theme-toggle-fixed { display: none !important; }
   .admin-content { padding: 0; }
   .only-print { display: block; }
   body { background: #fff; }
@@ -399,10 +399,12 @@ a { text-decoration: none; color: inherit; }
      crisp and professional on white paper */
   .invoice-doc {
     background: #fff !important; color: #16161a !important; padding: 0 !important;
-    --bg: #f7f7fa; --surface: #ffffff; --text: #f2f2f5; --text-strong: #ffffff;
-    --text-muted: #bcbcc9; --border: #e2e2e6; --navy: #1a1a2e; --navy-2: #2c2c4a;
+    --bg: #f7f7fa; --surface: #ffffff; --text: #16161a; --text-strong: #16161a;
+    --text-muted: #55555f; --border: #e2e2e6; --navy: #1a1a2e; --navy-2: #2c2c4a;
     --accent: #d99400; --danger: #d62839;
   }
+  /* The logo prints on white paper, so it always gets a clean white tile */
+  .invoice-logo { background: #fff !important; }
   .invoice-box, .invoice-total-box { border: 1px solid #e2e2e6 !important; }
   .invoice-items-table thead th { background: #1a1a2e !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .invoice-divider { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
