@@ -155,6 +155,11 @@ const SITE_SETTING_DEFAULTS = {
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+    // Reviews moderation: status pending / approved / hidden (purono review gulo approved thakbe)
+    const [rvCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reviews'");
+    if (!rvCols.map(c => c.COLUMN_NAME).includes('status')) {
+      await db.query("ALTER TABLE reviews ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved'");
+    }
     await db.query(`CREATE TABLE IF NOT EXISTS contact_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
