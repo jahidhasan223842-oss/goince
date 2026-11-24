@@ -8,6 +8,7 @@
 <form action="/admin/settings<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
   <h3>🖼️ Logo — kothay konta, koto size</h3>
   <p class="field-hint">Upload a file, or enter an image link (URL) — if you upload a file, that will be used. Saving updates the website and admin panel right away. Main Logo-ta Google search-eo Goince-er logo hishebe dekhano hoy (Google nije decide kore, dekhate koyek din lagte pare).</p>
+  <div class="table-responsive">
   <table class="admin-table" style="margin-bottom:16px;">
     <thead><tr><th>Where the logo appears</th><th>Display size</th><th>Upload size</th></tr></thead>
     <tbody>
@@ -16,6 +17,7 @@
       <tr><td>Social Share Image — Facebook/WhatsApp-e link share korle je chobi dekhabe</td><td>Facebook 1200×630</td><td><strong>1200×630 JPG/PNG</strong></td></tr>
     </tbody>
   </table>
+  </div>
   <label>Main Logo (current: <img src="<%= logoUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
   <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp">
   <label>…or Main Logo link (URL)</label>

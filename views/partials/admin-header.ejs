@@ -19,7 +19,11 @@
 </head>
 <body class="admin-body">
   <div class="admin-wrapper">
-    <aside class="admin-sidebar">
+    <div class="admin-mobile-topbar">
+      <button type="button" class="admin-menu-btn" id="admin-menu-btn" aria-expanded="false" aria-controls="admin-sidebar" aria-label="Menu">☰</button>
+      <span class="admin-mobile-title"><%= siteName %> Admin</span>
+    </div>
+    <aside class="admin-sidebar" id="admin-sidebar">
       <h2><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <%= siteName %></h2>
       <nav>
         <% const _ar = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
@@ -61,5 +65,6 @@
         <a href="/admin/logout" class="logout-link">Logout</a>
       </nav>
     </aside>
+    <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
     <main class="admin-content">
       <button type="button" class="theme-toggle-btn theme-toggle-btn-dark theme-toggle-fixed" onclick="toggleGoinceTheme()" title="Dark mode">🌙</button>
