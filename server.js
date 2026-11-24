@@ -168,8 +168,21 @@ const SITE_SETTING_DEFAULTS = {
       ['delivery_zone', 'VARCHAR(100) DEFAULT NULL'],
       ['phone_confirmed', 'TINYINT(1) NOT NULL DEFAULT 0'],
       ['phone_confirmed_at', 'DATETIME DEFAULT NULL'],
-      ['cancel_reason', 'VARCHAR(255) DEFAULT NULL']
+      ['cancel_reason', 'VARCHAR(255) DEFAULT NULL'],
+      // Orders Pro 2: COD collection tracking.
+      ['cod_collected', 'TINYINT(1) NOT NULL DEFAULT 0'],
+      ['cod_collected_at', 'DATETIME DEFAULT NULL']
     ]) if (!ordNames.has(col)) await db.query(`ALTER TABLE orders ADD COLUMN ${col} ${def}`);
+    // Orders Pro 2: returns table.
+    await db.query(`CREATE TABLE IF NOT EXISTS order_returns (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      reason TEXT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+      created_by VARCHAR(100) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`);
     // payment_methods-e payment type + instructions column (purono table-e na thakle jog kora)
     const [pmCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_methods'");
     const pmNames = pmCols.map(c => c.COLUMN_NAME);
