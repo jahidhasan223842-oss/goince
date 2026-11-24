@@ -194,4 +194,82 @@ async function sendTestEmail(toEmail) {
   }
 }
 
-module.exports = { sendOrderConfirmation, sendPasswordResetEmail, sendTestEmail };
+function isEmailConfigured() {
+  return !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+}
+
+// Send an invoice email for an order, with the PDF attached.
+// invoice = { invoiceNo, order, items, subtotal, discount, deliveryCharge,
+//             total, paid, due, shopPhone, siteUrl }. Reflects the CURRENT
+// order state (items, totals, payment status, paid/due) at send time.
+// Returns { ok: true } or { ok: false, error } — never throws.
+async function sendInvoiceEmail(toEmail, invoice) {
+  if (!isEmailConfigured()) {
+    return { ok: false, error: 'Email is not configured yet — set EMAIL_USER and EMAIL_PASS in the .env file first.' };
+  }
+  if (!toEmail) return { ok: false, error: 'Customer email address is required.' };
+  const order = invoice.order;
+  const itemRows = invoice.items.map(item => {
+    const lineTotal = (Number(item.price) * Number(item.quantity)).toFixed(2);
+    return `
+      <tr>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e2e6;color:#16161a;">${item.product_name}${item.variant_label ? '<br><span style="font-size:12px;color:#888888;">' + item.variant_label + '</span>' : ''}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e2e6;color:#16161a;text-align:right;">৳${Number(item.price).toFixed(2)}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e2e6;color:#16161a;text-align:center;">${item.quantity}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e2e6;color:#16161a;text-align:right;">৳${lineTotal}</td>
+      </tr>`;
+  }).join('');
+  const discountRow = (invoice.discount && Number(invoice.discount) > 0)
+    ? `<tr><td style="padding:4px 0;text-align:right;color:#d62839;">Discount</td><td style="padding:4px 0;text-align:right;color:#d62839;">- ৳${Number(invoice.discount).toFixed(2)}</td></tr>` : '';
+  const html = `
+  <div style="background:#f1f2f6;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;">
+      <tr><td style="background:#1a1a2e;padding:24px 28px;"><div style="color:#ffffff;font-size:20px;font-weight:bold;">Goince</div><div style="color:#bcbcc9;font-size:12px;">Online Shop</div></td></tr>
+      <tr><td style="padding:28px;">
+        <p style="margin:0 0 4px;font-size:16px;color:#16161a;">Hi <strong>${order.customer_name}</strong>,</p>
+        <p style="margin:0 0 20px;font-size:14px;color:#52525c;">Here is your invoice ${invoice.invoiceNo} — a PDF copy is attached.</p>
+        <p style="margin:0 0 20px;font-size:13px;color:#52525c;"><strong style="color:#16161a;">Order No.</strong> #${order.id} &nbsp; <strong style="color:#16161a;">Payment:</strong> ${order.payment_status} &nbsp; <strong style="color:#16161a;">Status:</strong> ${order.status}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:6px;">
+          <thead><tr style="background:#1a1a2e;">
+            <th style="padding:10px 14px;text-align:left;color:#ffffff;font-size:12px;text-transform:uppercase;">Product</th>
+            <th style="padding:10px 14px;text-align:right;color:#ffffff;font-size:12px;text-transform:uppercase;">Price</th>
+            <th style="padding:10px 14px;text-align:center;color:#ffffff;font-size:12px;text-transform:uppercase;">Qty</th>
+            <th style="padding:10px 14px;text-align:right;color:#ffffff;font-size:12px;text-transform:uppercase;">Subtotal</th>
+          </tr></thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:280px;margin-left:auto;margin-top:10px;font-size:14px;">
+          <tr><td style="padding:4px 0;color:#52525c;">Subtotal</td><td style="padding:4px 0;text-align:right;color:#16161a;">৳${Number(invoice.subtotal).toFixed(2)}</td></tr>
+          ${discountRow}
+          <tr><td style="padding:4px 0;color:#52525c;">Delivery Charge</td><td style="padding:4px 0;text-align:right;color:#16161a;">৳${Number(invoice.deliveryCharge).toFixed(2)}</td></tr>
+          <tr><td style="padding:4px 0;color:#52525c;">Total</td><td style="padding:4px 0;text-align:right;color:#16161a;">৳${Number(invoice.total).toFixed(2)}</td></tr>
+          <tr><td style="padding:4px 0;color:#52525c;">Paid</td><td style="padding:4px 0;text-align:right;color:#16161a;">৳${Number(invoice.paid).toFixed(2)}</td></tr>
+          <tr><td style="padding:10px 0 4px;border-top:2px solid #f0a500;font-weight:bold;color:#16161a;">Due</td><td style="padding:10px 0 4px;border-top:2px solid #f0a500;text-align:right;font-weight:bold;font-size:17px;color:#16161a;">৳${Number(invoice.due).toFixed(2)}</td></tr>
+        </table>
+        <div style="margin-top:24px;padding-top:16px;border-top:1px dashed #e2e2e6;">
+          <p style="margin:4px 0;font-size:13px;color:#52525c;"><strong style="color:#16161a;">Delivery Address:</strong> ${order.address}</p>
+          <p style="margin:4px 0;font-size:13px;color:#52525c;"><strong style="color:#16161a;">Phone:</strong> ${order.phone}</p>
+          <p style="margin:4px 0;font-size:13px;color:#52525c;"><strong style="color:#16161a;">Payment Method:</strong> ${order.payment_method}</p>
+        </div>
+      </td></tr>
+      <tr><td style="background:#f7f7fa;padding:20px 28px;text-align:center;"><p style="margin:0;font-size:12px;color:#52525c;">Thank you for shopping with Goince!${invoice.shopPhone ? ' Questions? Call us at ' + invoice.shopPhone : ''}</p></td></tr>
+    </table>
+  </div>`;
+  try {
+    await transporter.sendMail({
+      from: `"Goince" <${process.env.EMAIL_USER}>`,
+      to: toEmail,
+      subject: `Your Goince Invoice ${invoice.invoiceNo} (Order #${order.id})`,
+      text: `Hi ${order.customer_name},\n\nYour invoice ${invoice.invoiceNo} for order #${order.id} is attached as a PDF.\nTotal: ৳${Number(invoice.total).toFixed(2)} | Paid: ৳${Number(invoice.paid).toFixed(2)} | Due: ৳${Number(invoice.due).toFixed(2)}\n\n- Team Goince`,
+      html,
+      attachments: invoice.pdfBuffer ? [{ filename: invoice.invoiceNo + '.pdf', content: invoice.pdfBuffer, contentType: 'application/pdf' }] : [],
+    });
+    console.log(`Invoice email sent to ${toEmail} for order #${order.id}`);
+    return { ok: true };
+  } catch (err) {
+    console.error('Invoice email failed:', err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+module.exports = { sendOrderConfirmation, sendPasswordResetEmail, sendTestEmail, isEmailConfigured, sendInvoiceEmail };

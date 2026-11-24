@@ -1,0 +1,49 @@
+<%- include('../partials/admin-header') %>
+
+<h1>🧾 Invoices</h1>
+<p class="field-hint">Every order is an invoice — invoice number GOINCE-00035 is order #35. No separate invoice records are kept.</p>
+
+<div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
+  <% [['all','All'],['paid','Paid'],['unpaid','Unpaid'],['cancelled','Cancelled']].forEach(([t, label]) => { %>
+    <a href="/admin/invoices?tab=<%= t %>" class="btn-primary" style="<%= tab === t ? '' : 'background:#666;' %> text-decoration:none;"><%= label %></a>
+  <% }) %>
+</div>
+
+<p><strong><%= totalCount %></strong> invoice(s) — page <%= page %> of <%= totalPages %></p>
+
+<% if (!rows.length) { %>
+  <p>No invoices in this view.</p>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Paid</th><th>Due</th><th>Payment</th><th>Order Status</th><th></th></tr></thead>
+  <tbody>
+    <% rows.forEach(r => { %>
+      <tr>
+        <td><strong><%= r.invoiceNo %></strong><br><small>Order #<%= r.id %></small></td>
+        <td><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
+        <td><%= r.customer_name %><br><small><%= r.phone %></small></td>
+        <td>৳<%= Number(r.total_amount).toFixed(2) %></td>
+        <td>৳<%= Number(r.paid).toFixed(2) %></td>
+        <td><strong>৳<%= Number(r.due).toFixed(2) %></strong></td>
+        <td><span class="status-badge <%= r.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= r.payment_status || 'Unpaid' %></span></td>
+        <td><span class="status-badge status-<%= r.status.toLowerCase() %>"><%= r.status %></span></td>
+        <td><a href="/admin/orders/<%= r.id %>">View</a> · <a href="/admin/orders/<%= r.id %>/invoice" target="_blank">Print</a> · <a href="/admin/orders/<%= r.id %>/invoice.pdf">PDF</a></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+
+<div style="margin-top:16px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+  <% if (page > 1) { %><a href="/admin/invoices?tab=<%= tab %>&page=<%= page - 1 %>" class="btn-primary" style="text-decoration:none;">&larr; Prev</a><% } %>
+  <% for (let p = 1; p <= totalPages; p++) { %>
+    <% if (p === 1 || p === totalPages || Math.abs(p - page) <= 2) { %>
+      <a href="/admin/invoices?tab=<%= tab %>&page=<%= p %>" class="btn-primary" style="<%= p === page ? '' : 'background:#666;' %> text-decoration:none;"><%= p %></a>
+    <% } else if (Math.abs(p - page) === 3) { %><span>…</span><% } %>
+  <% } %>
+  <% if (page < totalPages) { %><a href="/admin/invoices?tab=<%= tab %>&page=<%= page + 1 %>" class="btn-primary" style="text-decoration:none;">Next &rarr;</a><% } %>
+</div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

@@ -183,6 +183,27 @@ const SITE_SETTING_DEFAULTS = {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
     )`);
+    // Invoices + send: advance payments + invoice send log.
+    await db.query(`CREATE TABLE IF NOT EXISTS order_payments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      note VARCHAR(255) DEFAULT NULL,
+      created_by VARCHAR(100) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS order_invoice_sends (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      channel VARCHAR(20) NOT NULL,
+      recipient VARCHAR(255) DEFAULT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'sent',
+      error VARCHAR(500) DEFAULT NULL,
+      created_by VARCHAR(100) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`);
     // payment_methods-e payment type + instructions column (purono table-e na thakle jog kora)
     const [pmCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_methods'");
     const pmNames = pmCols.map(c => c.COLUMN_NAME);
