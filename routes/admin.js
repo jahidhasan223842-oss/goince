@@ -1457,6 +1457,7 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
     req.query.courier === 'status-failed' ? 'Could not fetch the tracking status — check the API keys and try again.' :
     req.query.courier === 'no-consignment' ? 'This order has no consignment yet — create one first.' : null;
   const orderMsg = req.query.msg === 'phone-confirmed' ? 'Phone confirmed — order marked as confirmed by phone.' :
+    req.query.msg === 'phone-unconfirmed' ? 'Phone confirmation undone — order is not phone-confirmed again.' :
     req.query.msg === 'note-saved' ? 'Admin note saved.' :
     req.query.msg === 'sms-not-connected' ? SMS_NOT_CONFIGURED :
     req.query.msg === 'cod-collected' ? 'COD cash marked as collected — payment status set to Paid.' :
@@ -1479,7 +1480,8 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
     req.query.err === 'bad-amount' ? 'Enter an advance amount greater than 0.' :
     req.query.err === 'not-cod' ? 'COD collection only applies to Cash on Delivery orders.' :
     req.query.err === 'already-collected' ? 'COD cash was already marked as collected.' :
-    req.query.err === 'not-collected' ? 'COD cash is not marked as collected for this order.' : null;
+    req.query.err === 'not-collected' ? 'COD cash is not marked as collected for this order.' :
+    req.query.err === 'not-phone-confirmed' ? 'This order is not marked as phone-confirmed.' : null;
   res.render('admin/order-details', { order, items, history, notes, phoneHistory, returns, advances, paid, due, invoiceNo: inv ? inv.invoiceNo : invoiceNo(order.id), invoiceSends, orderMsg, orderErr, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
 });
 
@@ -1616,6 +1618,18 @@ router.post('/orders/:id/phone-confirmed', requireAdmin, requireRole('orders'), 
   await db.query('UPDATE orders SET phone_confirmed = 1, phone_confirmed_at = NOW() WHERE id = ?', [req.params.id]);
   await recordStatusChange(req.params.id, order.status, order.status, 'Phone confirmed by admin', req.session.adminEmail);
   res.redirect('/admin/orders/' + req.params.id + '?msg=phone-confirmed');
+});
+
+// ---------- UNDO MARK ORDER AS PHONE-CONFIRMED ----------
+// Reverts a mistaken confirmation: phone_confirmed back to 0, confirmed
+// time cleared. Order status itself is untouched. Mirrors the COD undo.
+router.post('/orders/:id/phone-unconfirmed', requireAdmin, requireRole('orders'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  if (!order.phone_confirmed) return res.redirect('/admin/orders/' + req.params.id + '?err=not-phone-confirmed');
+  await db.query('UPDATE orders SET phone_confirmed = 0, phone_confirmed_at = NULL WHERE id = ?', [req.params.id]);
+  await recordStatusChange(req.params.id, order.status, order.status, 'Phone confirmation undone by admin', req.session.adminEmail);
+  res.redirect('/admin/orders/' + req.params.id + '?msg=phone-unconfirmed');
 });
 
 // ---------- ADD ADMIN NOTE ----------
