@@ -348,7 +348,6 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
     const prevFrom = shiftDate(prevTo, -(finalSpanDays - 1));
 
     const [[{ totalProducts }]] = await db.query('SELECT COUNT(*) AS totalProducts FROM products');
-    const [[{ totalOrders }]] = await db.query('SELECT COUNT(*) AS totalOrders FROM orders');
     const [[{ totalRevenue }]] = await db.query("SELECT COALESCE(SUM(total_amount),0) AS totalRevenue FROM orders WHERE status != 'Cancelled'");
     const [[{ totalCustomers }]] = await db.query('SELECT COUNT(*) AS totalCustomers FROM users');
     const [pendingOrders] = await db.query("SELECT * FROM orders WHERE status = 'Pending' ORDER BY created_at DESC LIMIT 5");
@@ -515,9 +514,10 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
        FROM order_items oi JOIN orders o ON o.id = oi.order_id
        WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'Cancelled'
        GROUP BY oi.product_name ORDER BY unitsSold DESC LIMIT 5`, [from, to]);
-    const [statusRows] = await db.query(
-      `SELECT status, COUNT(*) AS count FROM orders
-       WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY status ORDER BY count DESC`, [from, to]);
+    // NOTE (PR #49): the "Order status" summary used to live on the dashboard
+    // (statusRows query + totalOrders count). It moved to the Orders page
+    // (/admin/invoices) as a clickable all-time summary, so the dashboard no
+    // longer queries it.
 
     const trendMap = new Map(dailyRows.map(row => [String(row.day).slice(0, 10), {
       day: String(row.day).slice(0, 10), revenue: Number(row.revenue || 0), ordersCount: Number(row.ordersCount || 0)
@@ -532,13 +532,13 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
       : (Number(currentSummary.revenue) > 0 ? null : 0);
 
     res.render('admin/dashboard', {
-      totalProducts, totalOrders, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
+      totalProducts, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
       lowStockProducts, lowStockCount, outOfStockCount,
       pendingDue, pendingDueOrders, pendingReviews, unreadMessages, todaysSummary, periodProfit,
       dashboardCategorySales, topCustomers, shippedOrders, shippedTotal,
       dashboard: {
         range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
-        newCustomers: Number(newCustomers || 0), salesTrend, topProducts, statusRows,
+        newCustomers: Number(newCustomers || 0), salesTrend, topProducts,
         revenueChange, maxTrendRevenue: Math.max(1, ...salesTrend.map(row => Number(row.revenue || 0)))
       },
       siteName: 'Goince'
@@ -1548,7 +1548,11 @@ async function recordStatusChange(orderId, oldStatus, newStatus, note, changedBy
 router.get('/orders', requireAdmin, requireRole('ordersView'), (req, res) => {
   // The old Orders list moved — the Invoices page (renamed "Orders" in the
   // sidebar) is now the one list. Old bookmarks / dashboard links land here.
-  res.redirect('/admin/invoices');
+  // Keep the query string: /admin/orders?status=Pending must land on
+  // /admin/invoices?status=Pending (before PR #49 the status was silently
+  // dropped, so the dashboard "View pending orders" link never filtered).
+  const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect('/admin/invoices' + qs);
 });
 
 // ---------- INVOICES ----------
@@ -1609,6 +1613,22 @@ router.get('/invoices', requireAdmin, requireRole('ordersView'), async (req, res
   if (tab === 'paid') { where.push("payment_status = 'Paid'"); }
   if (tab === 'unpaid') { where.push("payment_status != 'Paid' AND status != 'Cancelled'"); }
   if (tab === 'cancelled') { where.push("status = 'Cancelled'"); }
+  // Order status summary (moved from the dashboard, PR #49): all-time
+  // counts per status. All-time, not period-bound — the Orders page has no
+  // period filter, so the counts are labelled "All-time" in the view. The
+  // query is guarded: a failure degrades to an empty summary, never a 500.
+  // A status filter is only honoured when it is a real status (one of the
+  // known workflow statuses, or one actually present in the counts), so a
+  // bogus ?status= value is ignored instead of returning an empty list.
+  let statusRows = [];
+  try {
+    [statusRows] = await db.query(
+      'SELECT status, COUNT(*) AS count FROM orders GROUP BY status ORDER BY count DESC');
+  } catch (e) { statusRows = []; }
+  const totalOrdersAll = statusRows.reduce((s, r) => s + Number(r.count || 0), 0);
+  const allowedStatuses = new Set([...ORDER_STATUSES, ...statusRows.map(r => String(r.status))]);
+  const statusFilter = allowedStatuses.has(String(req.query.status || '')) ? String(req.query.status) : '';
+  if (statusFilter) { where.push('status = ?'); params.push(statusFilter); }
   const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
   const [[countRow]] = await db.query('SELECT COUNT(*) AS cnt FROM orders' + whereSql, params);
   const totalCount = Number(countRow.cnt || 0);
@@ -1639,7 +1659,7 @@ router.get('/invoices', requireAdmin, requireRole('ordersView'), async (req, res
     req.query.err === 'bad-amount' ? 'Enter an advance amount greater than 0.' :
     req.query.err === 'not-cod' ? 'COD collection only applies to Cash on Delivery orders.' :
     req.query.err === 'already-collected' ? 'COD cash was already marked as collected.' : null;
-  res.render('admin/invoices', { rows, tab, page: safePage, totalPages, totalCount, perPage: PER_PAGE, listMsg, listErr, siteName: 'Goince' });
+  res.render('admin/invoices', { rows, tab, page: safePage, totalPages, totalCount, perPage: PER_PAGE, listMsg, listErr, statusRows, statusFilter, totalOrdersAll, siteName: 'Goince' });
 });
 
 // ---------- ORDER DETAILS ----------

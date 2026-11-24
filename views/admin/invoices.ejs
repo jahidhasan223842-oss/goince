@@ -3,16 +3,34 @@
 <h1>🛒 Orders</h1>
 <p class="field-hint">Orders and invoices in one place — every order is an invoice (invoice no. GOINCE-00035 is order #35). Open an order (View) to update its status, record a payment, or send its invoice.</p>
 
+<% const _statusRows = (typeof statusRows !== 'undefined' && statusRows) ? statusRows : []; %>
+<% const _statusFilter = (typeof statusFilter !== 'undefined' && statusFilter) ? statusFilter : ''; %>
+<% const _totalOrdersAll = (typeof totalOrdersAll !== 'undefined' && totalOrdersAll) ? totalOrdersAll : _statusRows.reduce((s, r) => s + Number(r.count || 0), 0); %>
+<% const _statusQs = _statusFilter ? '&status=' + encodeURIComponent(_statusFilter) : ''; %>
+
 <% if (typeof listMsg !== 'undefined' && listMsg) { %><p class="success-msg" style="text-align:left;"><%= listMsg %></p><% } %>
 <% if (typeof listErr !== 'undefined' && listErr) { %><p class="error-msg" style="text-align:left;"><%= listErr %></p><% } %>
 
+<!-- Order status summary (moved from the dashboard, PR #49): all-time
+     counts per status. Each pill filters the list below; "All" clears it. -->
+<section aria-label="Order status" style="margin:16px 0;">
+  <div><h2 style="margin:0;">Order status</h2><p class="field-hint" style="margin:4px 0 0;">All-time orders by status — click a status to filter the list.</p></div>
+  <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+    <a href="/admin/invoices" class="order-status-pill <%= !_statusFilter ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;">All <strong><%= Number(_totalOrdersAll).toLocaleString() %></strong></a>
+    <% _statusRows.forEach(item => { %>
+      <a href="/admin/invoices?status=<%= encodeURIComponent(item.status) %>" class="order-status-pill <%= _statusFilter === item.status ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;"><span class="analytics-status-dot status-<%= String(item.status || 'other').toLowerCase().replace(/[^a-z0-9]+/g, '-') %>"></span><%= item.status || 'Unknown' %> <strong><%= Number(item.count).toLocaleString() %></strong></a>
+    <% }) %>
+  </div>
+  <% if (_statusFilter) { %><p class="field-hint">Showing only <strong><%= _statusFilter %></strong> orders — <a href="/admin/invoices">show all orders</a>.</p><% } %>
+</section>
+
 <div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
   <% [['all','All'],['paid','Paid'],['unpaid','Unpaid'],['cancelled','Cancelled']].forEach(([t, label]) => { %>
-    <a href="/admin/invoices?tab=<%= t %>" class="<%= tab === t ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;"><%= label %></a>
+    <a href="/admin/invoices?tab=<%= t %><%= _statusQs %>" class="<%= tab === t ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;"><%= label %></a>
   <% }) %>
 </div>
 
-<p><strong><%= totalCount %></strong> invoice(s) — page <%= page %> of <%= totalPages %></p>
+<p><strong><%= totalCount %></strong> invoice(s)<%= _statusFilter ? ' with status ' + _statusFilter : '' %> — page <%= page %> of <%= totalPages %></p>
 
 <% if (!rows.length) { %>
   <p>No invoices in this view.</p>
@@ -39,13 +57,13 @@
 </div>
 
 <div style="margin-top:16px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-  <% if (page > 1) { %><a href="/admin/invoices?tab=<%= tab %>&page=<%= page - 1 %>" class="btn-primary" style="text-decoration:none;">&larr; Prev</a><% } %>
+  <% if (page > 1) { %><a href="/admin/invoices?tab=<%= tab %>&page=<%= page - 1 %><%= _statusQs %>" class="btn-primary" style="text-decoration:none;">&larr; Prev</a><% } %>
   <% for (let p = 1; p <= totalPages; p++) { %>
     <% if (p === 1 || p === totalPages || Math.abs(p - page) <= 2) { %>
-      <a href="/admin/invoices?tab=<%= tab %>&page=<%= p %>" class="<%= p === page ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;"><%= p %></a>
+      <a href="/admin/invoices?tab=<%= tab %>&page=<%= p %><%= _statusQs %>" class="<%= p === page ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;"><%= p %></a>
     <% } else if (Math.abs(p - page) === 3) { %><span>…</span><% } %>
   <% } %>
-  <% if (page < totalPages) { %><a href="/admin/invoices?tab=<%= tab %>&page=<%= page + 1 %>" class="btn-primary" style="text-decoration:none;">Next &rarr;</a><% } %>
+  <% if (page < totalPages) { %><a href="/admin/invoices?tab=<%= tab %>&page=<%= page + 1 %><%= _statusQs %>" class="btn-primary" style="text-decoration:none;">Next &rarr;</a><% } %>
 </div>
 <% } %>
 
