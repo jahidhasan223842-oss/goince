@@ -37,7 +37,7 @@
 <% } %>
 
 <div class="category-bar" id="products">
-  <a href="/" class="<%= !selectedCategory ? 'active' : '' %>">All</a>
+  <a href="/" class="<%= !selectedCategory ? 'active' : '' %>"><span class="cat-letter">A</span><span class="cat-name">All</span></a>
   <% displayCategories.forEach(cat => {
     // Pill-er sub-category thakle hover-e dropdown khulbe (menuById server.js
     // middleware theke ashe — lukano category/subtree age thekei bad, count
@@ -47,7 +47,7 @@
   %>
     <% if (pillKids.length) { %>
       <div class="cat-pill-wrap">
-        <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>" aria-haspopup="true"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } %><%= cat.display_name || cat.name %> <span class="cat-caret" aria-hidden="true">▾</span></a>
+        <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>" aria-haspopup="true"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } else { %><span class="cat-letter"><%= (cat.display_name || cat.name).charAt(0).toUpperCase() %></span><% } %><span class="cat-name"><%= cat.display_name || cat.name %></span> <span class="cat-caret" aria-hidden="true">▾</span></a>
         <div class="cat-pill-menu">
           <ul>
             <% pillKids.forEach(sub => { %>
@@ -66,7 +66,7 @@
         </div>
       </div>
     <% } else { %>
-      <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } %><%= cat.display_name || cat.name %></a>
+      <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } else { %><span class="cat-letter"><%= (cat.display_name || cat.name).charAt(0).toUpperCase() %></span><% } %><span class="cat-name"><%= cat.display_name || cat.name %></span></a>
     <% } %>
   <% }) %>
 </div>
