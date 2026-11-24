@@ -18,6 +18,31 @@
     document.querySelectorAll('.admin-sidebar nav a').forEach(function (link) {
       if (link.pathname === window.location.pathname) link.setAttribute('aria-current', 'page');
     });
+
+    // Mobile sidebar (hamburger): choto screen-e sidebar off-canvas thake,
+    // ☰ button-e khole; link / overlay / Esc-e bondho hoy. Desktop-e kichu bodlay na.
+    var adminMenuBtn = document.getElementById('admin-menu-btn');
+    var adminSidebar = document.getElementById('admin-sidebar');
+    var adminOverlay = document.getElementById('admin-sidebar-overlay');
+    function setAdminSidebar(open) {
+      if (!adminSidebar) return;
+      adminSidebar.classList.toggle('open', open);
+      if (adminOverlay) adminOverlay.classList.toggle('open', open);
+      document.body.classList.toggle('admin-sidebar-open', open);
+      if (adminMenuBtn) adminMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    if (adminMenuBtn && adminSidebar) {
+      adminMenuBtn.addEventListener('click', function () {
+        setAdminSidebar(!adminSidebar.classList.contains('open'));
+      });
+      if (adminOverlay) adminOverlay.addEventListener('click', function () { setAdminSidebar(false); });
+      adminSidebar.querySelectorAll('nav a').forEach(function (link) {
+        link.addEventListener('click', function () { setAdminSidebar(false); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') setAdminSidebar(false);
+      });
+    }
     const themeButton = document.querySelector('.theme-toggle-fixed');
     if (themeButton) {
       themeButton.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
