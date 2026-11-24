@@ -409,6 +409,128 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
         costedUnits: Number(p.costedUnits || 0),
       };
     } catch (e) { /* old orders have no cost_price — profit stays 0 */ }
+
+    // Dashboard professional panels (PR #46): recent activity, phone
+    // confirmation queue, sales by category, top customers, shipped-but-
+    // not-delivered. Each query is guarded so a missing table can never
+    // break the whole dashboard.
+    // (1) Recent activity: latest orders + latest status changes merged,
+    // newest first, limit 10.
+    let recentActivity = [];
+    try {
+      const [latestOrders] = await db.query(
+        `SELECT id, customer_name, total_amount, created_at FROM orders
+         ORDER BY created_at DESC, id DESC LIMIT 10`);
+      let historyRows = [];
+      try {
+        [historyRows] = await db.query(
+          `SELECT order_id, old_status, new_status, note, changed_by, created_at
+           FROM order_status_history ORDER BY created_at DESC, id DESC LIMIT 10`);
+      } catch (e) { /* history table not migrated yet */ }
+      const entries = latestOrders.map(o => ({
+        kind: 'order', orderId: Number(o.id),
+        text: `Order #${o.id} placed — ৳${Number(o.total_amount || 0).toLocaleString('en-BD')}`,
+        when: new Date(o.created_at),
+      }));
+      historyRows.forEach(h => {
+        const label = h.old_status === h.new_status
+          ? (h.note || 'Order updated')
+          : `${h.old_status || '—'} → ${h.new_status}`;
+        entries.push({
+          kind: 'status', orderId: Number(h.order_id),
+          text: `Order #${h.order_id} — ${label}`,
+          when: new Date(h.created_at),
+        });
+      });
+      entries.sort((a, b) => b.when - a.when);
+      recentActivity = entries.slice(0, 10);
+    } catch (e) { /* activity stays empty */ }
+    // (2) Phone confirmation queue: open orders whose phone is not
+    // confirmed yet, oldest first.
+    let phoneQueue = [], phoneQueueTotal = 0;
+    try {
+      [phoneQueue] = await db.query(
+        `SELECT id, customer_name, phone, total_amount, created_at FROM orders
+         WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)
+         ORDER BY created_at ASC, id ASC LIMIT 10`);
+      const [[pq]] = await db.query(
+        `SELECT COUNT(*) AS c FROM orders
+         WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)`);
+      phoneQueueTotal = Number((pq && pq.c) || 0);
+    } catch (e) { /* queue stays empty */ }
+    // (3) Sales by category: the EXACT computation Reports uses — per
+    // top-level category including descendants, same selected period.
+    // (Display-only difference: zero-revenue roots are left out and the
+    // list is capped at the top 5, so the dashboard stays scannable.)
+    let dashboardCategorySales = [];
+    try {
+      const [catRows] = await db.query('SELECT id, name, parent_id FROM categories');
+      const { roots } = buildCategoryTree(catRows);
+      await db.query('SET SESSION group_concat_max_len = 100000');
+      const [salesRows] = await db.query(
+        `SELECT products.category_id AS category_id,
+                GROUP_CONCAT(DISTINCT orders.id) AS orderIds,
+                COALESCE(SUM(order_items.quantity), 0) AS items,
+                COALESCE(SUM(order_items.quantity * order_items.price), 0) AS revenue,
+                COALESCE(SUM(order_items.quantity * order_items.cost_price), 0) AS cost,
+                COALESCE(SUM(order_items.quantity * (order_items.price - order_items.cost_price)), 0) AS profit
+         FROM order_items
+         JOIN orders ON orders.id = order_items.order_id
+         JOIN products ON products.id = order_items.product_id
+         WHERE DATE(orders.created_at) BETWEEN ? AND ? AND orders.status != 'Cancelled'
+         GROUP BY products.category_id`,
+        [from, to]);
+      const byCat = new Map();
+      salesRows.forEach(r => byCat.set(+r.category_id, {
+        orderIds: new Set(String(r.orderIds || '').split(',').filter(Boolean).map(Number)),
+        items: +r.items || 0, revenue: +r.revenue || 0, cost: +r.cost || 0, profit: +r.profit || 0
+      }));
+      const sumNode = (n) => {
+        const own = byCat.get(n.id) || { orderIds: new Set(), items: 0, revenue: 0, cost: 0, profit: 0 };
+        const orderIds = new Set(own.orderIds);
+        let items = own.items, revenue = own.revenue, cost = own.cost, profit = own.profit;
+        n.children.forEach(c => {
+          const s = sumNode(c);
+          s.orderIds.forEach(id => orderIds.add(id));
+          items += s.items; revenue += s.revenue; cost += s.cost; profit += s.profit;
+        });
+        return { id: n.id, name: n.name, orders: orderIds.size, items, revenue, cost, profit, orderIds };
+      };
+      dashboardCategorySales = roots.filter(r => !r.isOrphan).map(sumNode)
+        .filter(r => r.revenue > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+    } catch (e) { /* category sales stay empty */ }
+    // (4) Top customers in the selected period, grouped by phone — this
+    // covers both registered customers and guest checkouts.
+    let topCustomers = [];
+    try {
+      [topCustomers] = await db.query(
+        `SELECT phone, MAX(customer_name) AS customer_name, MAX(user_id) AS user_id,
+                COUNT(*) AS orderCount, COALESCE(SUM(total_amount), 0) AS totalSpent
+         FROM orders
+         WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'Cancelled'
+           AND phone IS NOT NULL AND phone != ''
+         GROUP BY phone ORDER BY totalSpent DESC LIMIT 5`, [from, to]);
+    } catch (e) { /* top customers stay empty */ }
+    // (5) Shipped but not yet delivered, oldest shipped first. Days
+    // waiting counts from the last Shipped status change (falls back to
+    // the order date when no history row exists).
+    let shippedOrders = [], shippedTotal = 0;
+    try {
+      [shippedOrders] = await db.query(
+        `SELECT id, customer_name, phone, total_amount, courier_name, tracking_number, created_at,
+                (SELECT MAX(created_at) FROM order_status_history
+                  WHERE order_id = orders.id AND new_status = 'Shipped') AS shipped_at
+         FROM orders WHERE status = 'Shipped' ORDER BY created_at ASC, id ASC LIMIT 10`);
+      const [[sh]] = await db.query("SELECT COUNT(*) AS c FROM orders WHERE status = 'Shipped'");
+      shippedTotal = Number((sh && sh.c) || 0);
+      const nowMs = Date.now();
+      shippedOrders = shippedOrders.map(o => {
+        const base = o.shipped_at || o.created_at;
+        const days = Math.max(0, Math.floor((nowMs - new Date(base).getTime()) / 86400000));
+        return { ...o, daysSinceShipped: days };
+      });
+    } catch (e) { /* shipped list stays empty */ }
+
     const [lowStockProducts] = await db.query('SELECT * FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) ORDER BY stock ASC LIMIT 5');
     const [[{ lowStockCount }]] = await db.query('SELECT COUNT(*) AS lowStockCount FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) AND stock > 0');
     const [[{ outOfStockCount }]] = await db.query('SELECT COUNT(*) AS outOfStockCount FROM products WHERE stock = 0');
@@ -456,6 +578,7 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
       totalProducts, totalOrders, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
       lowStockProducts, lowStockCount, outOfStockCount,
       pendingDue, pendingDueOrders, pendingReviews, unreadMessages, todaysSummary, periodProfit,
+      recentActivity, phoneQueue, phoneQueueTotal, dashboardCategorySales, topCustomers, shippedOrders, shippedTotal,
       dashboard: {
         range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
         newCustomers: Number(newCustomers || 0), salesTrend, topProducts, statusRows,
