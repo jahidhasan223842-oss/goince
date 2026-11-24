@@ -1331,20 +1331,6 @@ router.get('/orders', requireAdmin, requireRole('ordersView'), (req, res) => {
   res.redirect('/admin/invoices');
 });
 
-// ---------- INVOICES (now the Orders page) ----------
-// return_to: the invoices list URL the user came from (e.g.
-// /admin/invoices?tab=all&page=1). Only same-site /admin/invoices URLs are
-// honoured — anything else falls back to the order details page, so a
-// crafted form cannot redirect elsewhere.
-function invoicesReturnTo(req) {
-  const r = String((req.body && req.body.return_to) || '');
-  if (/^\/admin\/invoices(\?[^#]*)?$/.test(r)) return r;
-  return null;
-}
-function withQuery(url, key, value) {
-  return url + (url.includes('?') ? '&' : '?') + key + '=' + value;
-}
-
 // ---------- INVOICES ----------
 // An invoice IS an order (invoice no. GOINCE-00035 = order #35) — no separate
 // invoices table. Shared loader for the invoices page, print/PDF invoice and
@@ -1520,11 +1506,8 @@ router.get('/orders/:id/invoice.pdf', requireAdmin, requireRole('ordersView'), a
 router.post('/orders/:id/advance', requireAdmin, requireRole('orders'), async (req, res) => {
   const amount = parseFloat(req.body.amount);
   const note = (req.body.note || '').trim();
-  // From the invoices list (return_to) go back there; from the details page
-  // keep the old redirect to the details page.
-  const back = invoicesReturnTo(req);
-  const dest = back || ('/admin/orders/' + req.params.id);
-  if (isNaN(amount) || amount <= 0) return res.redirect(withQuery(dest, 'err', 'bad-amount'));
+  const dest = '/admin/orders/' + req.params.id;
+  if (isNaN(amount) || amount <= 0) return res.redirect(dest + '?err=bad-amount');
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/invoices');
   await db.query(
@@ -1539,7 +1522,7 @@ router.post('/orders/:id/advance', requireAdmin, requireRole('orders'), async (r
   } else if (inv && inv.due > 0 && order.payment_status === 'Unpaid') {
     await db.query("UPDATE orders SET payment_status = 'Partial' WHERE id = ?", [req.params.id]);
   }
-  res.redirect(back ? withQuery(back, 'msg', 'advance-saved') : dest + '?msg=advance-saved');
+  res.redirect(dest + '?msg=advance-saved');
 });
 
 // ---------- SEND INVOICE BY EMAIL (PDF attached) ----------
@@ -1599,18 +1582,15 @@ router.get('/orders/:id/packing-slip', requireAdmin, requireRole('ordersView'), 
 // ---------- UPDATE ORDER STATUS ----------
 router.post('/orders/:id/status', requireAdmin, requireRole('orders'), async (req, res) => {
   const { status, cancel_reason } = req.body;
-  // From the invoices list (return_to) go back there; from the details page
-  // keep the old redirect to the details page.
-  const back = invoicesReturnTo(req);
-  const dest = back || ('/admin/orders/' + req.params.id);
-  if (!ORDER_STATUSES.includes(status)) return res.redirect(withQuery(dest, 'err', 'invalid-status'));
+  const dest = '/admin/orders/' + req.params.id;
+  if (!ORDER_STATUSES.includes(status)) return res.redirect(dest + '?err=invalid-status');
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/invoices');
   const reason = (cancel_reason || '').trim();
-  if (status === 'Cancelled' && !reason) return res.redirect(withQuery(dest, 'err', 'cancel-reason'));
+  if (status === 'Cancelled' && !reason) return res.redirect(dest + '?err=cancel-reason');
   await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id = ?', [status, status === 'Cancelled' ? reason : null, req.params.id]);
   await recordStatusChange(req.params.id, order.status, status, status === 'Cancelled' ? ('Cancelled: ' + reason) : null, req.session.adminEmail);
-  res.redirect(back ? withQuery(back, 'msg', 'status-updated') : dest);
+  res.redirect(dest);
 });
 
 // ---------- BULK UPDATE ORDER STATUS ----------
@@ -1665,16 +1645,13 @@ router.post('/orders/:id/sms', requireAdmin, requireRole('orders'), async (req, 
 router.post('/orders/:id/cod-collected', requireAdmin, requireRole('orders'), async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/invoices');
-  // From the invoices list (return_to) go back there; from the details page
-  // keep the old redirect to the details page.
-  const back = invoicesReturnTo(req);
-  const dest = back || ('/admin/orders/' + req.params.id);
-  if (order.payment_method !== 'Cash on Delivery') return res.redirect(withQuery(dest, 'err', 'not-cod'));
-  if (order.cod_collected) return res.redirect(withQuery(dest, 'err', 'already-collected'));
+  const dest = '/admin/orders/' + req.params.id;
+  if (order.payment_method !== 'Cash on Delivery') return res.redirect(dest + '?err=not-cod');
+  if (order.cod_collected) return res.redirect(dest + '?err=already-collected');
   try {
     await db.query("UPDATE orders SET cod_collected = 1, cod_collected_at = NOW(), payment_status = 'Paid' WHERE id = ?", [req.params.id]);
-  } catch (e) { return res.redirect(withQuery(dest, 'err', 'not-cod')); }
-  res.redirect(back ? withQuery(back, 'msg', 'cod-collected') : dest + '?msg=cod-collected');
+  } catch (e) { return res.redirect(dest + '?err=not-cod'); }
+  res.redirect(dest + '?msg=cod-collected');
 });
 
 // ---------- UNDO MARK COD CASH AS COLLECTED ----------

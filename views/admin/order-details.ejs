@@ -10,6 +10,35 @@
   </div>
 </div>
 
+<% const _role = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
+<% const _paid = Number((typeof paid !== 'undefined' && paid) ? paid : 0); %>
+<% const _due = Number((typeof due !== 'undefined' && due) ? due : Number(order.total_amount)); %>
+
+<div class="no-print">
+  <% if (typeof orderMsg !== 'undefined' && orderMsg) { %><p class="success-msg" style="text-align:left;"><%= orderMsg %></p><% } %>
+  <% if (typeof orderErr !== 'undefined' && orderErr) { %><p class="error-msg" style="text-align:left;"><%= orderErr %></p><% } %>
+  <% if (order.status === 'Cancelled' && order.cancel_reason) { %>
+    <p style="margin-top:16px;"><strong>Cancel reason:</strong> <%= order.cancel_reason %></p>
+  <% } %>
+  <% const _ph = (typeof phoneHistory !== 'undefined' && phoneHistory) ? phoneHistory : { total: 0, cancelled: 0, delivered: 0 }; %>
+  <% const _staleDays = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 86400000); %>
+  <% if (order.status === 'Pending' && _staleDays > 3) { %>
+    <p style="margin-top:12px;"><span class="status-badge status-cancelled">Stale — pending <%= _staleDays %> days</span> <small>This order has been pending for over 3 days — follow up with the customer.</small></p>
+  <% } %>
+  <% if (_ph.cancelled >= 3) { %>
+    <p style="margin-top:12px; padding:10px; background:#fdecea; border:1px solid #d62839; border-radius:6px;"><strong>⚠️ Warning: <%= _ph.cancelled %> cancelled orders from this phone before.</strong><br><small>Customer history for this number: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered. Confirm by phone before dispatch.</small></p>
+  <% } else if (_ph.total > 0) { %>
+    <p class="field-hint">Customer history for this phone: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered.</p>
+  <% } %>
+</div>
+
+<div class="stat-cards no-print">
+  <div class="stat-card"><h3>৳<%= Number(order.total_amount).toFixed(2) %></h3><p>Total</p></div>
+  <div class="stat-card"><h3>৳<%= _paid.toFixed(2) %></h3><p>Paid</p></div>
+  <div class="stat-card"><h3>৳<%= _due.toFixed(2) %></h3><p>Due</p></div>
+  <div class="stat-card"><h3><%= order.payment_status %></h3><p>Payment</p></div>
+</div>
+
 <div id="invoice-print-area" class="invoice-doc">
   <div class="invoice-doc-header">
     <div class="invoice-brand">
@@ -34,10 +63,7 @@
       <div>
         <h3>Billed To</h3>
         <p class="invoice-lead"><%= order.customer_name %></p>
-        <p><a href="tel:<%= order.phone %>"><%= order.phone %></a> <a href="tel:<%= order.phone %>" class="btn-primary" style="padding:4px 10px; text-decoration:none;">📞 Call</a></p>
-        <% if (order.phone_confirmed) { %>
-          <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <small><%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></small></p>
-        <% } %>
+        <p><a href="tel:<%= order.phone %>"><%= order.phone %></a></p>
         <% if (order.email) { %><p><%= order.email %></p><% } %>
         <p><%= order.address %></p>
         <% if (order.delivery_zone) { %><p><span>Delivery Zone</span><%= order.delivery_zone %></p><% } %>
@@ -90,8 +116,8 @@
     <% } %>
     <p><span>Delivery Charge</span><span>৳<%= Number(order.delivery_charge || 0).toFixed(2) %></span></p>
     <p class="invoice-grand-total"><span>Total</span><span>৳<%= Number(order.total_amount).toFixed(2) %></span></p>
-    <p><span>Paid</span><span>৳<%= Number((typeof paid !== 'undefined' && paid) ? paid : 0).toFixed(2) %></span></p>
-    <p class="invoice-grand-total"><span>Due</span><span>৳<%= Number((typeof due !== 'undefined' && due) ? due : Number(order.total_amount)).toFixed(2) %></span></p>
+    <p><span>Paid</span><span>৳<%= _paid.toFixed(2) %></span></p>
+    <p class="invoice-grand-total"><span>Due</span><span>৳<%= _due.toFixed(2) %></span></p>
   </div>
 
   <div class="invoice-doc-footer">
@@ -101,243 +127,265 @@
   </div>
 </div>
 
-<% const _role = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
-<% if (typeof orderMsg !== 'undefined' && orderMsg) { %><p class="success-msg" style="text-align:left;"><%= orderMsg %></p><% } %>
-<% if (typeof orderErr !== 'undefined' && orderErr) { %><p class="error-msg" style="text-align:left;"><%= orderErr %></p><% } %>
-<% if (order.status === 'Cancelled' && order.cancel_reason) { %>
-  <p style="margin-top:16px;"><strong>Cancel reason:</strong> <%= order.cancel_reason %></p>
-<% } %>
-<% const _ph = (typeof phoneHistory !== 'undefined' && phoneHistory) ? phoneHistory : { total: 0, cancelled: 0, delivered: 0 }; %>
-<% const _staleDays = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 86400000); %>
-<% if (order.status === 'Pending' && _staleDays > 3) { %>
-  <p style="margin-top:12px;"><span class="status-badge status-cancelled">Stale — pending <%= _staleDays %> days</span> <small>This order has been pending for over 3 days — follow up with the customer.</small></p>
-<% } %>
-<% if (_ph.cancelled >= 3) { %>
-  <p style="margin-top:12px; padding:10px; background:#fdecea; border:1px solid #d62839; border-radius:6px;"><strong>⚠️ Warning: <%= _ph.cancelled %> cancelled orders from this phone before.</strong><br><small>Customer history for this number: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered. Confirm by phone before dispatch.</small></p>
-<% } else if (_ph.total > 0) { %>
-  <p class="field-hint">Customer history for this phone: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered.</p>
-<% } %>
-<% if (_role !== 'staff') { %>
-<div class="no-print">
-  <h3 style="margin-top:30px;">Update Order Status</h3>
-  <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-    <select name="status" id="order-status-select">
-      <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
-        <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s %></option>
-      <% }) %>
-    </select>
-    <input type="text" name="cancel_reason" id="order-cancel-reason" placeholder="Cancel reason (required if Cancelling)" style="min-width:260px; display:none;">
-    <button type="submit" class="btn-primary">Update Status</button>
-  </form>
-  <script>
-    (function () {
-      var sel = document.getElementById('order-status-select');
-      var input = document.getElementById('order-cancel-reason');
-      function toggle() { var show = sel.value === 'Cancelled'; input.style.display = show ? '' : 'none'; input.required = show; }
-      sel.addEventListener('change', toggle); toggle();
-    })();
-  </script>
+<div class="order-detail-grid no-print">
+  <div class="order-detail-col">
 
-  <h3 style="margin-top:24px;">📞 Phone Confirmation</h3>
-  <% if (order.phone_confirmed) { %>
-    <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></p>
-  <% } else { %>
-    <form action="/admin/orders/<%= order.id %>/phone-confirmed" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-      <a href="tel:<%= order.phone %>" class="btn-primary" style="text-decoration:none;">📞 Call <%= order.phone %></a>
-      <button type="submit" class="btn-primary" style="margin-left:8px;">✓ Phone Confirmed</button>
-    </form>
-    <p class="field-hint">Call the customer first, then mark the order as confirmed by phone.</p>
-  <% } %>
+    <section class="report-card">
+      <h3>👤 Customer</h3>
+      <p class="invoice-lead"><%= order.customer_name %></p>
+      <p><a href="tel:<%= order.phone %>"><%= order.phone %></a> <a href="tel:<%= order.phone %>" class="btn-primary" style="padding:4px 10px; text-decoration:none;">📞 Call</a></p>
+      <% if (order.phone_confirmed) { %>
+        <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <small><%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></small></p>
+      <% } else if (_role !== 'staff') { %>
+        <form action="/admin/orders/<%= order.id %>/phone-confirmed" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+          <button type="submit" class="btn-primary">✓ Phone Confirmed</button>
+        </form>
+        <p class="field-hint">Call the customer first, then mark the order as confirmed by phone.</p>
+      <% } %>
+      <% if (order.email) { %><p><%= order.email %></p><% } %>
+      <p><%= order.address %></p>
+      <% if (order.delivery_zone) { %><p><span>Delivery Zone</span> <%= order.delivery_zone %></p><% } %>
 
-  <h3 style="margin-top:24px;">Update Payment Status</h3>
-  <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-    <select name="payment_status">
-      <% ['Unpaid','Paid','Partial','Refunded'].forEach(s => { %>
-        <option value="<%= s %>" <%= order.payment_status === s ? 'selected' : '' %>><%= s %></option>
-      <% }) %>
-    </select>
-    <button type="submit" class="btn-primary">Update Payment</button>
-  </form>
+      <h4>💬 WhatsApp</h4>
+      <% const _waMsg = 'আসসালামু আলাইকুম ' + order.customer_name + ', আপনার অর্ডার #' + order.id + ' ' + order.status + ' হয়েছে। মোট ৳' + Number(order.total_amount).toFixed(0) + ' (ডেলিভারি চার্জ ৳' + Number(order.delivery_charge || 0).toFixed(0) + ' সহ)। ধন্যবাদ — Goince।'; %>
+      <% const _waDigits = String(order.phone || '').replace(/\D/g, '').replace(/^0/, '880'); %>
+      <p class="field-hint">Ready message in Bengali — copy it or open WhatsApp with the message prefilled.</p>
+      <textarea id="wa-msg" rows="3" readonly style="width:100%;max-width:500px;"><%= _waMsg %></textarea>
+      <div style="margin-top:8px;">
+        <button type="button" class="btn-primary" id="wa-copy-btn" onclick="copyWaMsg()">📋 Copy WhatsApp Message</button>
+        <a href="https://wa.me/<%= _waDigits %>?text=<%= encodeURIComponent(_waMsg) %>" target="_blank" class="btn-primary" style="margin-left:8px; text-decoration:none;">💬 Open WhatsApp</a>
+      </div>
+      <script>
+        function copyWaMsg() {
+          var t = document.getElementById('wa-msg');
+          var btn = document.getElementById('wa-copy-btn');
+          function done() { btn.textContent = '✓ Copied'; setTimeout(function () { btn.textContent = '📋 Copy WhatsApp Message'; }, 2000); }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(t.value).then(done, function () { t.select(); document.execCommand('copy'); done(); });
+          } else { t.select(); document.execCommand('copy'); done(); }
+        }
+      </script>
+    </section>
 
-  <% if (order.payment_method === 'Cash on Delivery') { %>
-  <h3 style="margin-top:24px;">💵 COD Collection</h3>
-  <% if (order.cod_collected) { %>
-    <p><span class="status-badge status-delivered">✓ COD Collected</span> <%= order.cod_collected_at ? new Date(order.cod_collected_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %> — ৳<%= Number(order.total_amount).toFixed(2) %></p>
-    <form action="/admin/orders/<%= order.id %>/cod-uncollected" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-      <button type="submit" class="btn-primary" style="background:#666;" onclick="return confirm('Are you sure? This will mark the COD as not collected again and set the payment status back to Unpaid.');">↩ Undo COD Collected</button>
-    </form>
-    <p class="field-hint">Marked by mistake? Undo returns the order to not-collected and the payment status to Unpaid.</p>
-  <% } else { %>
-    <form action="/admin/orders/<%= order.id %>/cod-collected" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-      <button type="submit" class="btn-primary" onclick="return confirm('Mark the COD cash (৳<%= Number(order.total_amount).toFixed(0) %>) as collected? Payment status will become Paid.');">💵 Mark COD Collected (৳<%= Number(order.total_amount).toFixed(0) %>)</button>
-    </form>
-    <p class="field-hint">Click this once the delivery cash is in hand — it also sets the payment status to Paid.</p>
-  <% } %>
-  <% } %>
-
-  <h3 style="margin-top:24px;">💰 Advance Payments — Paid ৳<%= Number((typeof paid !== 'undefined' && paid) ? paid : 0).toFixed(2) %> · Due ৳<%= Number((typeof due !== 'undefined' && due) ? due : Number(order.total_amount)).toFixed(2) %></h3>
-  <% const _adv = (typeof advances !== 'undefined' && advances) ? advances : []; %>
-  <% if (_adv.length) { %>
-    <ul>
-      <% _adv.forEach(a => { %>
-        <li>৳<%= Number(a.amount).toFixed(2) %><% if (a.note) { %> — <%= a.note %><% } %><br><small><%= new Date(a.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (a.created_by) { %> — <%= a.created_by %><% } %></small></li>
-      <% }) %>
-    </ul>
-  <% } else { %>
-    <p class="field-hint">No advance payments recorded yet.</p>
-  <% } %>
-  <form action="/admin/orders/<%= order.id %>/advance" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-    <input type="number" name="amount" step="0.01" min="0.01" placeholder="Advance amount (৳)" required style="min-width:180px;">
-    <input type="text" name="note" placeholder="Note (e.g. bKash advance)" style="min-width:220px;">
-    <button type="submit" class="btn-primary">Record Advance</button>
-  </form>
-  <p class="field-hint">Recording an advance updates Paid / Due on this order and on the invoice. If the advance covers the full total, payment becomes Paid; if it covers part of it, payment becomes Partial.</p>
-
-  <h3 style="margin-top:24px;">📧 Send Invoice</h3>
-  <p class="field-hint">Sends the current invoice (items, totals, payment status, Paid / Due) — the PDF is attached to the email and sent as a document on WhatsApp.</p>
-  <form action="/admin/orders/<%= order.id %>/email-invoice" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-    <input type="email" name="email" value="<%= order.email || '' %>" placeholder="Customer email" required style="min-width:240px;">
-    <button type="submit" class="btn-primary">📧 Send Invoice by Email</button>
-  </form>
-  <form action="/admin/orders/<%= order.id %>/whatsapp-invoice" method="POST" class="inline-form" style="margin-top:8px;"><%- include('../partials/csrf-field') %>
-    <button type="submit" class="btn-primary" onclick="return confirm('Send this invoice PDF to the customer on WhatsApp? This uses the WhatsApp Business API — Meta charges per message.');">💬 Send Invoice on WhatsApp</button>
-  </form>
-  <p class="field-hint">Email needs EMAIL_USER / EMAIL_PASS in the .env file. WhatsApp direct send needs the WhatsApp Business API (phone number ID + access token + an approved invoice template) in Settings — Meta charges per message. Until those are set up, the buttons show that message instead of sending. The free wa.me link below still works without any setup.</p>
-  <% const _sends = (typeof invoiceSends !== 'undefined' && invoiceSends) ? invoiceSends : []; %>
-  <% if (_sends.length) { %>
-    <ul>
-      <% _sends.forEach(s => { %>
-        <li><strong><%= s.channel %></strong> → <%= s.recipient %> — <%= s.status %><% if (s.error) { %> (<%= s.error %>)<% } %><br><small><%= new Date(s.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (s.created_by) { %> — <%= s.created_by %><% } %></small></li>
-      <% }) %>
-    </ul>
-  <% } %>
-
-  <h3 style="margin-top:24px;">Courier / Tracking Info</h3>
-  <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
-    <label>Courier Company</label>
-    <input type="text" name="courier_name" value="<%= order.courier_name || '' %>" placeholder="e.g. Pathao, Steadfast">
-
-    <label>Tracking Number</label>
-    <input type="text" name="tracking_number" value="<%= order.tracking_number || '' %>" placeholder="e.g. TRK123456">
-
-    <button type="submit" class="btn-primary">Save Shipping Info</button>
-  </form>
-</div>
-<% } %>
-
-  <h3 style="margin-top:24px;">🚚 Courier API — Book Parcel</h3>
-  <% if (typeof courierMsg !== 'undefined' && courierMsg) { %><p class="success-msg" style="text-align:left;"><%= courierMsg %></p><% } %>
-  <% if (typeof courier !== 'undefined' && courier && courier.configured) { %>
-    <p class="field-hint">Provider: <strong><%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %></strong> (<%= courier.mode %>) — one click books the parcel and saves the tracking number on this order.</p>
-    <% if (order.courier_status) { %><p><span>Delivery Status</span><strong><%= order.courier_status %></strong></p><% } %>
-    <% if (order.courier_consignment_id) { %><p><span>Consignment ID</span><%= order.courier_consignment_id %></p><% } %>
-    <% if (!order.courier_consignment_id && !order.tracking_number) { %>
-      <form action="/admin/orders/<%= order.id %>/create-consignment" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
-        <button type="submit" class="btn-primary" onclick="return confirm('Book this parcel with <%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>?<%= courier.provider === 'steadfast' ? ' Steadfast has no sandbox — this creates a real parcel.' : '' %>');">📦 Create Consignment (<%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>)</button>
+    <% if (_role !== 'staff') { %>
+    <section class="report-card">
+      <h3>💰 Payment</h3>
+      <h4>Update Payment Status</h4>
+      <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+        <select name="payment_status">
+          <% ['Unpaid','Paid','Partial','Refunded'].forEach(s => { %>
+            <option value="<%= s %>" <%= order.payment_status === s ? 'selected' : '' %>><%= s %></option>
+          <% }) %>
+        </select>
+        <button type="submit" class="btn-primary">Update Payment</button>
       </form>
-    <% } else { %>
-      <form action="/admin/orders/<%= order.id %>/refresh-tracking" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
-        <button type="submit" class="btn-primary" style="background:var(--navy);">🔄 Refresh Tracking Status</button>
+
+      <% if (order.payment_method === 'Cash on Delivery') { %>
+      <h4>💵 COD Collection</h4>
+      <% if (order.cod_collected) { %>
+        <p><span class="status-badge status-delivered">✓ COD Collected</span> <%= order.cod_collected_at ? new Date(order.cod_collected_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %> — ৳<%= Number(order.total_amount).toFixed(2) %></p>
+        <form action="/admin/orders/<%= order.id %>/cod-uncollected" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+          <button type="submit" class="btn-primary" style="background:#666;" onclick="return confirm('Are you sure? This will mark the COD as not collected again and set the payment status back to Unpaid.');">↩ Undo COD Collected</button>
+        </form>
+        <p class="field-hint">Marked by mistake? Undo returns the order to not-collected and the payment status to Unpaid.</p>
+      <% } else { %>
+        <form action="/admin/orders/<%= order.id %>/cod-collected" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+          <button type="submit" class="btn-primary" onclick="return confirm('Mark the COD cash (৳<%= Number(order.total_amount).toFixed(0) %>) as collected? Payment status will become Paid.');">💵 Mark COD Collected (৳<%= Number(order.total_amount).toFixed(0) %>)</button>
+        </form>
+        <p class="field-hint">Click this once the delivery cash is in hand — it also sets the payment status to Paid.</p>
+      <% } %>
+      <% } %>
+
+      <h4>💰 Advance Payments — Paid ৳<%= _paid.toFixed(2) %> · Due ৳<%= _due.toFixed(2) %></h4>
+      <% const _adv = (typeof advances !== 'undefined' && advances) ? advances : []; %>
+      <% if (_adv.length) { %>
+        <ul>
+          <% _adv.forEach(a => { %>
+            <li>৳<%= Number(a.amount).toFixed(2) %><% if (a.note) { %> — <%= a.note %><% } %><br><small><%= new Date(a.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (a.created_by) { %> — <%= a.created_by %><% } %></small></li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="field-hint">No advance payments recorded yet.</p>
+      <% } %>
+      <form action="/admin/orders/<%= order.id %>/advance" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+        <input type="number" name="amount" step="0.01" min="0.01" placeholder="Advance amount (৳)" required style="min-width:180px;">
+        <input type="text" name="note" placeholder="Note (e.g. bKash advance)" style="min-width:220px;">
+        <button type="submit" class="btn-primary">Record Advance</button>
       </form>
+      <p class="field-hint">Recording an advance updates Paid / Due on this order and on the invoice. If the advance covers the full total, payment becomes Paid; if it covers part of it, payment becomes Partial.</p>
+    </section>
     <% } %>
-  <% } else { %>
-    <p class="field-hint">Courier API is not set up yet — set the provider and API keys in <a href="/admin/settings">Settings &gt; Courier API</a> to book parcels in one click. The manual courier/tracking fields above keep working.</p>
-  <% } %>
 
-  <h3 style="margin-top:24px;">🕒 Status Timeline</h3>
-  <% if (typeof history !== 'undefined' && history.length) { %>
-    <ul>
-      <% history.forEach(h => { %>
-        <li>
-          <strong><%= h.old_status ? h.old_status + ' → ' : '' %><%= h.new_status %></strong>
-          — <%= new Date(h.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
-          <% if (h.changed_by) { %> by <%= h.changed_by %><% } %>
-          <% if (h.note) { %><br><small><%= h.note %></small><% } %>
-        </li>
-      <% }) %>
-    </ul>
-  <% } else { %>
-    <p class="field-hint">No status changes recorded yet — the first change will appear here with its time.</p>
-  <% } %>
+    <% if (_role !== 'staff') { %>
+    <section class="report-card">
+      <h3>📧 Send Invoice</h3>
+      <p class="field-hint">Sends the current invoice (items, totals, payment status, Paid / Due) — the PDF is attached to the email and sent as a document on WhatsApp.</p>
+      <form action="/admin/orders/<%= order.id %>/email-invoice" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+        <input type="email" name="email" value="<%= order.email || '' %>" placeholder="Customer email" required style="min-width:240px;">
+        <button type="submit" class="btn-primary">📧 Send Invoice by Email</button>
+      </form>
+      <form action="/admin/orders/<%= order.id %>/whatsapp-invoice" method="POST" class="inline-form" style="margin-top:8px;"><%- include('../partials/csrf-field') %>
+        <button type="submit" class="btn-primary" onclick="return confirm('Send this invoice PDF to the customer on WhatsApp? This uses the WhatsApp Business API — Meta charges per message.');">💬 Send Invoice on WhatsApp</button>
+      </form>
+      <p class="field-hint">Email needs EMAIL_USER / EMAIL_PASS in the .env file. WhatsApp direct send needs the WhatsApp Business API (phone number ID + access token + an approved invoice template) in Settings — Meta charges per message. Until those are set up, the buttons show that message instead of sending. The free wa.me link in the Customer card still works without any setup.</p>
+      <% const _sends = (typeof invoiceSends !== 'undefined' && invoiceSends) ? invoiceSends : []; %>
+      <% if (_sends.length) { %>
+        <ul>
+          <% _sends.forEach(s => { %>
+            <li><strong><%= s.channel %></strong> → <%= s.recipient %> — <%= s.status %><% if (s.error) { %> (<%= s.error %>)<% } %><br><small><%= new Date(s.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (s.created_by) { %> — <%= s.created_by %><% } %></small></li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+    <% } %>
 
-  <h3 style="margin-top:24px;">📝 Admin Notes</h3>
-  <% if (typeof notes !== 'undefined' && notes.length) { %>
-    <ul>
-      <% notes.forEach(n => { %>
-        <li><%= n.note %><br><small><%= new Date(n.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (n.created_by) { %> — <%= n.created_by %><% } %></small></li>
-      <% }) %>
-    </ul>
-  <% } else { %>
-    <p class="field-hint">No notes yet.</p>
-  <% } %>
-  <% if (_role !== 'staff') { %>
-  <form action="/admin/orders/<%= order.id %>/notes" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
-    <label>Add a Note</label>
-    <textarea name="note" rows="2" placeholder="e.g. Customer did not pick up the phone — try again tomorrow." required></textarea>
-    <button type="submit" class="btn-primary">Save Note</button>
-  </form>
-  <% } %>
-
-  <h3 style="margin-top:24px;">↩️ Returns</h3>
-  <% if (typeof returns !== 'undefined' && returns.length) { %>
-    <ul>
-      <% returns.forEach(r => { %>
-        <li>
-          <strong><%= r.status %></strong> — <%= r.reason %><br>
-          <small><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (r.created_by) { %> — <%= r.created_by %><% } %></small>
-          <% if (_role !== 'staff') { %>
-          <form action="/admin/orders/<%= order.id %>/returns/<%= r.id %>/status" method="POST" class="inline-form" style="margin-top:4px;"><%- include('../partials/csrf-field') %>
-            <select name="status">
-              <% ['Pending','Approved','Rejected','Completed'].forEach(s => { %>
-                <option value="<%= s %>" <%= r.status === s ? 'selected' : '' %>><%= s %></option>
-              <% }) %>
-            </select>
-            <button type="submit" class="btn-primary">Update Return</button>
-          </form>
-          <% } %>
-        </li>
-      <% }) %>
-    </ul>
-  <% } else { %>
-    <p class="field-hint">No returns recorded for this order.</p>
-  <% } %>
-  <% if (_role !== 'staff') { %>
-  <form action="/admin/orders/<%= order.id %>/returns" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
-    <label>Record a Return</label>
-    <textarea name="reason" rows="2" placeholder="e.g. Customer returned the product — wrong size." required></textarea>
-    <button type="submit" class="btn-primary">Record Return</button>
-  </form>
-  <% } %>
-
-  <h3 style="margin-top:24px;">💬 WhatsApp</h3>
-  <% const _waMsg = 'আসসালামু আলাইকুম ' + order.customer_name + ', আপনার অর্ডার #' + order.id + ' ' + order.status + ' হয়েছে। মোট ৳' + Number(order.total_amount).toFixed(0) + ' (ডেলিভারি চার্জ ৳' + Number(order.delivery_charge || 0).toFixed(0) + ' সহ)। ধন্যবাদ — Goince।'; %>
-  <% const _waDigits = String(order.phone || '').replace(/\D/g, '').replace(/^0/, '880'); %>
-  <p class="field-hint">Ready message in Bengali — copy it or open WhatsApp with the message prefilled.</p>
-  <textarea id="wa-msg" rows="3" readonly style="width:100%;max-width:500px;"><%= _waMsg %></textarea>
-  <div style="margin-top:8px;">
-    <button type="button" class="btn-primary" id="wa-copy-btn" onclick="copyWaMsg()">📋 Copy WhatsApp Message</button>
-    <a href="https://wa.me/<%= _waDigits %>?text=<%= encodeURIComponent(_waMsg) %>" target="_blank" class="btn-primary" style="margin-left:8px; text-decoration:none;">💬 Open WhatsApp</a>
   </div>
-  <script>
-    function copyWaMsg() {
-      var t = document.getElementById('wa-msg');
-      var btn = document.getElementById('wa-copy-btn');
-      function done() { btn.textContent = '✓ Copied'; setTimeout(function () { btn.textContent = '📋 Copy WhatsApp Message'; }, 2000); }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(t.value).then(done, function () { t.select(); document.execCommand('copy'); done(); });
-      } else { t.select(); document.execCommand('copy'); done(); }
-    }
-  </script>
+  <div class="order-detail-col">
 
-  <h3 style="margin-top:24px;">💬 SMS Update</h3>
-  <p class="field-hint">Sends the customer a text about this order's status (e.g. "Your order #<%= order.id %> is <%= order.status %>").</p>
-  <% if (_role !== 'staff') { %>
-  <form action="/admin/orders/<%= order.id %>/sms" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
-    <button type="submit" class="btn-primary">📩 Send SMS Update</button>
-  </form>
-  <% } %>
-  <p class="field-hint">SMS provider is not connected yet — the button shows that message instead of sending anything. No SMS is sent and no money is spent.</p>
+    <% if (_role !== 'staff') { %>
+    <section class="report-card">
+      <h3>⚙️ Order Actions</h3>
+      <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+        <select name="status" id="order-status-select">
+          <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
+            <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s %></option>
+          <% }) %>
+        </select>
+        <input type="text" name="cancel_reason" id="order-cancel-reason" placeholder="Cancel reason (required if Cancelling)" style="min-width:260px; display:none;">
+        <button type="submit" class="btn-primary">Update Status</button>
+      </form>
+      <script>
+        (function () {
+          var sel = document.getElementById('order-status-select');
+          var input = document.getElementById('order-cancel-reason');
+          function toggle() { var show = sel.value === 'Cancelled'; input.style.display = show ? '' : 'none'; input.required = show; }
+          sel.addEventListener('change', toggle); toggle();
+        })();
+      </script>
+    </section>
+    <% } %>
 
+    <section class="report-card">
+      <h3>🚚 Courier &amp; Tracking</h3>
+      <% if (_role !== 'staff') { %>
+      <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
+        <label>Courier Company</label>
+        <input type="text" name="courier_name" value="<%= order.courier_name || '' %>" placeholder="e.g. Pathao, Steadfast">
+
+        <label>Tracking Number</label>
+        <input type="text" name="tracking_number" value="<%= order.tracking_number || '' %>" placeholder="e.g. TRK123456">
+
+        <button type="submit" class="btn-primary">Save Shipping Info</button>
+      </form>
+      <% } %>
+
+      <h4>🚚 Courier API — Book Parcel</h4>
+      <% if (typeof courierMsg !== 'undefined' && courierMsg) { %><p class="success-msg" style="text-align:left;"><%= courierMsg %></p><% } %>
+      <% if (typeof courier !== 'undefined' && courier && courier.configured) { %>
+        <p class="field-hint">Provider: <strong><%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %></strong> (<%= courier.mode %>) — one click books the parcel and saves the tracking number on this order.</p>
+        <% if (order.courier_status) { %><p><span>Delivery Status</span><strong><%= order.courier_status %></strong></p><% } %>
+        <% if (order.courier_consignment_id) { %><p><span>Consignment ID</span><%= order.courier_consignment_id %></p><% } %>
+        <% if (!order.courier_consignment_id && !order.tracking_number) { %>
+          <form action="/admin/orders/<%= order.id %>/create-consignment" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
+            <button type="submit" class="btn-primary" onclick="return confirm('Book this parcel with <%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>?<%= courier.provider === 'steadfast' ? ' Steadfast has no sandbox — this creates a real parcel.' : '' %>');">📦 Create Consignment (<%= courier.provider === 'steadfast' ? 'Steadfast' : 'Pathao' %>)</button>
+          </form>
+        <% } else { %>
+          <form action="/admin/orders/<%= order.id %>/refresh-tracking" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
+            <button type="submit" class="btn-primary" style="background:var(--navy);">🔄 Refresh Tracking Status</button>
+          </form>
+        <% } %>
+      <% } else { %>
+        <p class="field-hint">Courier API is not set up yet — set the provider and API keys in <a href="/admin/settings">Settings &gt; Courier API</a> to book parcels in one click. The manual courier/tracking fields above keep working.</p>
+      <% } %>
+    </section>
+
+    <section class="report-card">
+      <h3>📝 Admin Notes</h3>
+      <% if (typeof notes !== 'undefined' && notes.length) { %>
+        <ul>
+          <% notes.forEach(n => { %>
+            <li><%= n.note %><br><small><%= new Date(n.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (n.created_by) { %> — <%= n.created_by %><% } %></small></li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="field-hint">No notes yet.</p>
+      <% } %>
+      <% if (_role !== 'staff') { %>
+      <form action="/admin/orders/<%= order.id %>/notes" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
+        <label>Add a Note</label>
+        <textarea name="note" rows="2" placeholder="e.g. Customer did not pick up the phone — try again tomorrow." required></textarea>
+        <button type="submit" class="btn-primary">Save Note</button>
+      </form>
+      <% } %>
+    </section>
+
+    <section class="report-card">
+      <h3>🕒 Status Timeline</h3>
+      <% if (typeof history !== 'undefined' && history.length) { %>
+        <ul>
+          <% history.forEach(h => { %>
+            <li>
+              <strong><%= h.old_status ? h.old_status + ' → ' : '' %><%= h.new_status %></strong>
+              — <%= new Date(h.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+              <% if (h.changed_by) { %> by <%= h.changed_by %><% } %>
+              <% if (h.note) { %><br><small><%= h.note %></small><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="field-hint">No status changes recorded yet — the first change will appear here with its time.</p>
+      <% } %>
+    </section>
+
+    <section class="report-card">
+      <h3>↩️ Returns</h3>
+      <% if (typeof returns !== 'undefined' && returns.length) { %>
+        <ul>
+          <% returns.forEach(r => { %>
+            <li>
+              <strong><%= r.status %></strong> — <%= r.reason %><br>
+              <small><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (r.created_by) { %> — <%= r.created_by %><% } %></small>
+              <% if (_role !== 'staff') { %>
+              <form action="/admin/orders/<%= order.id %>/returns/<%= r.id %>/status" method="POST" class="inline-form" style="margin-top:4px;"><%- include('../partials/csrf-field') %>
+                <select name="status">
+                  <% ['Pending','Approved','Rejected','Completed'].forEach(s => { %>
+                    <option value="<%= s %>" <%= r.status === s ? 'selected' : '' %>><%= s %></option>
+                  <% }) %>
+                </select>
+                <button type="submit" class="btn-primary">Update Return</button>
+              </form>
+              <% } %>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="field-hint">No returns recorded for this order.</p>
+      <% } %>
+      <% if (_role !== 'staff') { %>
+      <form action="/admin/orders/<%= order.id %>/returns" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
+        <label>Record a Return</label>
+        <textarea name="reason" rows="2" placeholder="e.g. Customer returned the product — wrong size." required></textarea>
+        <button type="submit" class="btn-primary">Record Return</button>
+      </form>
+      <% } %>
+    </section>
+
+    <section class="report-card">
+      <h3>💬 SMS Update</h3>
+      <p class="field-hint">Sends the customer a text about this order's status (e.g. "Your order #<%= order.id %> is <%= order.status %>").</p>
+      <% if (_role !== 'staff') { %>
+      <form action="/admin/orders/<%= order.id %>/sms" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
+        <button type="submit" class="btn-primary">📩 Send SMS Update</button>
+      </form>
+      <% } %>
+      <p class="field-hint">SMS provider is not connected yet — the button shows that message instead of sending anything. No SMS is sent and no money is spent.</p>
+    </section>
+
+  </div>
+</div>
+
+<div class="no-print" style="margin-top:20px;">
   <a href="/admin/orders" class="back-link">&larr; Back to Orders</a>
+</div>
 
 <%- include('../partials/admin-footer') %>
