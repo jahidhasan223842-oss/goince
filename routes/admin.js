@@ -410,55 +410,12 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
       };
     } catch (e) { /* old orders have no cost_price — profit stays 0 */ }
 
-    // Dashboard professional panels (PR #46): recent activity, phone
-    // confirmation queue, sales by category, top customers, shipped-but-
-    // not-delivered. Each query is guarded so a missing table can never
-    // break the whole dashboard.
-    // (1) Recent activity: latest orders + latest status changes merged,
-    // newest first, limit 10.
-    let recentActivity = [];
-    try {
-      const [latestOrders] = await db.query(
-        `SELECT id, customer_name, total_amount, created_at FROM orders
-         ORDER BY created_at DESC, id DESC LIMIT 10`);
-      let historyRows = [];
-      try {
-        [historyRows] = await db.query(
-          `SELECT order_id, old_status, new_status, note, changed_by, created_at
-           FROM order_status_history ORDER BY created_at DESC, id DESC LIMIT 10`);
-      } catch (e) { /* history table not migrated yet */ }
-      const entries = latestOrders.map(o => ({
-        kind: 'order', orderId: Number(o.id),
-        text: `Order #${o.id} placed — ৳${Number(o.total_amount || 0).toLocaleString('en-BD')}`,
-        when: new Date(o.created_at),
-      }));
-      historyRows.forEach(h => {
-        const label = h.old_status === h.new_status
-          ? (h.note || 'Order updated')
-          : `${h.old_status || '—'} → ${h.new_status}`;
-        entries.push({
-          kind: 'status', orderId: Number(h.order_id),
-          text: `Order #${h.order_id} — ${label}`,
-          when: new Date(h.created_at),
-        });
-      });
-      entries.sort((a, b) => b.when - a.when);
-      recentActivity = entries.slice(0, 10);
-    } catch (e) { /* activity stays empty */ }
-    // (2) Phone confirmation queue: open orders whose phone is not
-    // confirmed yet, oldest first.
-    let phoneQueue = [], phoneQueueTotal = 0;
-    try {
-      [phoneQueue] = await db.query(
-        `SELECT id, customer_name, phone, total_amount, created_at FROM orders
-         WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)
-         ORDER BY created_at ASC, id ASC LIMIT 10`);
-      const [[pq]] = await db.query(
-        `SELECT COUNT(*) AS c FROM orders
-         WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)`);
-      phoneQueueTotal = Number((pq && pq.c) || 0);
-    } catch (e) { /* queue stays empty */ }
-    // (3) Sales by category: the EXACT computation Reports uses — per
+    // Dashboard professional panels (PR #46): sales by category, top
+    // customers, shipped-but-not-delivered. Recent activity + phone
+    // confirmation queue moved to their own page /admin/activity (PR #47).
+    // Each query is guarded so a missing table can never break the whole
+    // dashboard.
+    // (1) Sales by category: the EXACT computation Reports uses — per
     // top-level category including descendants, same selected period.
     // (Display-only difference: zero-revenue roots are left out and the
     // list is capped at the top 5, so the dashboard stays scannable.)
@@ -499,7 +456,7 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
       dashboardCategorySales = roots.filter(r => !r.isOrphan).map(sumNode)
         .filter(r => r.revenue > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
     } catch (e) { /* category sales stay empty */ }
-    // (4) Top customers in the selected period, grouped by phone — this
+    // (2) Top customers in the selected period, grouped by phone — this
     // covers both registered customers and guest checkouts.
     let topCustomers = [];
     try {
@@ -511,7 +468,7 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
            AND phone IS NOT NULL AND phone != ''
          GROUP BY phone ORDER BY totalSpent DESC LIMIT 5`, [from, to]);
     } catch (e) { /* top customers stay empty */ }
-    // (5) Shipped but not yet delivered, oldest shipped first. Days
+    // (3) Shipped but not yet delivered, oldest shipped first. Days
     // waiting counts from the last Shipped status change (falls back to
     // the order date when no history row exists).
     let shippedOrders = [], shippedTotal = 0;
@@ -578,7 +535,7 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
       totalProducts, totalOrders, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
       lowStockProducts, lowStockCount, outOfStockCount,
       pendingDue, pendingDueOrders, pendingReviews, unreadMessages, todaysSummary, periodProfit,
-      recentActivity, phoneQueue, phoneQueueTotal, dashboardCategorySales, topCustomers, shippedOrders, shippedTotal,
+      dashboardCategorySales, topCustomers, shippedOrders, shippedTotal,
       dashboard: {
         range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
         newCustomers: Number(newCustomers || 0), salesTrend, topProducts, statusRows,
@@ -589,6 +546,91 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
   } catch (err) {
     console.error('Dashboard analytics error:', err);
     res.status(500).send('There was a problem loading the dashboard. Please check the server logs.');
+  }
+});
+
+// ---------- CALLS & ACTIVITY (PR #47) ----------
+// Phone confirmation queue + Recent activity moved off the dashboard into
+// their own paginated page: 20 items per page, tabs ?tab=phone (default)
+// and ?tab=activity. Read-only; same role guard as the Orders pages
+// (ordersView: owner, manager, staff).
+router.get('/activity', requireAdmin, requireRole('ordersView'), async (req, res) => {
+  const tab = ['phone', 'activity'].includes(req.query.tab) ? req.query.tab : 'phone';
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const PER_PAGE = 20;
+  let phoneTotal = 0, activityTotal = 0;
+  let phoneRows = [], activityRows = [];
+  try {
+    // Totals for both tabs (cheap COUNTs, shown in the tab labels).
+    try {
+      const [[pq]] = await db.query(
+        `SELECT COUNT(*) AS c FROM orders
+         WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)`);
+      phoneTotal = Number((pq && pq.c) || 0);
+    } catch (e) { /* queue count stays 0 */ }
+    let ordersCount = 0, historyCount = 0;
+    try {
+      const [[oc]] = await db.query('SELECT COUNT(*) AS c FROM orders');
+      ordersCount = Number((oc && oc.c) || 0);
+    } catch (e) { /* orders count stays 0 */ }
+    try {
+      const [[hc]] = await db.query('SELECT COUNT(*) AS c FROM order_status_history');
+      historyCount = Number((hc && hc.c) || 0);
+    } catch (e) { /* history table not migrated yet */ }
+    activityTotal = ordersCount + historyCount;
+
+    if (tab === 'phone') {
+      const totalPages = Math.max(1, Math.ceil(phoneTotal / PER_PAGE));
+      const safePage = Math.min(page, totalPages);
+      try {
+        [phoneRows] = await db.query(
+          `SELECT id, customer_name, phone, total_amount, created_at FROM orders
+           WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)
+           ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`,
+          [PER_PAGE, (safePage - 1) * PER_PAGE]);
+      } catch (e) { phoneRows = []; }
+      return res.render('admin/activity', { tab, page: safePage, totalPages, totalCount: phoneTotal, perPage: PER_PAGE, phoneTotal, activityTotal, phoneRows, activityRows, siteName: 'Goince' });
+    }
+
+    // Activity tab: merge the newest orders + newest status changes, newest
+    // first. The top page*PER_PAGE merged entries can only come from the
+    // top page*PER_PAGE of each source, so fetching that many of each and
+    // slicing the page window is exact.
+    const totalPages = Math.max(1, Math.ceil(activityTotal / PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+    const take = safePage * PER_PAGE;
+    let latestOrders = [], historyRows = [];
+    try {
+      [latestOrders] = await db.query(
+        `SELECT id, customer_name, total_amount, created_at FROM orders
+         ORDER BY created_at DESC, id DESC LIMIT ?`, [take]);
+    } catch (e) { latestOrders = []; }
+    try {
+      [historyRows] = await db.query(
+        `SELECT order_id, old_status, new_status, note, changed_by, created_at
+         FROM order_status_history ORDER BY created_at DESC, id DESC LIMIT ?`, [take]);
+    } catch (e) { /* history table not migrated yet */ }
+    const entries = latestOrders.map(o => ({
+      kind: 'order', orderId: Number(o.id),
+      text: `Order #${o.id} placed — ৳${Number(o.total_amount || 0).toLocaleString('en-BD')}`,
+      when: new Date(o.created_at),
+    }));
+    historyRows.forEach(h => {
+      const label = h.old_status === h.new_status
+        ? (h.note || 'Order updated')
+        : `${h.old_status || '—'} → ${h.new_status}`;
+      entries.push({
+        kind: 'status', orderId: Number(h.order_id),
+        text: `Order #${h.order_id} — ${label}`,
+        when: new Date(h.created_at),
+      });
+    });
+    entries.sort((a, b) => b.when - a.when);
+    activityRows = entries.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
+    return res.render('admin/activity', { tab, page: safePage, totalPages, totalCount: activityTotal, perPage: PER_PAGE, phoneTotal, activityTotal, phoneRows, activityRows, siteName: 'Goince' });
+  } catch (err) {
+    console.error('Activity page error:', err);
+    return res.render('admin/activity', { tab, page: 1, totalPages: 1, totalCount: 0, perPage: PER_PAGE, phoneTotal, activityTotal, phoneRows, activityRows, siteName: 'Goince' });
   }
 });
 

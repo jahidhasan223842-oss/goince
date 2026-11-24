@@ -26,6 +26,7 @@
 <section class="admin-quick-links" aria-label="Quick actions">
   <a href="/admin/products">＋ Add Product</a>
   <a href="/admin/orders">🛒 View Orders</a>
+  <a href="/admin/activity">📞 Calls &amp; Activity</a>
   <a href="/admin/messages">✉️ Messages</a>
   <a href="/admin/settings">⚙️ Edit Homepage</a>
   <a href="/" target="_blank">🌐 View Site</a>
@@ -179,40 +180,10 @@
   <% } %>
 </section>
 
-<% const _activity = (typeof recentActivity !== 'undefined' && recentActivity) || []; %>
-<% const _phoneQueue = (typeof phoneQueue !== 'undefined' && phoneQueue) || []; %>
-<% const _phoneQueueTotal = Number((typeof phoneQueueTotal !== 'undefined' && phoneQueueTotal) || 0); %>
 <% const _catSales = (typeof dashboardCategorySales !== 'undefined' && dashboardCategorySales) || []; %>
 <% const _topCustomers = (typeof topCustomers !== 'undefined' && topCustomers) || []; %>
 <% const _shipped = (typeof shippedOrders !== 'undefined' && shippedOrders) || []; %>
 <% const _shippedTotal = Number((typeof shippedTotal !== 'undefined' && shippedTotal) || 0); %>
-<% const fmtDate = (d) => { try { return new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } }; %>
-
-<section class="analytics-lower-grid">
-  <article class="analytics-panel">
-    <div class="analytics-panel-heading"><div><h2>Recent activity</h2><p>Latest orders and status changes — live</p></div></div>
-    <% if (_activity.length === 0) { %><div class="analytics-small-empty">No recent activity yet.</div><% } else { %>
-    <div class="analytics-activity-list">
-      <% _activity.forEach(a => { %>
-      <div class="analytics-activity-row">
-        <span class="analytics-activity-icon"><%= a.kind === 'status' ? '↻' : '🛒' %></span>
-        <div><strong><%= a.text %></strong><span><%= fmtDate(a.when) %></span></div>
-        <a class="analytics-view-link" href="/admin/orders/<%= a.orderId %>">View →</a>
-      </div>
-      <% }) %>
-    </div>
-    <% } %>
-  </article>
-  <article class="analytics-panel">
-    <div class="analytics-panel-heading"><div><h2>Phone confirmation queue</h2><p>Open orders waiting for a confirmation call — oldest first</p></div><a href="/admin/orders">View all orders →</a></div>
-    <% if (_phoneQueue.length === 0) { %><div class="analytics-small-empty">All open orders are phone-confirmed.</div><% } else { %>
-    <p class="analytics-phone-note"><%= _phoneQueueTotal %> order(s) waiting for a call</p>
-    <div class="table-responsive"><table class="admin-table analytics-table"><thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead><tbody>
-      <% _phoneQueue.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %></td><td><a href="tel:<%= o.phone %>"><%= o.phone %></a> <a class="analytics-view-link" href="tel:<%= o.phone %>">📞 Call</a></td><td>৳<%= money(o.total_amount) %></td><td><%= fmtDate(o.created_at) %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
-    </tbody></table></div>
-    <% } %>
-  </article>
-</section>
 
 <section class="analytics-lower-grid">
   <article class="analytics-panel">

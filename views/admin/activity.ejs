@@ -1,0 +1,57 @@
+<%- include('../partials/admin-header') %>
+
+<% const money = (value) => Number(value || 0).toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); %>
+<% const fmtDate = (d) => { try { return new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } }; %>
+<% const _phoneTotal = Number((typeof phoneTotal !== 'undefined' && phoneTotal) || 0); %>
+<% const _activityTotal = Number((typeof activityTotal !== 'undefined' && activityTotal) || 0); %>
+<% const _rows = tab === 'phone' ? (phoneRows || []) : (activityRows || []); %>
+<% const _from = totalCount === 0 ? 0 : (page - 1) * perPage + 1; %>
+<% const _to = Math.min(totalCount, page * perPage); %>
+
+<h1>📞 Calls &amp; Activity</h1>
+<p class="field-hint">Orders waiting for a confirmation call, and everything that happened recently — oldest unconfirmed calls first, newest activity first. 20 items per page.</p>
+
+<div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
+  <a href="/admin/activity?tab=phone" class="<%= tab === 'phone' ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;">📞 Phone Confirmation Queue (<%= _phoneTotal %>)</a>
+  <a href="/admin/activity?tab=activity" class="<%= tab === 'activity' ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;">↻ Recent Activity (<%= _activityTotal %>)</a>
+</div>
+
+<p><strong><%= totalCount %></strong> item(s) — showing <%= _from %>–<%= _to %> of <%= totalCount %> — page <%= page %> of <%= totalPages %></p>
+
+<% if (tab === 'phone') { %>
+  <% if (!_rows.length) { %>
+    <p>All open orders are phone-confirmed.</p>
+  <% } else { %>
+  <div class="table-responsive"><table class="admin-table"><thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead><tbody>
+    <% _rows.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %></td><td><a href="tel:<%= o.phone %>"><%= o.phone %></a> <a class="analytics-view-link" href="tel:<%= o.phone %>">📞 Call</a></td><td>৳<%= money(o.total_amount) %></td><td><%= fmtDate(o.created_at) %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
+  </tbody></table></div>
+  <% } %>
+<% } else { %>
+  <% if (!_rows.length) { %>
+    <p>No recent activity yet.</p>
+  <% } else { %>
+  <div class="analytics-activity-list">
+    <% _rows.forEach(a => { %>
+    <div class="analytics-activity-row">
+      <span class="analytics-activity-icon"><%= a.kind === 'status' ? '↻' : '🛒' %></span>
+      <div><strong><%= a.text %></strong><span><%= fmtDate(a.when) %></span></div>
+      <a class="analytics-view-link" href="/admin/orders/<%= a.orderId %>">View →</a>
+    </div>
+    <% }) %>
+  </div>
+  <% } %>
+<% } %>
+
+<% if (totalPages > 1) { %>
+<div style="margin-top:16px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+  <% if (page > 1) { %><a href="/admin/activity?tab=<%= tab %>&page=<%= page - 1 %>" class="btn-primary" style="text-decoration:none;">&larr; Prev</a><% } %>
+  <% for (let p = 1; p <= totalPages; p++) { %>
+    <% if (p === 1 || p === totalPages || Math.abs(p - page) <= 2) { %>
+      <a href="/admin/activity?tab=<%= tab %>&page=<%= p %>" class="<%= p === page ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;"><%= p %></a>
+    <% } else if (Math.abs(p - page) === 3) { %><span>…</span><% } %>
+  <% } %>
+  <% if (page < totalPages) { %><a href="/admin/activity?tab=<%= tab %>&page=<%= page + 1 %>" class="btn-primary" style="text-decoration:none;">Next &rarr;</a><% } %>
+</div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

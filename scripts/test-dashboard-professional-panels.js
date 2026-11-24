@@ -4,20 +4,21 @@
 // No live MySQL needed: config/db is stubbed in the require cache, the real
 // server.js + routers + EJS render over real HTTP on a throwaway port.
 // Checks (scenario with hand-computed fixture values):
-//   1. Recent activity merges latest orders + status changes, newest first.
-//   2. Phone confirmation queue shows only unconfirmed open orders, oldest
-//      first, with tel: Call links (SQL filter verified in route source).
-//   3. Sales by category matches the Reports computation on the same
+//   1. Sales by category matches the Reports computation on the same
 //      fixture (child sales roll up to the top-level parent; zero-revenue
 //      roots left out), using the dashboard period as query params.
-//   4. Top customers ranks by total spent in the period (registered +
+//   2. Top customers ranks by total spent in the period (registered +
 //      guest, grouped by phone); only registered rows link to detail.
-//   5. Shipped-not-delivered shows Shipped orders oldest first with days
+//   3. Shipped-not-delivered shows Shipped orders oldest first with days
 //      waiting (from the Shipped status change, falling back to order
 //      date) and courier/tracking info.
-//   6. Direct EJS render: empty states for all 5 panels; a full variant
-//      renders one row of each panel.
-//   7. Served CSS: new panel rules present, braces balanced, theme
+//   4. Recent activity + Phone confirmation queue are NOT on the
+//      dashboard any more — they moved to their own paginated page
+//      /admin/activity (PR #47, covered by
+//      scripts/test-activity-phone-page.js); the dashboard links there.
+//   5. Direct EJS render: empty states for the remaining panels; a full
+//      variant renders one row of each remaining panel.
+//   6. Served CSS: new panel rules present, braces balanced, theme
 //      variables only (no hardcoded grey in the new block).
 //
 // Run:  node scripts/test-dashboard-professional-panels.js
@@ -64,24 +65,6 @@ function at(daysAgo, hour) {
 }
 const daysBetween = (d) => Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
 
-// --- activity: orders #10 (today 10:00) and #9 (yesterday 09:00); history
-// rows at today 11:00 (#10 Shipped), 09:00 (#9 Delivered), 08:00 (#8 phone
-// confirmed, old == new so the note is shown).
-const latestOrders = [
-  { id: 10, customer_name: 'Asha', total_amount: 370, created_at: at(0, 10) },
-  { id: 9, customer_name: 'Babu', total_amount: 500, created_at: at(1, 9) },
-];
-const historyRows = [
-  { order_id: 10, old_status: 'Confirmed', new_status: 'Shipped', note: null, changed_by: ADMIN_EMAIL, created_at: at(0, 11) },
-  { order_id: 9, old_status: 'Shipped', new_status: 'Delivered', note: null, changed_by: ADMIN_EMAIL, created_at: at(0, 9) },
-  { order_id: 8, old_status: 'Pending', new_status: 'Pending', note: 'Phone confirmed by admin', changed_by: ADMIN_EMAIL, created_at: at(0, 8) },
-];
-// --- phone queue: #11 oldest unconfirmed, #12 unconfirmed; confirmed and
-// cancelled orders are excluded by the SQL (verified in route source).
-const phoneQueueRows = [
-  { id: 11, customer_name: 'Old One', phone: '01811111111', total_amount: 310, created_at: at(4, 10) },
-  { id: 12, customer_name: 'Second', phone: '01822222222', total_amount: 500, created_at: at(3, 10) },
-];
 // --- categories: Root A (id 1) + child A1 (id 2); Root B (id 3); Root C
 // (id 4, no sales). Sales: child A1 ৳1,000 (order 1), Root A ৳500 (order 2),
 // Root B ৳300 (order 3) => Root A rolls up to ৳1,500 / 2 orders.
@@ -122,12 +105,9 @@ function rowsFor(sql) {
   if (s.includes('FROM admins WHERE email = ?')) {
     return [{ id: 1, email: ADMIN_EMAIL, password: adminHash, role: 'owner' }];
   }
-  // --- dashboard: new professional-panel queries (checked first: several
+  // --- dashboard: professional-panel queries (checked first: several
   //     share fragments with the older summary queries) ---
-  if (s.includes('phone_confirmed')) return s.includes('COUNT(*)') ? [{ c: 2 }] : phoneQueueRows;
   if (s.includes("status = 'Shipped'")) return s.includes('COUNT(*)') ? [{ c: 2 }] : shippedRows;
-  if (s.includes('FROM order_status_history ORDER BY created_at DESC')) return historyRows;
-  if (s.includes('ORDER BY created_at DESC, id DESC LIMIT 10')) return latestOrders;
   if (s.includes('SELECT id, name, parent_id FROM categories')) return categoryRows;
   if (s.includes('GROUP BY products.category_id')) return categorySalesRows;
   if (s.includes('GROUP BY phone')) return topCustomerRows;
@@ -241,9 +221,6 @@ function dashboardLocals(overrides) {
     unreadMessages: 0,
     todaysSummary: { ordersCount: 0, revenue: 0 },
     periodProfit: { totalProfit: 0, totalCost: 0, totalUnits: 0, costedUnits: 0 },
-    recentActivity: [],
-    phoneQueue: [],
-    phoneQueueTotal: 0,
     dashboardCategorySales: [],
     topCustomers: [],
     shippedOrders: [],
@@ -280,31 +257,16 @@ function dashboardLocals(overrides) {
   const dash = await get('/admin/dashboard');
   check('admin dashboard renders 200', dash.status === 200, 'got ' + dash.status);
 
-  // (1) Recent activity: merged, newest first.
-  const act = section(dash.text, 'Recent activity', 'Phone confirmation queue');
-  const iShip10 = act.indexOf('Order #10 — Confirmed → Shipped');
-  const iPlaced10 = act.indexOf('Order #10 placed');
-  const iDeliv9 = act.indexOf('Order #9 — Shipped → Delivered');
-  const iPhone8 = act.indexOf('Order #8 — Phone confirmed by admin');
-  const iPlaced9 = act.indexOf('Order #9 placed');
-  check('activity panel shows the Shipped change for #10', iShip10 >= 0);
-  check('activity merges orders + status changes newest first',
-    iShip10 >= 0 && iPlaced10 > iShip10 && iDeliv9 > iPlaced10 && iPhone8 > iDeliv9 && iPlaced9 > iPhone8,
-    `indexes ${iShip10},${iPlaced10},${iDeliv9},${iPhone8},${iPlaced9}`);
-  check('activity rows link to the order', has(act, '/admin/orders/10'));
-  check('activity shows the placed amount', has(act, 'Order #10 placed — ৳370'));
-
-  // (2) Phone confirmation queue: oldest first, tel: links.
-  const pq = section(dash.text, 'Phone confirmation queue', 'Sales by category');
-  check('phone queue shows oldest order #11 first', has(pq, '#11') && pq.indexOf('#11') < pq.indexOf('#12'));
-  check('phone queue has tel: Call links', has(pq, 'tel:01811111111') && has(pq, '📞 Call'));
-  check('phone queue counts 2 waiting orders', has(pq, '2 order(s) waiting for a call'));
-  check('phone queue links to the orders list', has(pq, '/admin/orders'));
+  // (1)+(2) Recent activity + Phone queue moved to /admin/activity
+  // (PR #47): they must NOT be on the dashboard any more, but the
+  // dashboard must link there. (Covered in full by
+  // scripts/test-activity-phone-page.js.)
+  check('activity panel moved off the dashboard', !has(dash.text, '<h2>Recent activity</h2>'));
+  check('phone queue panel moved off the dashboard', !has(dash.text, '<h2>Phone confirmation queue</h2>'));
+  check('dashboard links to the Calls & Activity page', has(dash.text, '/admin/activity'));
   const adminJs = fs.readFileSync(path.join(__dirname, '..', 'routes', 'admin.js'), 'utf8');
-  check('phone queue SQL only takes unconfirmed orders', adminJs.includes('phone_confirmed = 0') && adminJs.includes("status != 'Cancelled'"));
-  check('phone queue SQL orders oldest first', adminJs.includes('ORDER BY created_at ASC, id ASC LIMIT 10'));
 
-  // (3) Sales by category: same computation as Reports (child rolls up).
+  // (1) Sales by category: same computation as Reports (child rolls up).
   const cat = section(dash.text, 'Sales by category', 'Top customers');
   check('category panel shows Root A rolled up to ৳1,500', has(cat, 'Root A') && has(cat, '৳1,500'));
   check('category panel shows Root B at ৳300', has(cat, 'Root B') && has(cat, '৳300'));
@@ -320,7 +282,7 @@ function dashboardLocals(overrides) {
     Boolean(catCall) && String(catCall[0]).includes('DATE(orders.created_at) BETWEEN ? AND ?') && String(catCall[0]).includes("orders.status != 'Cancelled'") && String(catCall[0]).includes('GROUP_CONCAT(DISTINCT orders.id)'));
   check('category rollup reuses buildCategoryTree like Reports', adminJs.includes('buildCategoryTree(catRows)') && adminJs.includes('roots.filter(r => !r.isOrphan)'));
 
-  // (4) Top customers: ranked by spend, registered links to detail.
+  // (2) Top customers: ranked by spend, registered links to detail.
   const tc = section(dash.text, 'Top customers', 'Shipped — not delivered yet');
   check('top customers ranks Rahim (৳1,500) before the guest', has(tc, 'Rahim') && tc.indexOf('Rahim') < tc.indexOf('Guest Buyer'));
   check('top customers shows ৳1,500 spent', has(tc, '৳1,500'));
@@ -328,7 +290,7 @@ function dashboardLocals(overrides) {
   check('top customers does not link the guest row to a detail page', (tc.match(/\/admin\/customers\//g) || []).length === 1);
   check('top customers SQL groups by phone and orders by spend', adminJs.includes('GROUP BY phone') && adminJs.includes('ORDER BY totalSpent DESC LIMIT 5'));
 
-  // (5) Shipped — not delivered yet.
+  // (3) Shipped — not delivered yet.
   const sh = section(dash.text, 'Shipped — not delivered yet', '</section>');
   check('shipped panel shows #20 before #21 (oldest first)', has(sh, '#20') && sh.indexOf('#20') < sh.indexOf('#21'));
   check('shipped panel shows courier + tracking', has(sh, 'Steadfast') && has(sh, 'TRK1'));
@@ -346,27 +308,20 @@ function dashboardLocals(overrides) {
   check('old card still renders: Pending COD / due', has(dash.text, 'Pending COD / due'));
   check('old panel still renders: Sales trend', has(dash.text, 'Sales trend'));
 
-  // Direct EJS render: (a) all five panels empty.
+  // Direct EJS render: (a) the three remaining panels empty.
   console.log('Direct EJS render (dashboard.ejs)');
   const renderFile = util.promisify(ejs.renderFile);
   const emptyHtml = await renderFile(path.join(__dirname, '..', 'views', 'admin', 'dashboard.ejs'), dashboardLocals());
-  check('empty: recent activity empty state', has(emptyHtml, 'No recent activity yet.'));
-  check('empty: phone queue empty state', has(emptyHtml, 'All open orders are phone-confirmed.'));
   check('empty: category empty state', has(emptyHtml, 'No category sales in this period.'));
   check('empty: top customers empty state', has(emptyHtml, 'No customer orders in this period.'));
   check('empty: shipped empty state', has(emptyHtml, 'No orders are waiting for delivery.'));
-  // (b) full variant: one row of each panel renders.
+  // (b) full variant: one row of each remaining panel renders.
   const fullHtml = await renderFile(path.join(__dirname, '..', 'views', 'admin', 'dashboard.ejs'), dashboardLocals({
-    recentActivity: [{ kind: 'order', orderId: 10, text: 'Order #10 placed — ৳370', when: new Date() }],
-    phoneQueue: [{ id: 11, customer_name: 'Old One', phone: '01811111111', total_amount: 310, created_at: new Date() }],
-    phoneQueueTotal: 1,
     dashboardCategorySales: [{ id: 1, name: 'Root A', orders: 2, items: 3, revenue: 1500, cost: 900, profit: 600 }],
     topCustomers: [{ phone: '01811111111', customer_name: 'Rahim', user_id: 7, orderCount: 2, totalSpent: 1500 }],
     shippedOrders: [{ id: 20, customer_name: 'Ship One', phone: '01811111111', total_amount: 370, courier_name: 'Steadfast', tracking_number: 'TRK1', created_at: new Date(), daysSinceShipped: 4 }],
     shippedTotal: 1,
   }));
-  check('full variant: activity row renders', has(fullHtml, 'Order #10 placed — ৳370'));
-  check('full variant: phone row renders with Call link', has(fullHtml, 'tel:01811111111'));
   check('full variant: category bar renders with ৳1,500', has(fullHtml, 'Root A') && has(fullHtml, '৳1,500'));
   check('full variant: top customer renders with detail link', has(fullHtml, '/admin/customers/7'));
   check('full variant: shipped row renders with tracking', has(fullHtml, 'TRK1') && has(fullHtml, '4 day(s)'));
