@@ -1325,48 +1325,25 @@ async function recordStatusChange(orderId, oldStatus, newStatus, note, changedBy
 }
 
 // ---------- ORDERS LIST ----------
-router.get('/orders', requireAdmin, requireRole('ordersView'), async (req, res) => {
-  const { q, status, date_from, date_to } = req.query;
-  const where = [];
-  const params = [];
-  if (q) {
-    const idNum = parseInt(q.replace(/\D/g, ''), 10);
-    if (!isNaN(idNum) && String(idNum) === q.trim().replace(/^#/, '')) {
-      where.push('(id = ? OR customer_name LIKE ? OR phone LIKE ?)');
-      params.push(idNum, '%' + q + '%', '%' + q + '%');
-    } else {
-      where.push('(customer_name LIKE ? OR phone LIKE ?)');
-      params.push('%' + q + '%', '%' + q + '%');
-    }
-  }
-  if (status) { where.push('status = ?'); params.push(status); }
-  if (date_from) { where.push('DATE(created_at) >= ?'); params.push(date_from); }
-  if (date_to) { where.push('DATE(created_at) <= ?'); params.push(date_to); }
-  const sql = 'SELECT * FROM orders' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created_at DESC';
-  const [orders] = await db.query(sql, params);
-  // Orders Pro 2: COD collected vs pending totals for the list header
-  // (pending = COD, not collected, not cancelled). Guarded — cod_collected
-  // does not exist until the migration runs.
-  let codTotals = { collected: 0, pending: 0 };
-  try {
-    const [[ct]] = await db.query(`SELECT
-      COALESCE(SUM(CASE WHEN payment_method = 'Cash on Delivery' AND cod_collected = 1 THEN total_amount ELSE 0 END), 0) AS collected,
-      COALESCE(SUM(CASE WHEN payment_method = 'Cash on Delivery' AND (cod_collected = 0 OR cod_collected IS NULL) AND status != 'Cancelled' THEN total_amount ELSE 0 END), 0) AS pending
-      FROM orders`);
-    codTotals = { collected: Number(ct.collected || 0), pending: Number(ct.pending || 0) };
-  } catch (e) { /* cod_collected column not migrated yet — totals stay 0 */ }
-  // Orders Pro 2: cancelled-order count per phone, for the fake-order warning badge.
-  const cancelCounts = {};
-  try {
-    const [ccRows] = await db.query("SELECT phone, SUM(status = 'Cancelled') AS cancelled FROM orders GROUP BY phone");
-    ccRows.forEach(r => { cancelCounts[r.phone] = Number(r.cancelled || 0); });
-  } catch (e) { /* keep empty */ }
-  const listMsg = req.query.msg === 'bulk-updated' ? 'Selected orders updated.' : null;
-  const listErr = req.query.err === 'invalid-status' ? 'That order status is not valid.' :
-    req.query.err === 'no-orders' ? 'Select at least one order first.' :
-    req.query.err === 'cancel-reason' ? 'A cancel reason is required when cancelling orders.' : null;
-  res.render('admin/orders', { orders, codTotals, cancelCounts, listMsg, listErr, siteName: 'Goince', q: q || '', status: status || '', date_from: date_from || '', date_to: date_to || '' });
+router.get('/orders', requireAdmin, requireRole('ordersView'), (req, res) => {
+  // The old Orders list moved — the Invoices page (renamed "Orders" in the
+  // sidebar) is now the one list. Old bookmarks / dashboard links land here.
+  res.redirect('/admin/invoices');
 });
+
+// ---------- INVOICES (now the Orders page) ----------
+// return_to: the invoices list URL the user came from (e.g.
+// /admin/invoices?tab=all&page=1). Only same-site /admin/invoices URLs are
+// honoured — anything else falls back to the order details page, so a
+// crafted form cannot redirect elsewhere.
+function invoicesReturnTo(req) {
+  const r = String((req.body && req.body.return_to) || '');
+  if (/^\/admin\/invoices(\?[^#]*)?$/.test(r)) return r;
+  return null;
+}
+function withQuery(url, key, value) {
+  return url + (url.includes('?') ? '&' : '?') + key + '=' + value;
+}
 
 // ---------- INVOICES ----------
 // An invoice IS an order (invoice no. GOINCE-00035 = order #35) — no separate
@@ -1446,7 +1423,17 @@ router.get('/invoices', requireAdmin, requireRole('ordersView'), async (req, res
     paid: paidAmount(o, advancesByOrder[o.id] || 0),
     due: dueAmount(o, advancesByOrder[o.id] || 0),
   }));
-  res.render('admin/invoices', { rows, tab, page: safePage, totalPages, totalCount, perPage: PER_PAGE, siteName: 'Goince' });
+  // Inline actions on this list (status / cancel / mark paid) redirect back
+  // here with ?msg= / ?err= — show them like the old orders list did.
+  const listMsg = req.query.msg === 'status-updated' ? 'Order status updated.' :
+    req.query.msg === 'advance-saved' ? 'Advance payment recorded.' :
+    req.query.msg === 'cod-collected' ? 'COD cash marked as collected — payment status set to Paid.' : null;
+  const listErr = req.query.err === 'cancel-reason' ? 'A cancel reason is required when cancelling orders.' :
+    req.query.err === 'invalid-status' ? 'That order status is not valid.' :
+    req.query.err === 'bad-amount' ? 'Enter an advance amount greater than 0.' :
+    req.query.err === 'not-cod' ? 'COD collection only applies to Cash on Delivery orders.' :
+    req.query.err === 'already-collected' ? 'COD cash was already marked as collected.' : null;
+  res.render('admin/invoices', { rows, tab, page: safePage, totalPages, totalCount, perPage: PER_PAGE, listMsg, listErr, siteName: 'Goince' });
 });
 
 // ---------- ORDER DETAILS ----------
@@ -1533,9 +1520,13 @@ router.get('/orders/:id/invoice.pdf', requireAdmin, requireRole('ordersView'), a
 router.post('/orders/:id/advance', requireAdmin, requireRole('orders'), async (req, res) => {
   const amount = parseFloat(req.body.amount);
   const note = (req.body.note || '').trim();
-  if (isNaN(amount) || amount <= 0) return res.redirect('/admin/orders/' + req.params.id + '?err=bad-amount');
+  // From the invoices list (return_to) go back there; from the details page
+  // keep the old redirect to the details page.
+  const back = invoicesReturnTo(req);
+  const dest = back || ('/admin/orders/' + req.params.id);
+  if (isNaN(amount) || amount <= 0) return res.redirect(withQuery(dest, 'err', 'bad-amount'));
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
-  if (!order) return res.redirect('/admin/orders');
+  if (!order) return res.redirect('/admin/invoices');
   await db.query(
     'INSERT INTO order_payments (order_id, amount, note, created_by) VALUES (?, ?, ?, ?)',
     [req.params.id, amount, note || null, req.session.adminEmail || null]
@@ -1548,7 +1539,7 @@ router.post('/orders/:id/advance', requireAdmin, requireRole('orders'), async (r
   } else if (inv && inv.due > 0 && order.payment_status === 'Unpaid') {
     await db.query("UPDATE orders SET payment_status = 'Partial' WHERE id = ?", [req.params.id]);
   }
-  res.redirect('/admin/orders/' + req.params.id + '?msg=advance-saved');
+  res.redirect(back ? withQuery(back, 'msg', 'advance-saved') : dest + '?msg=advance-saved');
 });
 
 // ---------- SEND INVOICE BY EMAIL (PDF attached) ----------
@@ -1608,14 +1599,18 @@ router.get('/orders/:id/packing-slip', requireAdmin, requireRole('ordersView'), 
 // ---------- UPDATE ORDER STATUS ----------
 router.post('/orders/:id/status', requireAdmin, requireRole('orders'), async (req, res) => {
   const { status, cancel_reason } = req.body;
-  if (!ORDER_STATUSES.includes(status)) return res.redirect('/admin/orders/' + req.params.id + '?err=invalid-status');
+  // From the invoices list (return_to) go back there; from the details page
+  // keep the old redirect to the details page.
+  const back = invoicesReturnTo(req);
+  const dest = back || ('/admin/orders/' + req.params.id);
+  if (!ORDER_STATUSES.includes(status)) return res.redirect(withQuery(dest, 'err', 'invalid-status'));
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
-  if (!order) return res.redirect('/admin/orders');
+  if (!order) return res.redirect('/admin/invoices');
   const reason = (cancel_reason || '').trim();
-  if (status === 'Cancelled' && !reason) return res.redirect('/admin/orders/' + req.params.id + '?err=cancel-reason');
+  if (status === 'Cancelled' && !reason) return res.redirect(withQuery(dest, 'err', 'cancel-reason'));
   await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id = ?', [status, status === 'Cancelled' ? reason : null, req.params.id]);
   await recordStatusChange(req.params.id, order.status, status, status === 'Cancelled' ? ('Cancelled: ' + reason) : null, req.session.adminEmail);
-  res.redirect('/admin/orders/' + req.params.id);
+  res.redirect(back ? withQuery(back, 'msg', 'status-updated') : dest);
 });
 
 // ---------- BULK UPDATE ORDER STATUS ----------
@@ -1669,13 +1664,17 @@ router.post('/orders/:id/sms', requireAdmin, requireRole('orders'), async (req, 
 // revenue counts it. Guarded — the columns do not exist until migrated.
 router.post('/orders/:id/cod-collected', requireAdmin, requireRole('orders'), async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
-  if (!order) return res.redirect('/admin/orders');
-  if (order.payment_method !== 'Cash on Delivery') return res.redirect('/admin/orders/' + req.params.id + '?err=not-cod');
-  if (order.cod_collected) return res.redirect('/admin/orders/' + req.params.id + '?err=already-collected');
+  if (!order) return res.redirect('/admin/invoices');
+  // From the invoices list (return_to) go back there; from the details page
+  // keep the old redirect to the details page.
+  const back = invoicesReturnTo(req);
+  const dest = back || ('/admin/orders/' + req.params.id);
+  if (order.payment_method !== 'Cash on Delivery') return res.redirect(withQuery(dest, 'err', 'not-cod'));
+  if (order.cod_collected) return res.redirect(withQuery(dest, 'err', 'already-collected'));
   try {
     await db.query("UPDATE orders SET cod_collected = 1, cod_collected_at = NOW(), payment_status = 'Paid' WHERE id = ?", [req.params.id]);
-  } catch (e) { return res.redirect('/admin/orders/' + req.params.id + '?err=not-cod'); }
-  res.redirect('/admin/orders/' + req.params.id + '?msg=cod-collected');
+  } catch (e) { return res.redirect(withQuery(dest, 'err', 'not-cod')); }
+  res.redirect(back ? withQuery(back, 'msg', 'cod-collected') : dest + '?msg=cod-collected');
 });
 
 // ---------- UNDO MARK COD CASH AS COLLECTED ----------
