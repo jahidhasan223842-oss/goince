@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { getCourierConfig, createConsignment, getTrackingStatus } = require('../lib/courier');
+const { sendSms, SMS_NOT_CONFIGURED } = require('../lib/sms');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
@@ -1302,6 +1303,20 @@ router.post('/categories/import', requireAdmin, requireRole('products'), upload.
   res.render('admin/import-categories', { result: { added, skipped, errors: errors.slice(0, 10) }, siteName: 'Goince' });
 });
 
+// ---------- ORDERS PRO: status history helper ----------
+// Records every order status change (old -> new, when, by whom, note).
+// Tables are created by sql/add_orders_pro.sql and by server.js on start;
+// if the table is missing (very old DB), the insert is skipped silently.
+const ORDER_STATUSES = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+async function recordStatusChange(orderId, oldStatus, newStatus, note, changedBy) {
+  try {
+    await db.query(
+      'INSERT INTO order_status_history (order_id, old_status, new_status, note, changed_by) VALUES (?, ?, ?, ?, ?)',
+      [orderId, oldStatus || null, newStatus, note || null, changedBy || null]
+    );
+  } catch (e) { /* history table not migrated yet — status change still stands */ }
+}
+
 // ---------- ORDERS LIST ----------
 router.get('/orders', requireAdmin, requireRole('ordersView'), async (req, res) => {
   const { q, status, date_from, date_to } = req.query;
@@ -1322,7 +1337,11 @@ router.get('/orders', requireAdmin, requireRole('ordersView'), async (req, res) 
   if (date_to) { where.push('DATE(created_at) <= ?'); params.push(date_to); }
   const sql = 'SELECT * FROM orders' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created_at DESC';
   const [orders] = await db.query(sql, params);
-  res.render('admin/orders', { orders, siteName: 'Goince', q: q || '', status: status || '', date_from: date_from || '', date_to: date_to || '' });
+  const listMsg = req.query.msg === 'bulk-updated' ? 'Selected orders updated.' : null;
+  const listErr = req.query.err === 'invalid-status' ? 'That order status is not valid.' :
+    req.query.err === 'no-orders' ? 'Select at least one order first.' :
+    req.query.err === 'cancel-reason' ? 'A cancel reason is required when cancelling orders.' : null;
+  res.render('admin/orders', { orders, listMsg, listErr, siteName: 'Goince', q: q || '', status: status || '', date_from: date_from || '', date_to: date_to || '' });
 });
 
 // ---------- ORDER DETAILS ----------
@@ -1332,6 +1351,10 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
   const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
   const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
   const courier = await getCourierConfig(db);
+  let history = [];
+  let notes = [];
+  try { [history] = await db.query('SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
+  try { [notes] = await db.query('SELECT * FROM order_notes WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
   const courierMsg = req.query.courier === 'created' ? 'Consignment created with ' + (order.courier_name || 'the courier') + ' — tracking ' + (order.tracking_number || '') + '.' :
     req.query.courier === 'failed' ? 'Courier API call failed — check the API keys in Settings > Courier API and try again.' :
     req.query.courier === 'not-configured' ? 'Courier API is not configured yet — add the API keys in Settings > Courier API first.' :
@@ -1339,13 +1362,80 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
     req.query.courier === 'status-updated' ? 'Tracking status updated from the courier.' :
     req.query.courier === 'status-failed' ? 'Could not fetch the tracking status — check the API keys and try again.' :
     req.query.courier === 'no-consignment' ? 'This order has no consignment yet — create one first.' : null;
-  res.render('admin/order-details', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
+  const orderMsg = req.query.msg === 'phone-confirmed' ? 'Phone confirmed — order marked as confirmed by phone.' :
+    req.query.msg === 'note-saved' ? 'Admin note saved.' :
+    req.query.msg === 'sms-not-connected' ? SMS_NOT_CONFIGURED :
+    req.query.msg === 'bulk-updated' ? 'Selected orders updated.' : null;
+  const orderErr = req.query.err === 'cancel-reason' ? 'A cancel reason is required when cancelling an order.' :
+    req.query.err === 'invalid-status' ? 'That order status is not valid.' :
+    req.query.err === 'no-orders' ? 'Select at least one order first.' : null;
+  res.render('admin/order-details', { order, items, history, notes, orderMsg, orderErr, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
+});
+
+// ---------- PRINTABLE INVOICE (separate print-friendly page) ----------
+router.get('/orders/:id/invoice', requireAdmin, requireRole('ordersView'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
+  const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
+  res.render('admin/order-invoice', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
 });
 
 // ---------- UPDATE ORDER STATUS ----------
 router.post('/orders/:id/status', requireAdmin, requireRole('orders'), async (req, res) => {
-  const { status } = req.body;
-  await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
+  const { status, cancel_reason } = req.body;
+  if (!ORDER_STATUSES.includes(status)) return res.redirect('/admin/orders/' + req.params.id + '?err=invalid-status');
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  const reason = (cancel_reason || '').trim();
+  if (status === 'Cancelled' && !reason) return res.redirect('/admin/orders/' + req.params.id + '?err=cancel-reason');
+  await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id = ?', [status, status === 'Cancelled' ? reason : null, req.params.id]);
+  await recordStatusChange(req.params.id, order.status, status, status === 'Cancelled' ? ('Cancelled: ' + reason) : null, req.session.adminEmail);
+  res.redirect('/admin/orders/' + req.params.id);
+});
+
+// ---------- BULK UPDATE ORDER STATUS ----------
+router.post('/orders/bulk-status', requireAdmin, requireRole('orders'), async (req, res) => {
+  const { status, cancel_reason } = req.body;
+  if (!ORDER_STATUSES.includes(status)) return res.redirect('/admin/orders?err=invalid-status');
+  let ids = req.body.order_ids || [];
+  if (!Array.isArray(ids)) ids = [ids];
+  ids = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  if (ids.length === 0) return res.redirect('/admin/orders?err=no-orders');
+  const reason = (cancel_reason || '').trim();
+  if (status === 'Cancelled' && !reason) return res.redirect('/admin/orders?err=cancel-reason');
+  const [orders] = await db.query('SELECT id, status FROM orders WHERE id IN (' + ids.map(() => '?').join(',') + ')', ids);
+  await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id IN (' + ids.map(() => '?').join(',') + ')', [status, status === 'Cancelled' ? reason : null, ...ids]);
+  for (const o of orders) await recordStatusChange(o.id, o.status, status, status === 'Cancelled' ? ('Cancelled (bulk): ' + reason) : 'Bulk status update', req.session.adminEmail);
+  res.redirect('/admin/orders?msg=bulk-updated');
+});
+
+// ---------- MARK ORDER AS PHONE-CONFIRMED ----------
+router.post('/orders/:id/phone-confirmed', requireAdmin, requireRole('orders'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  await db.query('UPDATE orders SET phone_confirmed = 1, phone_confirmed_at = NOW() WHERE id = ?', [req.params.id]);
+  await recordStatusChange(req.params.id, order.status, order.status, 'Phone confirmed by admin', req.session.adminEmail);
+  res.redirect('/admin/orders/' + req.params.id + '?msg=phone-confirmed');
+});
+
+// ---------- ADD ADMIN NOTE ----------
+router.post('/orders/:id/notes', requireAdmin, requireRole('orders'), async (req, res) => {
+  const note = (req.body.note || '').trim();
+  if (!note) return res.redirect('/admin/orders/' + req.params.id);
+  try {
+    await db.query('INSERT INTO order_notes (order_id, note, created_by) VALUES (?, ?, ?)', [req.params.id, note, req.session.adminEmail || null]);
+  } catch (e) { return res.redirect('/admin/orders/' + req.params.id); }
+  res.redirect('/admin/orders/' + req.params.id + '?msg=note-saved');
+});
+
+// ---------- SEND SMS UPDATE (placeholder — no provider connected) ----------
+router.post('/orders/:id/sms', requireAdmin, requireRole('orders'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  const message = 'Goince: your order #' + order.id + ' is ' + order.status + '.';
+  const result = await sendSms(order.phone, message);
+  if (!result.ok) return res.redirect('/admin/orders/' + req.params.id + '?msg=sms-not-connected');
   res.redirect('/admin/orders/' + req.params.id);
 });
 

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice #<%= order.id %> - <%= siteName %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { background: #fff; color: #111; }
+    .invoice-page { max-width: 800px; margin: 24px auto; padding: 0 16px; }
+    .invoice-actions { margin-bottom: 16px; }
+    @media print { .invoice-actions { display: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="invoice-page">
+    <div class="invoice-actions">
+      <button onclick="window.print()" class="btn-primary">🖨️ Print / Save as PDF</button>
+      <a href="/admin/orders/<%= order.id %>" class="back-link">&larr; Back to Order</a>
+    </div>
+
+    <div class="invoice-doc">
+      <div class="invoice-doc-header">
+        <div class="invoice-brand">
+          <img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-512.png' %>" alt="<%= siteName %>" class="invoice-logo">
+          <div>
+            <h2><%= siteName %></h2>
+            <p class="invoice-brand-tagline">Online Shop</p>
+          </div>
+        </div>
+        <div class="invoice-meta">
+          <h1>INVOICE</h1>
+          <p><span>Invoice No.</span> #<%= order.id %></p>
+          <p><span>Date</span> <%= new Date(order.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></p>
+          <p><span>Status</span> <%= order.status %></p>
+        </div>
+      </div>
+
+      <div class="invoice-divider"></div>
+
+      <div class="invoice-box">
+        <div class="invoice-grid">
+          <div>
+            <h3>Billed To</h3>
+            <p class="invoice-lead"><%= order.customer_name %></p>
+            <p><%= order.phone %></p>
+            <% if (order.email) { %><p><%= order.email %></p><% } %>
+            <p><%= order.address %></p>
+            <% if (order.delivery_zone) { %><p>Delivery Zone: <%= order.delivery_zone %></p><% } %>
+          </div>
+          <div>
+            <h3>Order Details</h3>
+            <p><span>Payment Method</span><%= order.payment_method %></p>
+            <p><span>Payment Status</span><%= order.payment_status %></p>
+            <% if (order.transaction_id) { %><p><span>Transaction ID</span><%= order.transaction_id %></p><% } %>
+            <% if (order.coupon_code) { %><p><span>Coupon Used</span><%= order.coupon_code %></p><% } %>
+            <% if (order.courier_name) { %><p><span>Courier</span><%= order.courier_name %></p><% } %>
+            <% if (order.tracking_number) { %><p><span>Tracking No.</span><%= order.tracking_number %></p><% } %>
+          </div>
+        </div>
+      </div>
+
+      <table class="invoice-items-table">
+        <thead><tr><th>Product</th><th class="align-right">Price</th><th class="align-center">Qty</th><th class="align-right">Subtotal</th></tr></thead>
+        <tbody>
+          <% let subtotal = 0; %>
+          <% items.forEach(item => { const lineTotal = item.price * item.quantity; subtotal += lineTotal; %>
+            <tr>
+              <td><%= item.product_name %><% if (item.variant_label) { %><br><span class="invoice-item-variant"><%= item.variant_label %></span><% } %></td>
+              <td class="align-right">৳<%= Number(item.price).toFixed(2) %></td>
+              <td class="align-center"><%= item.quantity %></td>
+              <td class="align-right">৳<%= lineTotal.toFixed(2) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+
+      <div class="invoice-total-box">
+        <p><span>Subtotal</span><span>৳<%= subtotal.toFixed(2) %></span></p>
+        <% if (order.discount_amount && order.discount_amount > 0) { %>
+          <p class="discount-line"><span>Discount <%= order.coupon_code ? '(' + order.coupon_code + ')' : '' %></span><span>- ৳<%= Number(order.discount_amount).toFixed(2) %></span></p>
+        <% } %>
+        <p><span>Delivery Charge</span><span>৳<%= Number(order.delivery_charge || 0).toFixed(2) %></span></p>
+        <p class="invoice-grand-total"><span>Total</span><span>৳<%= Number(order.total_amount).toFixed(2) %></span></p>
+      </div>
+
+      <div class="invoice-doc-footer">
+        <p class="invoice-thanks">Thank you for shopping with <%= siteName %>!</p>
+        <p class="invoice-contact">For any questions about this order, call us at <%= shopPhone %></p>
+        <p class="invoice-note">This is a computer-generated invoice and does not require a signature.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

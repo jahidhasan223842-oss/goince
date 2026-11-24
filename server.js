@@ -142,6 +142,34 @@ const SITE_SETTING_DEFAULTS = {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )`);
+    // Orders Pro: status history + admin notes tables, and new orders columns
+    // (delivery zone, phone confirmation, cancel reason).
+    await db.query(`CREATE TABLE IF NOT EXISTS order_status_history (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      old_status VARCHAR(50) DEFAULT NULL,
+      new_status VARCHAR(50) NOT NULL,
+      note VARCHAR(255) DEFAULT NULL,
+      changed_by VARCHAR(100) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS order_notes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      note TEXT NOT NULL,
+      created_by VARCHAR(100) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`);
+    const [ordCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'");
+    const ordNames = new Set(ordCols.map(c => c.COLUMN_NAME));
+    for (const [col, def] of [
+      ['delivery_zone', 'VARCHAR(100) DEFAULT NULL'],
+      ['phone_confirmed', 'TINYINT(1) NOT NULL DEFAULT 0'],
+      ['phone_confirmed_at', 'DATETIME DEFAULT NULL'],
+      ['cancel_reason', 'VARCHAR(255) DEFAULT NULL']
+    ]) if (!ordNames.has(col)) await db.query(`ALTER TABLE orders ADD COLUMN ${col} ${def}`);
     // payment_methods-e payment type + instructions column (purono table-e na thakle jog kora)
     const [pmCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_methods'");
     const pmNames = pmCols.map(c => c.COLUMN_NAME);

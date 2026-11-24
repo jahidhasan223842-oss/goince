@@ -805,9 +805,9 @@ router.post('/checkout', async (req, res) => {
     await connection.beginTransaction();
 
     const [orderResult] = await connection.query(
-      `INSERT INTO orders (user_id, customer_name, email, phone, address, payment_method, transaction_id, delivery_charge, coupon_code, discount_amount, total_amount)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, customer_name, email || null, normalizedPhone, address, payment_method || 'Cash on Delivery', transaction_id || null, deliveryCharge, coupon ? coupon.code : null, discount, total]
+      `INSERT INTO orders (user_id, customer_name, email, phone, address, payment_method, transaction_id, delivery_zone, delivery_charge, coupon_code, discount_amount, total_amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, customer_name, email || null, normalizedPhone, address, payment_method || 'Cash on Delivery', transaction_id || null, zone ? zone.name : null, deliveryCharge, coupon ? coupon.code : null, discount, total]
     );
     const orderId = orderResult.insertId;
 

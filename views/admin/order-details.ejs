@@ -5,6 +5,7 @@
   <div>
     <span class="status-badge status-<%= order.status.toLowerCase() %>"><%= order.status %></span>
     <button onclick="window.print()" class="btn-primary" style="margin-left:10px;">🖨️ Print Invoice</button>
+    <a href="/admin/orders/<%= order.id %>/invoice" target="_blank" class="btn-primary" style="margin-left:6px;">📄 Invoice (Print / PDF)</a>
   </div>
 </div>
 
@@ -32,9 +33,13 @@
       <div>
         <h3>Billed To</h3>
         <p class="invoice-lead"><%= order.customer_name %></p>
-        <p><%= order.phone %></p>
+        <p><a href="tel:<%= order.phone %>"><%= order.phone %></a> <a href="tel:<%= order.phone %>" class="btn-primary" style="padding:4px 10px; text-decoration:none;">📞 Call</a></p>
+        <% if (order.phone_confirmed) { %>
+          <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <small><%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></small></p>
+        <% } %>
         <% if (order.email) { %><p><%= order.email %></p><% } %>
         <p><%= order.address %></p>
+        <% if (order.delivery_zone) { %><p><span>Delivery Zone</span><%= order.delivery_zone %></p><% } %>
       </div>
       <div>
         <h3>Order Details</h3>
@@ -51,21 +56,30 @@
   </div>
 
   <table class="invoice-items-table">
-    <thead><tr><th>Product</th><th class="align-right">Price</th><th class="align-center">Qty</th><th class="align-right">Subtotal</th></tr></thead>
+    <thead><tr><th>Product</th><th class="align-right">Price</th><th class="align-center">Qty</th><th class="align-right invoice-cost-col">Cost</th><th class="align-right invoice-cost-col">Profit</th><th class="align-right">Subtotal</th></tr></thead>
     <tbody>
-      <% let subtotal = 0; %>
+      <% let subtotal = 0; let totalCost = 0; let totalProfit = 0; %>
       <% items.forEach(item => {
            const lineTotal = item.price * item.quantity;
            subtotal += lineTotal;
+           const lineCost = (item.cost_price != null) ? item.cost_price * item.quantity : null;
+           const lineProfit = (lineCost != null) ? lineTotal - lineCost : null;
+           if (lineCost != null) totalCost += lineCost;
+           if (lineProfit != null) totalProfit += lineProfit;
       %>
         <tr>
           <td><%= item.product_name %><% if (item.variant_label) { %><br><span class="invoice-item-variant"><%= item.variant_label %></span><% } %></td>
           <td class="align-right">৳<%= Number(item.price).toFixed(2) %></td>
           <td class="align-center"><%= item.quantity %></td>
+          <td class="align-right invoice-cost-col"><%= lineCost != null ? '৳' + lineCost.toFixed(2) : '—' %></td>
+          <td class="align-right invoice-cost-col"><%= lineProfit != null ? '৳' + lineProfit.toFixed(2) : '—' %></td>
           <td class="align-right">৳<%= lineTotal.toFixed(2) %></td>
         </tr>
       <% }) %>
     </tbody>
+    <tfoot>
+      <tr><td colspan="3" class="align-right"><strong>Totals</strong></td><td class="align-right invoice-cost-col"><strong>৳<%= totalCost.toFixed(2) %></strong></td><td class="align-right invoice-cost-col"><strong>৳<%= totalProfit.toFixed(2) %></strong></td><td class="align-right"><strong>৳<%= subtotal.toFixed(2) %></strong></td></tr>
+    </tfoot>
   </table>
 
   <div class="invoice-total-box">
@@ -85,17 +99,42 @@
 </div>
 
 <% const _role = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
+<% if (typeof orderMsg !== 'undefined' && orderMsg) { %><p class="success-msg" style="text-align:left;"><%= orderMsg %></p><% } %>
+<% if (typeof orderErr !== 'undefined' && orderErr) { %><p class="error-msg" style="text-align:left;"><%= orderErr %></p><% } %>
+<% if (order.status === 'Cancelled' && order.cancel_reason) { %>
+  <p style="margin-top:16px;"><strong>Cancel reason:</strong> <%= order.cancel_reason %></p>
+<% } %>
 <% if (_role !== 'staff') { %>
 <div class="no-print">
   <h3 style="margin-top:30px;">Update Order Status</h3>
   <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-    <select name="status">
+    <select name="status" id="order-status-select">
       <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
         <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s %></option>
       <% }) %>
     </select>
+    <input type="text" name="cancel_reason" id="order-cancel-reason" placeholder="Cancel reason (required if Cancelling)" style="min-width:260px; display:none;">
     <button type="submit" class="btn-primary">Update Status</button>
   </form>
+  <script>
+    (function () {
+      var sel = document.getElementById('order-status-select');
+      var input = document.getElementById('order-cancel-reason');
+      function toggle() { var show = sel.value === 'Cancelled'; input.style.display = show ? '' : 'none'; input.required = show; }
+      sel.addEventListener('change', toggle); toggle();
+    })();
+  </script>
+
+  <h3 style="margin-top:24px;">📞 Phone Confirmation</h3>
+  <% if (order.phone_confirmed) { %>
+    <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></p>
+  <% } else { %>
+    <form action="/admin/orders/<%= order.id %>/phone-confirmed" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+      <a href="tel:<%= order.phone %>" class="btn-primary" style="text-decoration:none;">📞 Call <%= order.phone %></a>
+      <button type="submit" class="btn-primary" style="margin-left:8px;">✓ Phone Confirmed</button>
+    </form>
+    <p class="field-hint">Call the customer first, then mark the order as confirmed by phone.</p>
+  <% } %>
 
   <h3 style="margin-top:24px;">Update Payment Status</h3>
   <form action="/admin/orders/<%= order.id %>/payment-status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
@@ -138,6 +177,49 @@
   <% } else { %>
     <p class="field-hint">Courier API is not set up yet — set the provider and API keys in <a href="/admin/settings">Settings &gt; Courier API</a> to book parcels in one click. The manual courier/tracking fields above keep working.</p>
   <% } %>
+
+  <h3 style="margin-top:24px;">🕒 Status Timeline</h3>
+  <% if (typeof history !== 'undefined' && history.length) { %>
+    <ul>
+      <% history.forEach(h => { %>
+        <li>
+          <strong><%= h.old_status ? h.old_status + ' → ' : '' %><%= h.new_status %></strong>
+          — <%= new Date(h.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+          <% if (h.changed_by) { %> by <%= h.changed_by %><% } %>
+          <% if (h.note) { %><br><small><%= h.note %></small><% } %>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p class="field-hint">No status changes recorded yet — the first change will appear here with its time.</p>
+  <% } %>
+
+  <h3 style="margin-top:24px;">📝 Admin Notes</h3>
+  <% if (typeof notes !== 'undefined' && notes.length) { %>
+    <ul>
+      <% notes.forEach(n => { %>
+        <li><%= n.note %><br><small><%= new Date(n.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (n.created_by) { %> — <%= n.created_by %><% } %></small></li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p class="field-hint">No notes yet.</p>
+  <% } %>
+  <% if (_role !== 'staff') { %>
+  <form action="/admin/orders/<%= order.id %>/notes" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
+    <label>Add a Note</label>
+    <textarea name="note" rows="2" placeholder="e.g. Customer did not pick up the phone — try again tomorrow." required></textarea>
+    <button type="submit" class="btn-primary">Save Note</button>
+  </form>
+  <% } %>
+
+  <h3 style="margin-top:24px;">💬 SMS Update</h3>
+  <p class="field-hint">Sends the customer a text about this order's status (e.g. "Your order #<%= order.id %> is <%= order.status %>").</p>
+  <% if (_role !== 'staff') { %>
+  <form action="/admin/orders/<%= order.id %>/sms" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
+    <button type="submit" class="btn-primary">📩 Send SMS Update</button>
+  </form>
+  <% } %>
+  <p class="field-hint">SMS provider is not connected yet — the button shows that message instead of sending anything. No SMS is sent and no money is spent.</p>
 
   <a href="/admin/orders" class="back-link">&larr; Back to Orders</a>
 
