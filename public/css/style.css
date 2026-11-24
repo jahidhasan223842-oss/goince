@@ -416,6 +416,7 @@ a { text-decoration: none; color: inherit; }
 
 @media print {
   .admin-sidebar, .no-print, .site-header, .site-footer, .theme-toggle-btn, .theme-toggle-fixed { display: none !important; }
+  .invoice-cost-col { display: none !important; }
   .admin-content { padding: 0; }
   .only-print { display: block; }
   body { background: #fff; }

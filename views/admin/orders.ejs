@@ -2,6 +2,9 @@
 
 <h1>Orders</h1>
 
+<% if (typeof listMsg !== 'undefined' && listMsg) { %><p class="success-msg" style="text-align:left;"><%= listMsg %></p><% } %>
+<% if (typeof listErr !== 'undefined' && listErr) { %><p class="error-msg" style="text-align:left;"><%= listErr %></p><% } %>
+
 <form method="GET" action="/admin/orders" class="admin-search-form" style="flex-wrap:wrap;">
   <input type="text" name="q" value="<%= q || '' %>" placeholder="Search by order ID, name or phone..." style="min-width:220px;">
   <select name="status">
@@ -19,17 +22,20 @@
 <% if (orders.length === 0) { %>
   <p>No orders found. Try clearing the filters.</p>
 <% } else { %>
+<form method="POST" action="/admin/orders/bulk-status" id="bulk-status-form"><%- include('../partials/csrf-field') %>
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
-    <tr><th>ID</th><th>Customer</th><th>Phone</th><th>Total</th><th>Status</th><th>Payment</th><th>Date</th><th></th></tr>
+    <tr><th><input type="checkbox" id="select-all-orders" title="Select all"></th><th>ID</th><th>Customer</th><th>Phone</th><th>Delivery</th><th>Total</th><th>Status</th><th>Payment</th><th>Date</th><th></th></tr>
   </thead>
   <tbody>
     <% orders.forEach(o => { %>
       <tr>
+        <td><input type="checkbox" name="order_ids" value="<%= o.id %>" class="order-checkbox"></td>
         <td>#<%= o.id %></td>
         <td><%= o.customer_name %></td>
-        <td><%= o.phone %></td>
+        <td><a href="tel:<%= o.phone %>"><%= o.phone %></a></td>
+        <td><%= o.delivery_zone || '—' %><br><small>৳<%= Number(o.delivery_charge || 0).toFixed(0) %></small></td>
         <td>৳<%= o.total_amount %></td>
         <td><span class="status-badge status-<%= o.status.toLowerCase() %>"><%= o.status %></span></td>
         <td><span class="status-badge <%= o.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= o.payment_status || 'Unpaid' %></span></td>
@@ -40,6 +46,28 @@
   </tbody>
 </table>
 </div>
+<div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+  <label for="bulk-status"><strong>Bulk action:</strong></label>
+  <select name="status" id="bulk-status">
+    <% ['Pending','Confirmed','Shipped','Delivered','Cancelled'].forEach(s => { %>
+      <option value="<%= s %>"><%= s %></option>
+    <% }) %>
+  </select>
+  <input type="text" name="cancel_reason" id="bulk-cancel-reason" placeholder="Cancel reason (required if Cancelling)" style="min-width:260px; display:none;">
+  <button type="submit" class="btn-primary" onclick="return confirm('Change the status of the selected orders?');">Apply to Selected</button>
+</div>
+</form>
+<script>
+  document.getElementById('select-all-orders').addEventListener('change', function () {
+    document.querySelectorAll('.order-checkbox').forEach(function (cb) { cb.checked = document.getElementById('select-all-orders').checked; });
+  });
+  document.getElementById('bulk-status').addEventListener('change', function () {
+    var show = this.value === 'Cancelled';
+    var input = document.getElementById('bulk-cancel-reason');
+    input.style.display = show ? '' : 'none';
+    input.required = show;
+  });
+</script>
 <% } %>
 
 <%- include('../partials/admin-footer') %>
