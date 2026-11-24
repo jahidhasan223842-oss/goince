@@ -67,6 +67,53 @@
     <strong class="analytics-kpi-value"><%= Number(totalProducts || 0).toLocaleString() %></strong>
     <span class="analytics-kpi-foot">Products in catalogue</span>
   </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Pending COD / due</span><span class="analytics-kpi-icon">৳</span></div>
+    <strong class="analytics-kpi-value">৳<%= money(pendingDue) %></strong>
+    <span class="analytics-kpi-foot"><a href="/admin/invoices?tab=unpaid"><%= Number(pendingDueOrders || 0) %> open order(s) still owe — View unpaid →</a></span>
+  </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Today's revenue</span><span class="analytics-kpi-icon">৳</span></div>
+    <strong class="analytics-kpi-value">৳<%= money(todaysSummary.revenue) %></strong>
+    <span class="analytics-kpi-foot"><%= Number(todaysSummary.ordersCount || 0) %> order(s) today (Asia/Dhaka)</span>
+  </article>
+  <article class="analytics-kpi">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Profit in period</span><span class="analytics-kpi-icon">↗</span></div>
+    <% if (Number(periodProfit.totalUnits || 0) === 0) { %>
+      <strong class="analytics-kpi-value">৳0</strong>
+      <span class="analytics-kpi-foot">No sales in this period</span>
+    <% } else if (Number(periodProfit.costedUnits || 0) === 0) { %>
+      <strong class="analytics-kpi-value">—</strong>
+      <span class="analytics-kpi-foot">Cost prices not set — add cost price in Add/Edit Product to see real profit.</span>
+    <% } else { %>
+      <strong class="analytics-kpi-value">৳<%= money(periodProfit.totalProfit) %></strong>
+      <span class="analytics-kpi-foot"><% if (Number(periodProfit.costedUnits) < Number(periodProfit.totalUnits)) { %>Cost price set for <%= Number(periodProfit.costedUnits) %> of <%= Number(periodProfit.totalUnits) %> units — partial profit.<% } else { %>Revenue − cost in this period<% } %></span>
+    <% } %>
+  </article>
+</section>
+
+<section class="analytics-panel analytics-attention-panel">
+  <div class="analytics-panel-heading"><div><h2>Needs attention</h2><p>Reviews and messages waiting for you</p></div></div>
+  <% if (Number(pendingReviews || 0) === 0 && Number(unreadMessages || 0) === 0) { %>
+    <div class="analytics-small-empty">Nothing needs attention right now.</div>
+  <% } else { %>
+    <div class="analytics-attention-list">
+      <% if (Number(pendingReviews || 0) > 0) { %>
+        <div class="analytics-attention-row">
+          <span class="analytics-attention-icon">★</span>
+          <div><strong><%= Number(pendingReviews) %> review(s) waiting for approval</strong><span>New reviews are pending by default</span></div>
+          <a class="analytics-view-link" href="/admin/reviews">Review →</a>
+        </div>
+      <% } %>
+      <% if (Number(unreadMessages || 0) > 0) { %>
+        <div class="analytics-attention-row">
+          <span class="analytics-attention-icon">✉</span>
+          <div><strong><%= Number(unreadMessages) %> unread message(s)</strong><span>Contact messages you have not opened yet</span></div>
+          <a class="analytics-view-link" href="/admin/messages">Read →</a>
+        </div>
+      <% } %>
+    </div>
+  <% } %>
 </section>
 
 <section class="analytics-main-grid">

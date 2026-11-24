@@ -355,6 +355,60 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
     // Orders Pro 2: today's pending orders count (prominent card on the dashboard).
     let todaysPendingCount = 0;
     try { const [[t]] = await db.query("SELECT COUNT(*) AS c FROM orders WHERE status = 'Pending' AND DATE(created_at) = CURDATE()"); todaysPendingCount = Number(t.c || 0); } catch (e) { /* orders table query failed — count stays 0 */ }
+
+    // Dashboard missing cards (PR #45): outstanding COD/due, today's revenue,
+    // period profit, and needs-attention counts. Each query is guarded so a
+    // missing table can never break the whole dashboard.
+    // (a) Pending COD / due: same due rule as the invoices list
+    // (lib/invoice.js dueAmount): total − advances − COD-collected, over all
+    // open (non-cancelled) orders. Point-in-time total, not period-bound.
+    let pendingDue = 0, pendingDueOrders = 0;
+    try {
+      const [openOrders] = await db.query("SELECT id, total_amount, payment_status, cod_collected FROM orders WHERE status != 'Cancelled'");
+      let advancesByOrder = {};
+      try {
+        const [advRows] = await db.query('SELECT order_id, COALESCE(SUM(amount), 0) AS total FROM order_payments GROUP BY order_id');
+        advRows.forEach(r => { advancesByOrder[r.order_id] = Number(r.total || 0); });
+      } catch (e) { /* order_payments table not migrated yet */ }
+      openOrders.forEach(o => {
+        const due = dueAmount(o, advancesByOrder[o.id] || 0);
+        if (due > 0) { pendingDue += due; pendingDueOrders++; }
+      });
+    } catch (e) { /* orders query failed — due stays 0 */ }
+    // (b) Needs attention: reviews awaiting approval + unread messages.
+    let pendingReviews = 0, unreadMessages = 0;
+    try { const [[r]] = await db.query("SELECT COUNT(*) AS pending FROM reviews WHERE status = 'pending'"); pendingReviews = Number(r.pending || 0); } catch (e) { /* reviews table query failed — count stays 0 */ }
+    try { const [[m]] = await db.query('SELECT COUNT(*) AS unread FROM contact_messages WHERE is_read = 0'); unreadMessages = Number(m.unread || 0); } catch (e) { /* contact_messages table query failed — count stays 0 */ }
+    // (c) Today's revenue, Asia/Dhaka calendar day (the server/MySQL timezone
+    // is not Dhaka, so the date is computed here and passed as a parameter).
+    const dhakaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    let todaysSummary = { ordersCount: 0, revenue: 0 };
+    try {
+      const [[t]] = await db.query(
+        `SELECT COUNT(*) AS ordersCount, COALESCE(SUM(total_amount), 0) AS revenue
+         FROM orders WHERE DATE(created_at) = ? AND status != 'Cancelled'`, [dhakaToday]);
+      todaysSummary = { ordersCount: Number(t.ordersCount || 0), revenue: Number(t.revenue || 0) };
+    } catch (e) { /* today's revenue query failed — stays 0 */ }
+    // (d) Profit for the selected period, same rule as Reports Total Profit:
+    // revenue − cost from order_items.cost_price. totalUnits/costedUnits track
+    // how many sold units actually have a cost price, so the card can refuse
+    // to present revenue as profit when no cost data exists.
+    let periodProfit = { totalProfit: 0, totalCost: 0, totalUnits: 0, costedUnits: 0 };
+    try {
+      const [[p]] = await db.query(
+        `SELECT COALESCE(SUM(oi.quantity * oi.cost_price), 0) AS totalCost,
+                COALESCE(SUM(oi.quantity * (oi.price - oi.cost_price)), 0) AS totalProfit,
+                COALESCE(SUM(oi.quantity), 0) AS totalUnits,
+                COALESCE(SUM(CASE WHEN oi.cost_price IS NOT NULL THEN oi.quantity ELSE 0 END), 0) AS costedUnits
+         FROM order_items oi JOIN orders o ON o.id = oi.order_id
+         WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'Cancelled'`, [from, to]);
+      periodProfit = {
+        totalProfit: Number(p.totalProfit || 0),
+        totalCost: Number(p.totalCost || 0),
+        totalUnits: Number(p.totalUnits || 0),
+        costedUnits: Number(p.costedUnits || 0),
+      };
+    } catch (e) { /* old orders have no cost_price — profit stays 0 */ }
     const [lowStockProducts] = await db.query('SELECT * FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) ORDER BY stock ASC LIMIT 5');
     const [[{ lowStockCount }]] = await db.query('SELECT COUNT(*) AS lowStockCount FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) AND stock > 0');
     const [[{ outOfStockCount }]] = await db.query('SELECT COUNT(*) AS outOfStockCount FROM products WHERE stock = 0');
@@ -401,6 +455,7 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
     res.render('admin/dashboard', {
       totalProducts, totalOrders, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
       lowStockProducts, lowStockCount, outOfStockCount,
+      pendingDue, pendingDueOrders, pendingReviews, unreadMessages, todaysSummary, periodProfit,
       dashboard: {
         range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
         newCustomers: Number(newCustomers || 0), salesTrend, topProducts, statusRows,
