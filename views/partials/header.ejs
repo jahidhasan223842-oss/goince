@@ -72,7 +72,12 @@
   <% } %>
   <header class="site-header">
     <div class="container header-inner">
+      <% /* Mobile header (≤768px): hamburger + logo + cart icon — Home /
+            Categories / Login / Sign Up ar header-e chhoriye thake na, ogulo
+            drawer-er vitore thake (niche). Desktop-e ei button duto lukano. */ %>
+      <button type="button" class="shop-menu-btn" id="shop-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="shop-drawer">☰</button>
       <a href="/" class="logo"><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="logo-mark"> <%= siteName %> <span class="logo-tag">Online Shop</span></a>
+      <a href="/cart" class="shop-cart-btn" aria-label="Cart">🛒<% if (cartCount > 0) { %><span class="badge"><%= cartCount %></span><% } %></a>
       <form action="/" method="GET" class="search-form" autocomplete="off">
         <div class="search-box">
           <input type="text" name="search" id="search-input" placeholder="Search products..." value="<%= typeof search !== 'undefined' ? search : '' %>">
@@ -82,13 +87,13 @@
       </form>
       <nav class="main-nav">
         <a href="/">Home</a>
-        <% /* Header mega menu: shob category ek jaygay — desktop-e hover/click-e
-              khole, mobile-e ☰ button-e khole ar accordion hishebe cholbe.
-              menuCategories server.js-er global middleware theke ashe, tai
-              shob page-e (homepage, product, cart, checkout) thake. */ %>
+        <% /* Header mega menu: shob category ek jaygay — DESKTOP-e (769px+)
+              hover/click-e khole. Mobile-e (≤768px) main-nav lukano thake,
+              bodle hamburger drawer khole (niche shop-drawer) — tai ei panel
+              mobile-e ar khole na. menuCategories server.js-er global
+              middleware theke ashe, tai shob page-e thake. */ %>
         <div class="mega-menu-wrap">
           <button type="button" class="mega-menu-btn" id="mega-menu-btn" aria-haspopup="true" aria-expanded="false" aria-controls="mega-menu-panel">Categories <span class="mega-caret" aria-hidden="true">▾</span></button>
-          <button type="button" class="mega-menu-btn-mobile" id="mega-menu-btn-mobile" aria-haspopup="true" aria-expanded="false" aria-controls="mega-menu-panel">☰ Categories</button>
           <div class="mega-menu-panel" id="mega-menu-panel">
             <% if (typeof menuCategories !== 'undefined' && menuCategories && menuCategories.length) { %>
               <div class="mega-menu-grid">
@@ -96,7 +101,6 @@
                   <div class="mega-col" data-cat-id="<%= cat.id %>">
                     <div class="mega-col-head">
                       <a class="mega-col-title" href="/?category=<%= cat.id %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="mega-col-thumb"><% } %><span><%= cat.name %></span><span class="mega-count">(<%= cat.totalProductCount %>)</span></a>
-                      <% if (cat.children && cat.children.length) { %><button type="button" class="mega-col-toggle" aria-expanded="false" aria-label="Show sub-categories of <%= cat.name %>">▸</button><% } %>
                     </div>
                     <% if (cat.children && cat.children.length) { %>
                       <ul class="mega-col-list">
@@ -136,4 +140,66 @@
       </nav>
     </div>
   </header>
+  <% /* ---------- Mobile shop drawer (≤768px) ----------
+     Hamburger chaple bam dik theke slide kore ashe. Desktop-e (769px+)
+     CSS-e lukano thake. Categories accordion: menuCategories (server.js
+     global middleware) thekei ashe — mega menu-r motoi data, lukano
+     category/subtree age thekei bad. Theme toggle mobile header-e jayga
+     pay na bole drawer-er niche rakha holo. */ %>
+  <div class="shop-drawer-overlay" id="shop-drawer-overlay"></div>
+  <aside class="shop-drawer" id="shop-drawer" aria-label="Shop menu" aria-hidden="true">
+    <div class="shop-drawer-head">
+      <a href="/" class="shop-drawer-logo"><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="logo-mark"> <%= siteName %></a>
+      <button type="button" class="shop-drawer-close" id="shop-drawer-close" aria-label="Close menu">✕</button>
+    </div>
+    <nav class="shop-drawer-nav">
+      <a href="/" class="shop-drawer-link">🏠 Home</a>
+      <% if (typeof menuCategories !== 'undefined' && menuCategories && menuCategories.length) { %>
+        <div class="shop-drawer-cats">
+          <button type="button" class="shop-drawer-cat-btn" id="shop-drawer-cat-btn" aria-expanded="false" aria-controls="shop-drawer-cat-list">🗂️ Categories <span class="shop-drawer-caret" aria-hidden="true">▾</span></button>
+          <ul class="shop-drawer-cat-list" id="shop-drawer-cat-list">
+            <% menuCategories.forEach(function (cat) { %>
+              <li class="shop-drawer-cat">
+                <div class="shop-drawer-cat-head">
+                  <a href="/?category=<%= cat.id %>" class="shop-drawer-cat-link"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="shop-drawer-cat-thumb"><% } %><span><%= cat.name %></span><span class="mega-count">(<%= cat.totalProductCount %>)</span></a>
+                  <% if (cat.children && cat.children.length) { %><button type="button" class="shop-drawer-sub-toggle" aria-expanded="false" aria-label="Show sub-categories of <%= cat.name %>">▸</button><% } %>
+                </div>
+                <% if (cat.children && cat.children.length) { %>
+                  <ul class="shop-drawer-sub">
+                    <% cat.children.forEach(function (sub) { %>
+                      <li>
+                        <a href="/?category=<%= sub.id %>"><%= sub.name %> <span class="mega-count">(<%= sub.totalProductCount %>)</span></a>
+                        <% if (sub.children && sub.children.length) { %>
+                          <ul class="shop-drawer-sub-sub">
+                            <% sub.children.forEach(function (g) { %>
+                              <li><a href="/?category=<%= g.id %>"><%= g.name %> <span class="mega-count">(<%= g.totalProductCount %>)</span></a></li>
+                            <% }) %>
+                          </ul>
+                        <% } %>
+                      </li>
+                    <% }) %>
+                  </ul>
+                <% } %>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+      <% } %>
+      <a href="/cart" class="shop-drawer-link">🛒 Cart<% if (cartCount > 0) { %> <span class="badge"><%= cartCount %></span><% } %></a>
+      <a href="/track-order" class="shop-drawer-link">📦 Track Order</a>
+      <% if (userName) { %>
+        <a href="/wishlist" class="shop-drawer-link">♥️ Wishlist</a>
+        <a href="/account" class="shop-drawer-link">👤 My Account</a>
+        <a href="/logout" class="shop-drawer-link">🚪 Logout</a>
+      <% } else { %>
+        <a href="/login" class="shop-drawer-link">🔑 Login</a>
+        <a href="/signup" class="shop-drawer-link">📝 Sign Up</a>
+      <% } %>
+      <a href="/about" class="shop-drawer-link">ℹ️ About</a>
+      <a href="/contact" class="shop-drawer-link">✉️ Contact</a>
+    </nav>
+    <div class="shop-drawer-foot">
+      <button type="button" class="shop-drawer-theme" onclick="toggleGoinceTheme()">🌙 Dark mode</button>
+    </div>
+  </aside>
   <main class="container">

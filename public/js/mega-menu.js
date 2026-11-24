@@ -1,5 +1,6 @@
-// Header mega menu (Categories): desktop-e click-e toggle, hover-e CSS-e khole;
-// mobile-e ☰ Categories button-e khole, protita column accordion hishebe khole.
+// Header mega menu (Categories): DESKTOP-e (769px+) click-e toggle, hover-e
+// CSS-e khole. Mobile-e (≤768px) main-nav lukano thake, bodle hamburger
+// drawer khole (niche shop drawer IIFE) — mega panel mobile-e ar khole na.
 // Keyboard: button-e focus korle khole, Esc chaple bondho hoy, baire click
 // korle bondho hoy, Tab kore panel-er baire gele bondho hoy.
 (function () {
@@ -7,8 +8,7 @@
   if (!wrap) return;
   var panel = document.getElementById('mega-menu-panel');
   var buttons = [
-    document.getElementById('mega-menu-btn'),
-    document.getElementById('mega-menu-btn-mobile')
+    document.getElementById('mega-menu-btn')
   ].filter(Boolean);
   if (!panel || !buttons.length) return;
 
@@ -60,15 +60,61 @@
   wrap.addEventListener('focusout', function (e) {
     if (!wrap.contains(e.relatedTarget)) { setOpen(false); latched = false; }
   });
+})();
 
-  // Mobile accordion: protita main category-r caret chaple tar
-  // sub-category list khulbe/bondho hobe (desktop-e list shob shomoy khola).
-  wrap.querySelectorAll('.mega-col-toggle').forEach(function (toggle) {
+// Mobile shop drawer (≤768px): hamburger chaple bam dik theke slide kore
+// ashe. Overlay chaple, ✕ chaple ba Esc chaple bondho hoy; khola thakle
+// body scroll bondho thake. Drawer-er Categories accordion + protita main
+// category-r sub-toggle ekhanei handle kora hoy (mega panel-er purono
+// mobile accordion ekhon ar dorkar nei — panel mobile-e kholei na).
+(function () {
+  var btn = document.getElementById('shop-menu-btn');
+  var drawer = document.getElementById('shop-drawer');
+  var overlay = document.getElementById('shop-drawer-overlay');
+  if (!btn || !drawer || !overlay) return;
+  var closeBtn = document.getElementById('shop-drawer-close');
+
+  function setOpen(open) {
+    drawer.classList.toggle('open', open);
+    overlay.classList.toggle('open', open);
+    document.body.classList.toggle('shop-drawer-open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+
+  btn.addEventListener('click', function () {
+    setOpen(true);
+    if (closeBtn) closeBtn.focus();
+  });
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () { setOpen(false); btn.focus(); });
+  }
+  overlay.addEventListener('click', function () { setOpen(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && drawer.classList.contains('open')) {
+      setOpen(false);
+      btn.focus();
+    }
+  });
+
+  // Categories accordion: chaple puro tree khulbe/bondho hobe.
+  var catBtn = document.getElementById('shop-drawer-cat-btn');
+  var catList = document.getElementById('shop-drawer-cat-list');
+  if (catBtn && catList) {
+    catBtn.addEventListener('click', function () {
+      var open = catList.classList.toggle('open');
+      catBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
+  // Protita main category-r sub-toggle: chaple tar sub-category list
+  // khulbe/bondho hobe.
+  drawer.querySelectorAll('.shop-drawer-sub-toggle').forEach(function (toggle) {
     toggle.addEventListener('click', function (e) {
       e.stopPropagation();
-      var col = toggle.closest('.mega-col');
-      if (!col) return;
-      var open = col.classList.toggle('open');
+      var item = toggle.closest('.shop-drawer-cat');
+      if (!item) return;
+      var open = item.classList.toggle('open');
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
   });

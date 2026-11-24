@@ -10,6 +10,11 @@
       btn.textContent = theme === 'dark' ? '☀️' : '🌙';
       btn.title = theme === 'dark' ? 'লাইট মোড' : 'ডার্ক মোড';
     });
+    // Mobile drawer-er theme button (header-e jayga pay na bole drawer-e):
+    // icon + label dutoi theme onujayi bodlay.
+    document.querySelectorAll('.shop-drawer-theme').forEach(function (btn) {
+      btn.textContent = theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode';
+    });
   }
 
   window.toggleGoinceTheme = function () {

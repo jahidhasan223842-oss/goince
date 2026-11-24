@@ -1095,7 +1095,6 @@ a { text-decoration: none; color: inherit; }
 .mega-menu-btn:hover { color: var(--accent); }
 .mega-caret { font-size: 11px; transition: transform 0.15s; }
 .mega-menu-btn[aria-expanded="true"] .mega-caret { transform: rotate(180deg); }
-.mega-menu-btn-mobile { display: none; }
 .mega-menu-panel { display: none; position: absolute; top: calc(100% + 10px); left: 0; width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 18px 20px 12px; z-index: 400; }
 .mega-menu-panel.open { display: block; }
 /* Mouse thakle hover-ei khulbe (touch device-e hover rule cholbe na, okhane click/tap-e khole) */
@@ -1127,7 +1126,6 @@ a { text-decoration: none; color: inherit; }
 .mega-menu-panel a.mega-col-title { color: var(--text-strong); }
 .mega-col-title:hover { color: var(--accent-text); }
 .mega-col-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; flex-shrink: 0; }
-.mega-col-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 4px 8px; margin-left: auto; flex-shrink: 0; }
 .mega-col-list, .mega-sub-list { list-style: none; }
 .mega-col-list { margin-top: 2px; }
 .mega-col-list a { display: block; padding: 4px 0 4px 40px; font-size: 14px; color: var(--text); margin: 0 !important; }
@@ -1138,24 +1136,6 @@ a { text-decoration: none; color: inherit; }
 .mega-menu-footer { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; text-align: center; }
 .mega-menu-footer a { color: var(--accent-text); font-weight: 700; font-size: 14px; margin: 0 !important; }
 .mega-menu-empty { color: var(--text-muted); font-size: 14px; padding: 8px 0; }
-
-@media (max-width: 768px) {
-  .mega-menu-btn { display: none; }
-  .mega-menu-btn-mobile { display: inline-flex; align-items: center; background: none; border: 1px solid rgba(255,255,255,0.35); color: #fff; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; padding: 6px 12px; border-radius: 6px; margin-left: 12px; white-space: nowrap; }
-  .mega-menu-btn-mobile:hover { background: rgba(255,255,255,0.12); }
-  /* Mobile-e panel header-er niche full-width slide-down hishebe khole */
-  .mega-menu-wrap { position: static; }
-  .mega-menu-panel { top: 100%; left: 0; right: 0; width: auto; max-height: 70vh; border-radius: 0 0 12px 12px; padding: 8px 16px 14px; }
-  .mega-menu-panel.open { display: block; }
-  .mega-menu-grid { grid-template-columns: 1fr; gap: 0; }
-  .mega-col { border-bottom: 1px solid var(--border); padding: 4px 0; }
-  .mega-col:last-child { border-bottom: none; }
-  .mega-col-toggle { display: inline-block; }
-  .mega-col-toggle[aria-expanded="true"] { transform: rotate(90deg); }
-  .mega-col-list { display: none; }
-  .mega-col.open .mega-col-list { display: block; }
-  .mega-col-list a { padding-left: 40px; }
-}
 
 /* Respect reduced-motion: no hover lift or transitions in the admin */
 @media (prefers-reduced-motion: reduce) {
@@ -1226,13 +1206,12 @@ img, video { max-width: 100%; }
   /* ---------- SHOP ---------- */
   .container { padding: 0 14px; }
 
-  /* Header: nav link-gulo na wrap howay 360px-e header-er baire chole jeto. */
+  /* Header: mobile-e main-nav (Home / Categories / Login / Sign Up) ar
+     header-e thake na — hamburger drawer-er vitore thake, tai lukano. */
   .header-inner { gap: 12px; }
-  .main-nav { flex-wrap: wrap; row-gap: 8px; }
-  .main-nav a { margin-left: 14px; }
+  .main-nav { display: none; }
   .search-form { order: 3; width: 100%; max-width: none; }
   .search-form button { min-height: 44px; }
-  .mega-menu-btn-mobile { min-height: 40px; }
   .theme-toggle-btn { width: 44px; height: 44px; }
 
   /* iOS 16px-er choto input-e focus korle page zoom kore fele — tai
@@ -1356,7 +1335,6 @@ img, video { max-width: 100%; }
   .hero h1 { font-size: 20px; }
   .why-grid { grid-template-columns: 1fr; }
   .logo-tag { display: none; }
-  .main-nav a { margin-left: 10px; font-size: 14px; }
   .checkout-steps { font-size: 13px; }
 
   /* Dashboard card: 360px-e 2 column chapachapi hoto — ekhon stack hobe. */
@@ -1376,4 +1354,142 @@ img, video { max-width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   .admin-sidebar, .admin-sidebar-overlay { transition: none; }
+}
+
+/* =========================================================
+   MOBILE HEADER + CATEGORY STRIP (fix/mobile-header-categories)
+   Shudhu mobile (≤768px) — desktop (769px+) ekdom ager motoi.
+   Mobile header: ☰ hamburger + logo + cart icon (ek line), search
+   niche full-width. Home / Categories / Login / Sign Up drawer-er
+   vitore thake. Category bar: Daraz-er moto gol chhobi-wala card,
+   dan-bam scroll kore dekha jay.
+   ========================================================= */
+
+/* Desktop-e lukano thake (mobile-e nicher media query khule dey). */
+.shop-menu-btn, .shop-cart-btn, .shop-drawer, .shop-drawer-overlay { display: none; }
+/* Letter fallback: desktop pill-e chhobi na thakle shudhu nam dekhay. */
+.cat-letter { display: none; }
+
+@media (max-width: 768px) {
+  /* ---------- Mobile header: ek line, kichhu wrap kore na ---------- */
+  .header-inner { justify-content: flex-start; gap: 10px; }
+  .shop-menu-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; flex-shrink: 0;
+    background: none; border: 1px solid rgba(255,255,255,0.35); color: #fff;
+    border-radius: 8px; font-size: 20px; line-height: 1; cursor: pointer;
+  }
+  .shop-menu-btn:hover { background: rgba(255,255,255,0.12); }
+  .shop-cart-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; flex-shrink: 0; margin-left: auto;
+    color: #fff; font-size: 22px; position: relative;
+  }
+  .shop-cart-btn .badge { position: absolute; top: 0; right: -2px; margin-left: 0; }
+
+  /* ---------- Hamburger drawer (admin sidebar-er moto off-canvas) ---------- */
+  .shop-drawer-overlay {
+    display: block; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 880;
+    opacity: 0; visibility: hidden;
+    transition: opacity .25s ease, visibility .25s ease;
+  }
+  .shop-drawer-overlay.open { opacity: 1; visibility: visible; }
+  .shop-drawer {
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0;
+    height: 100vh; height: 100dvh;
+    width: 300px; max-width: 85vw;
+    background: var(--surface); color: var(--text);
+    z-index: 900; transform: translateX(-105%);
+    transition: transform .25s ease;
+    box-shadow: 0 0 40px rgba(0,0,0,0.4);
+    overflow-y: auto;
+  }
+  .shop-drawer.open { transform: none; }
+  body.shop-drawer-open { overflow: hidden; }
+  .shop-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 12px 12px 20px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--surface); z-index: 1;
+  }
+  .shop-drawer-logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; color: var(--accent); }
+  .shop-drawer-close {
+    width: 40px; height: 40px; flex-shrink: 0;
+    background: none; border: none; font-size: 20px; line-height: 1;
+    color: var(--text); cursor: pointer; border-radius: 8px;
+  }
+  .shop-drawer-close:hover { background: var(--bg-hover); }
+  .shop-drawer-nav { display: flex; flex-direction: column; padding: 6px 0; }
+  .shop-drawer-link, .shop-drawer-cat-btn {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 13px 20px; font-size: 15px; font-weight: 500;
+    color: var(--text); background: none; border: none;
+    border-bottom: 1px solid var(--border);
+    text-align: left; cursor: pointer; font-family: inherit;
+  }
+  .shop-drawer-link:hover, .shop-drawer-cat-btn:hover { background: var(--bg-hover); }
+  .shop-drawer-cat-btn .shop-drawer-caret { margin-left: auto; font-size: 11px; color: var(--text-muted); transition: transform .15s; }
+  .shop-drawer-cat-btn[aria-expanded="true"] .shop-drawer-caret { transform: rotate(180deg); }
+  .shop-drawer-cat-list { display: none; list-style: none; background: var(--bg); }
+  .shop-drawer-cat-list.open { display: block; }
+  .shop-drawer-cat-head { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
+  .shop-drawer-cat-link {
+    display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+    padding: 11px 8px 11px 20px; font-size: 14px; font-weight: 600; color: var(--text-strong);
+  }
+  .shop-drawer-cat-thumb { width: 28px; height: 28px; object-fit: cover; border-radius: 50%; flex-shrink: 0; }
+  .shop-drawer-sub-toggle {
+    width: 44px; height: 44px; flex-shrink: 0;
+    background: none; border: none; font-size: 16px; color: var(--text-muted); cursor: pointer;
+  }
+  .shop-drawer-cat.open .shop-drawer-sub-toggle { transform: rotate(90deg); }
+  .shop-drawer-sub { display: none; list-style: none; }
+  .shop-drawer-cat.open > .shop-drawer-sub { display: block; }
+  .shop-drawer-sub a { display: block; padding: 10px 20px 10px 48px; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--border); }
+  .shop-drawer-sub-sub { list-style: none; }
+  .shop-drawer-sub-sub a { padding-left: 64px; font-size: 13px; color: var(--text-muted); }
+  .shop-drawer-sub a:hover, .shop-drawer-sub-sub a:hover { background: var(--bg-hover); color: var(--text-strong); }
+  .shop-drawer-foot { margin-top: auto; padding: 14px 20px; border-top: 1px solid var(--border); }
+  .shop-drawer-theme {
+    width: 100%; padding: 12px; font: inherit; font-size: 15px; font-weight: 600;
+    background: var(--bg); color: var(--text); border: 1px solid var(--border-strong);
+    border-radius: 8px; cursor: pointer; text-align: center;
+  }
+
+  /* ---------- Mobile category strip: gol card, dan-bam scroll ---------- */
+  .category-bar {
+    flex-wrap: nowrap; overflow-x: auto; gap: 14px;
+    padding: 4px 2px 10px; margin: 16px 0;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  }
+  .category-bar::-webkit-scrollbar { display: none; }
+  .category-bar > a, .category-bar .cat-pill-wrap { flex: 0 0 auto; scroll-snap-align: start; }
+  .category-bar > a, .category-bar .cat-pill-wrap > a {
+    flex-direction: column; gap: 6px; width: 76px;
+    padding: 0; background: none; border: none; border-radius: 0;
+    font-size: 12px; line-height: 1.3; text-align: center; color: var(--text);
+  }
+  .category-bar a img.cat-thumb { width: 64px; height: 64px; }
+  .cat-letter {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+    background: var(--navy); color: #f0a500; font-size: 26px; font-weight: 700;
+    border: 1px solid var(--border-strong);
+  }
+  .cat-name {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .category-bar a.active { background: none; border: none; color: var(--accent-text); }
+  .category-bar a.active .cat-thumb, .category-bar a.active .cat-letter {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  }
+  /* Mobile-e pill dropdown khole na (tap korle category page-e jay) — tai
+     hover/focus-er menu-o lukano thakbe. */
+  .cat-pill-wrap .cat-caret { display: none; }
+  .cat-pill-wrap:hover .cat-pill-menu, .cat-pill-wrap:focus-within .cat-pill-menu { display: none; }
 }
