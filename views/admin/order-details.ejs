@@ -82,6 +82,7 @@
     </div>
   </div>
 
+  <div class="table-responsive">
   <table class="invoice-items-table">
     <thead><tr><th>Product</th><th class="align-right">Price</th><th class="align-center">Qty</th><th class="align-right invoice-cost-col">Cost</th><th class="align-right invoice-cost-col">Profit</th><th class="align-right">Subtotal</th></tr></thead>
     <tbody>
@@ -108,6 +109,7 @@
       <tr><td colspan="3" class="align-right"><strong>Totals</strong></td><td class="align-right invoice-cost-col"><strong>৳<%= totalCost.toFixed(2) %></strong></td><td class="align-right invoice-cost-col"><strong>৳<%= totalProfit.toFixed(2) %></strong></td><td class="align-right"><strong>৳<%= subtotal.toFixed(2) %></strong></td></tr>
     </tfoot>
   </table>
+  </div>
 
   <div class="invoice-total-box">
     <p><span>Subtotal</span><span>৳<%= subtotal.toFixed(2) %></span></p>

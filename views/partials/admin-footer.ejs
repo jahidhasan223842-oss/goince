@@ -9,11 +9,11 @@
       const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', next);
       try { localStorage.setItem('goince-theme', next); } catch (e) {}
-      const themeButton = document.querySelector('.theme-toggle-fixed');
-      if (themeButton) {
-        themeButton.textContent = next === 'dark' ? '☀️' : '🌙';
-        themeButton.title = next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
-      }
+      // Duto toggle button-i (desktop floating + mobile topbar) sync thakbe.
+      document.querySelectorAll('.theme-toggle-btn').forEach(function (btn) {
+        btn.textContent = next === 'dark' ? '☀️' : '🌙';
+        btn.title = next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+      });
     }
     document.querySelectorAll('.admin-sidebar nav a').forEach(function (link) {
       if (link.pathname === window.location.pathname) link.setAttribute('aria-current', 'page');
@@ -43,10 +43,9 @@
         if (e.key === 'Escape') setAdminSidebar(false);
       });
     }
-    const themeButton = document.querySelector('.theme-toggle-fixed');
-    if (themeButton) {
-      themeButton.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
-    }
+    document.querySelectorAll('.theme-toggle-btn').forEach(function (btn) {
+      btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+    });
 
     // Shared "show/hide password" toggle, used on Add/Edit Customer etc.
     function togglePasswordVisibility(btn, inputId) {

@@ -22,6 +22,7 @@
     <div class="admin-mobile-topbar">
       <button type="button" class="admin-menu-btn" id="admin-menu-btn" aria-expanded="false" aria-controls="admin-sidebar" aria-label="Menu">☰</button>
       <span class="admin-mobile-title"><%= siteName %> Admin</span>
+      <button type="button" class="theme-toggle-btn admin-mobile-theme-btn" onclick="toggleGoinceTheme()" title="Dark mode" aria-label="Toggle dark mode">🌙</button>
     </div>
     <aside class="admin-sidebar" id="admin-sidebar">
       <h2><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <%= siteName %></h2>
