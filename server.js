@@ -20,6 +20,11 @@ const helmet = require('helmet');
 
 const app = express();
 
+// Asset cache-busting (lib/assets.js): local CSS/JS-er version file-er mtime
+// theke neoa hoy, jate deploy-e file bodle gele browser notun file-ta-i ane.
+const { createAssetUrl } = require('./lib/assets');
+app.locals.assetUrl = createAssetUrl(path.join(__dirname, 'public'));
+
 // Site settings (Admin > Settings theke bodlano jay): hero, announcement,
 // address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
 const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url'];
