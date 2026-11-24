@@ -1054,6 +1054,27 @@ a { text-decoration: none; color: inherit; }
   color: #b5ceff;
 }
 
+/* Call button: green pill for the tel: Call action (activity page phone
+   queue + order-details customer card). Before this it rendered as a plain
+   gold text link (.analytics-view-link) on the activity page and as an
+   inline-styled .btn-primary on order-details, so it looked like ordinary
+   text and the two pages were inconsistent. Green is the universal
+   phone/call colour and is distinct from the gold primary buttons.
+   White on var(--success) #1f7a30 is ~5.4:1 and white on the hover green
+   #176327 is higher still, so it passes WCAG AA in both themes (the
+   variable is identical in light and dark). The [data-theme="dark"]
+   variants are needed because the dark admin link rules above would
+   otherwise recolour the link text. It stays a plain <a href="tel:…">
+   so it opens the phone dialer on phones. */
+.btn-call,
+.admin-content a.btn-call,
+[data-theme="dark"] .admin-content a.btn-call { background: var(--success); color: #fff; border: none; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-block; text-decoration: none; white-space: nowrap; line-height: 1.4; transition: background .2s ease, transform .2s ease, box-shadow .2s ease; }
+.btn-call:hover,
+.admin-content a.btn-call:hover,
+[data-theme="dark"] .admin-content a.btn-call:hover { background: #176327; color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+.btn-call:focus-visible,
+.admin-content a.btn-call:focus-visible { outline: 2px solid #76a5ff; outline-offset: 2px; }
+
 /* ===== fix/complete-website: hero, trust bar, footer, track ===== */
 .hero { background: linear-gradient(135deg, #1a2a4a, #f0a500); color: #fff; border-radius: 12px; padding: 36px 28px; margin: 16px 0; }
 .hero h1 { margin: 0 0 10px; font-size: 28px; line-height: 1.3; }

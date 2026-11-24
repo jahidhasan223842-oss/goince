@@ -133,7 +133,7 @@
     <section class="report-card">
       <h3>👤 Customer</h3>
       <p class="invoice-lead"><%= order.customer_name %></p>
-      <p><a href="tel:<%= order.phone %>"><%= order.phone %></a> <a href="tel:<%= order.phone %>" class="btn-primary" style="padding:4px 10px; text-decoration:none;">📞 Call</a></p>
+      <p><a href="tel:<%= order.phone %>"><%= order.phone %></a> <a href="tel:<%= order.phone %>" class="btn-call">📞 Call</a></p>
       <% if (order.phone_confirmed) { %>
         <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <small><%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></small></p>
         <% if (_role !== 'staff') { %>
