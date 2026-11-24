@@ -1395,6 +1395,7 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
     req.query.msg === 'note-saved' ? 'Admin note saved.' :
     req.query.msg === 'sms-not-connected' ? SMS_NOT_CONFIGURED :
     req.query.msg === 'cod-collected' ? 'COD cash marked as collected — payment status set to Paid.' :
+    req.query.msg === 'cod-uncollected' ? 'COD collection undone — order is not collected again and payment status is back to Unpaid.' :
     req.query.msg === 'return-saved' ? 'Return recorded (Pending).' :
     req.query.msg === 'return-updated' ? 'Return status updated.' :
     req.query.msg === 'bulk-updated' ? 'Selected orders updated.' : null;
@@ -1403,7 +1404,8 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
     req.query.err === 'no-orders' ? 'Select at least one order first.' :
     req.query.err === 'return-reason' ? 'A reason is required to record a return.' :
     req.query.err === 'not-cod' ? 'COD collection only applies to Cash on Delivery orders.' :
-    req.query.err === 'already-collected' ? 'COD cash was already marked as collected.' : null;
+    req.query.err === 'already-collected' ? 'COD cash was already marked as collected.' :
+    req.query.err === 'not-collected' ? 'COD cash is not marked as collected for this order.' : null;
   res.render('admin/order-details', { order, items, history, notes, phoneHistory, returns, orderMsg, orderErr, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
 });
 
@@ -1496,6 +1498,21 @@ router.post('/orders/:id/cod-collected', requireAdmin, requireRole('orders'), as
     await db.query("UPDATE orders SET cod_collected = 1, cod_collected_at = NOW(), payment_status = 'Paid' WHERE id = ?", [req.params.id]);
   } catch (e) { return res.redirect('/admin/orders/' + req.params.id + '?err=not-cod'); }
   res.redirect('/admin/orders/' + req.params.id + '?msg=cod-collected');
+});
+
+// ---------- UNDO MARK COD CASH AS COLLECTED ----------
+// Reverts a mistaken collection: cod_collected back to 0, collected time
+// cleared, payment_status back to Unpaid. Order status itself is untouched.
+// Mirrors the cod-collected route (COD orders only, guarded).
+router.post('/orders/:id/cod-uncollected', requireAdmin, requireRole('orders'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  if (order.payment_method !== 'Cash on Delivery') return res.redirect('/admin/orders/' + req.params.id + '?err=not-cod');
+  if (!order.cod_collected) return res.redirect('/admin/orders/' + req.params.id + '?err=not-collected');
+  try {
+    await db.query("UPDATE orders SET cod_collected = 0, cod_collected_at = NULL, payment_status = 'Unpaid' WHERE id = ?", [req.params.id]);
+  } catch (e) { return res.redirect('/admin/orders/' + req.params.id + '?err=not-cod'); }
+  res.redirect('/admin/orders/' + req.params.id + '?msg=cod-uncollected');
 });
 
 // ---------- RECORD A RETURN (admin-only) ----------
