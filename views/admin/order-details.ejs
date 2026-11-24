@@ -136,6 +136,12 @@
       <p><a href="tel:<%= order.phone %>"><%= order.phone %></a> <a href="tel:<%= order.phone %>" class="btn-primary" style="padding:4px 10px; text-decoration:none;">📞 Call</a></p>
       <% if (order.phone_confirmed) { %>
         <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <small><%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></small></p>
+        <% if (_role !== 'staff') { %>
+        <form action="/admin/orders/<%= order.id %>/phone-unconfirmed" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+          <button type="submit" class="btn-primary" style="background:#666;" onclick="return confirm('Are you sure? This will mark the order as not phone-confirmed again.');">↩ Undo Phone Confirmed</button>
+        </form>
+        <p class="field-hint">Marked by mistake? Undo returns the order to not phone-confirmed.</p>
+        <% } %>
       <% } else if (_role !== 'staff') { %>
         <form action="/admin/orders/<%= order.id %>/phone-confirmed" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
           <button type="submit" class="btn-primary">✓ Phone Confirmed</button>
