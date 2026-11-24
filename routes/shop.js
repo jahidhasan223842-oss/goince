@@ -91,7 +91,15 @@ router.get('/', async (req, res) => {
     const requestedAudience = String(req.query.audience || '').toLowerCase();
     const allowedAudiences = ['men', 'women', 'kids', 'unisex'];
 
-    const [categories] = await db.query('SELECT * FROM categories ORDER BY is_featured DESC, sort_order ASC, id ASC');
+    // Per-category product count soho neya — khali category (nijer +
+    // descendant mile 0 product) pill/sub-bar-e dekhabe na. Count-ta
+    // header mega menu-r (server.js middleware) query-r motoi: shob
+    // product dhora hoy, status nirbisheshe.
+    const [categories] = await db.query(`SELECT categories.*, COUNT(products.id) AS product_count
+         FROM categories
+         LEFT JOIN products ON products.category_id = categories.id
+         GROUP BY categories.id
+         ORDER BY categories.is_featured DESC, categories.sort_order ASC, categories.id ASC`);
     // Website-e shudhu visible category dekhabe: ekta category tokhon-i
     // dekhabe jokhon se nije ar tar shob ancestor visible (lib/categories.js
     // dekhun — hide korle puro subtree navigation theke lukay). Featured
@@ -100,14 +108,19 @@ router.get('/', async (req, res) => {
     const visibleCategories = categories.filter(c => isEffectivelyVisible(byId, c.id));
     const mainCategories = visibleCategories.filter(c => !c.parent_id);
     const seasonalRoot = mainCategories.find(c => String(c.name).trim().toLowerCase() === 'seasonal products');
-    // Seasonal parent menu-te na dekhiye season-gulo direct dekhano
+    // Seasonal parent menu-te na dekhiye season-gulo direct dekhano.
+    // Khali category pill-e dekhabe na: totalProductCount (nijer +
+    // descendant) 0 hole bad — buildCategoryTree categories query-r
+    // product_count theke ei total hisab kore.
+    const hasProducts = (c) => (byId.get(c.id) ? byId.get(c.id).totalProductCount : 0) > 0;
     const displayCategories = mainCategories.flatMap(c => {
       if (seasonalRoot && c.id === seasonalRoot.id) {
         return visibleCategories
           .filter(sub => sub.parent_id == seasonalRoot.id)
+          .filter(hasProducts)
           .map(sub => ({ ...sub, display_name: sub.name.replace(/ Collection$/i, ' Products') }));
       }
-      return [c];
+      return hasProducts(c) ? [c] : [];
     });
 
     // Selected category ta main category naki sub-category, ebong tar sub-category gulo ki ki eta ber kora
@@ -127,8 +140,9 @@ router.get('/', async (req, res) => {
         // Jekono level-er category select korle tar shob sub-category
         // (joto govir-e hok) filter-e jog hobe, kintu lukano (hidden)
         // sub-category-r product parent-e dekhabe na — lukano shudhu bar
-        // theke noy, listing thekeo bad jay.
-        subCategories = categories.filter(c => c.parent_id == selected.id && c.is_visible !== 0);
+        // theke noy, listing thekeo bad jay. Khali sub-category-o
+        // bar-e dekhabe na (total 0 hole bad).
+        subCategories = categories.filter(c => c.parent_id == selected.id && c.is_visible !== 0 && hasProducts(c));
         categoryIdsToFilter = visibleSubtreeIds(byId, selected.id);
       }
     }

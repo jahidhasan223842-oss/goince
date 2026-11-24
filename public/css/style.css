@@ -62,6 +62,21 @@
 html, body { overflow-x: clip; }
 body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; transition: background 0.2s, color 0.2s; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+/* ===== fix/full-width-hero-cleanup: PC/laptop-e full-width shop ===== */
+/* Desktop-e (769px+) dokan puro screen jure thakbe — majhkhane soru
+   column ar thakbe na. Header/hero/footer (shob .container) fluid hoye
+   24px side padding niye screen-er kinara porjonto jabe; product grid
+   auto-fill howay chaoda barle nije thekei aro column dekhabe.
+   Mobile (≤768px) ager motoi thakbe — nicher mobile block-er
+   .container padding (14px) etar sathe mishbe na. Admin page-e
+   .container use hoy na, tai admin layout bodlabe na.
+   Lekha-bhora page (About/Contact/niti) porar moto chaoda (900px)
+   rakha holo — puro screen jure paragraph pora jay na. */
+@media (min-width: 769px) {
+  .container { max-width: none; padding: 0 24px; }
+  .container.policy-page { max-width: 900px; }
+}
 a { text-decoration: none; color: inherit; }
 
 /* Theme toggle button */
@@ -559,6 +574,25 @@ a { text-decoration: none; color: inherit; }
 .whatsapp-float { position: fixed; bottom: 20px; right: 20px; z-index: 999; width: 60px; height: 60px; border-radius: 50%; background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(37,211,102,0.45); transition: transform 0.2s; }
 .whatsapp-float:hover { transform: scale(1.08); }
 
+/* Scroll-aware hide (≤1024px): page-er ekdom upore thakle (scroll ≤ 300px)
+   button lukano thake, jate hero/product-er chobi dheke na fele; 300px-er
+   beshi scroll korle fade-in hoy (footer.ejs-er JS
+   .whatsapp-float--scroll / .is-visible class toggle kore). Mobile-e
+   (≤768px) button-er size/position-er rule nicher mobile block-e ache;
+   769–1024px (tablet) button desktop size-i thake, shudhu upore lukay.
+   Desktop (>1024px) button sob somoy dekha jay. */
+@media (max-width: 1024px) {
+  .whatsapp-float.whatsapp-float--scroll {
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity .25s ease, visibility .25s ease, transform .25s ease;
+  }
+  .whatsapp-float.whatsapp-float--scroll.is-visible {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: none;
+  }
+}
+
 /* Advanced admin analytics dashboard — preserves existing admin components. */
 .analytics-header { display:flex; justify-content:space-between; align-items:flex-end; gap:18px; margin-bottom:22px; flex-wrap:wrap; }
 .analytics-header h1 { margin:3px 0 6px; font-size:clamp(26px,3vw,34px); letter-spacing:-.7px; }
@@ -1029,11 +1063,16 @@ a { text-decoration: none; color: inherit; }
 .search-suggestions a:hover { background: var(--bg-hover); }
 .search-suggestions span { font-weight: 700; color: var(--accent-text); }
 .hero { display: flex; gap: 24px; align-items: center; }
-.hero-text { flex: 1; }
+.hero-text { flex: 1; min-width: 0; }
 .hero-badge { display: inline-block; background: rgba(255,255,255,.2); border-radius: 20px; padding: 4px 12px; font-size: 13px; margin-bottom: 10px; }
-.hero-image { flex: 0 0 260px; position: relative; display: block; }
+/* Hero product-er caption: soru screen-e (tablet ~832px) majher shobdo
+   kete jeto — flex item-er min-width: auto howay caption-er box
+   hero card-er baire chole jeto. flex item choto hote parbe (min-width: 0)
+   ar caption nije wrap korbe (overflow-wrap), tai ar majh-shobdo kata
+   porbe na — dorkar hole shobdo venge porer line-e jabe. */
+.hero-image { flex: 0 1 260px; min-width: 0; position: relative; display: block; }
 .hero-image img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; }
-.hero-image-caption { display: block; margin-top: 6px; font-size: 13px; color: #fff; opacity: .95; }
+.hero-image-caption { display: block; margin-top: 6px; font-size: 13px; color: #fff; opacity: .95; overflow-wrap: break-word; }
 .btn-hero-outline { display: inline-block; border: 2px solid #fff; color: #fff; padding: 9px 18px; border-radius: 6px; font-weight: 600; margin-left: 8px; }
 .card-rating { padding: 0 12px; font-size: 13px; color: var(--accent-text); font-weight: 600; }
 .card-stock-low { padding: 0 12px 4px; font-size: 13px; color: var(--danger); font-weight: 600; }
@@ -1260,24 +1299,14 @@ img, video { max-width: 100%; }
      dekha jay na. Tai mobile-e button-ta upore tola holo (toolbar +
      safe-area clear kore), ar ektu choto kora holo, jate side-e "tana"
      na lage. Desktop-e ager motoi (bottom: 20px, 60px).
-     Scroll-aware: page-er ekdom upore thakle (scroll ≤ 300px) button
-     lukano thake, jate product-er chobi/thumbnail ba hero dheke na fele;
-     300px-er beshi scroll korle fade-in hoy (footer.ejs-er JS
-     .whatsapp-float--scroll / .is-visible class toggle kore). */
+     Scroll-aware lukano-r rule (upore thakle lukano, scroll korle
+     fade-in) ekhon @media (max-width: 1024px) block-e ache — tablet-eo
+     (769–1024px) button hero dheke fele bole. */
   .whatsapp-float {
     bottom: 88px;
     bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     right: 16px; width: 48px; height: 48px;
     box-shadow: 0 4px 14px rgba(37,211,102,0.35);
-  }
-  .whatsapp-float.whatsapp-float--scroll {
-    opacity: 0; visibility: hidden; pointer-events: none;
-    transform: translateY(8px);
-    transition: opacity .25s ease, visibility .25s ease, transform .25s ease;
-  }
-  .whatsapp-float.whatsapp-float--scroll.is-visible {
-    opacity: 1; visibility: visible; pointer-events: auto;
-    transform: none;
   }
 
   /* iOS 16px-er choto input-e focus korle page zoom kore fele — tai

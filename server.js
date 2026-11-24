@@ -10,6 +10,7 @@ const path = require('path');
 
 const { csrfProtection } = require('./lib/csrf');
 const { buildMenuTree, buildMenuById } = require('./lib/categories');
+const { fixHeroCopy, fixProductName } = require('./lib/startup-content-fixes');
 
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
@@ -29,8 +30,8 @@ app.locals.assetUrl = createAssetUrl(path.join(__dirname, 'public'));
 // address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
 const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url'];
 const SITE_SETTING_DEFAULTS = {
-  hero_title: 'Cash on Delivery — sara Bangladesh-e delivery',
-  hero_subtitle: 'Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery. Order korar age phone-e confirm kora hoy.',
+  hero_title: 'সেরা পণ্য, ক্যাশ অন ডেলিভারি',
+  hero_subtitle: 'ঢাকার ভিতরে ১–২ দিনে, ঢাকার বাইরে ৩–৫ দিনে ডেলিভারি। অর্ডারের আগে ফোনে কনফার্ম করা হয়।',
   announcement_text: '',
   shop_address: '',
   facebook_url: '',
@@ -327,6 +328,21 @@ const SITE_SETTING_DEFAULTS = {
     // "admins" table na thakle (update.sql run kora hoyni) shudhu log kore
     // rakhbo — purono .env-based login ekhono kaj korbe, server crash korbe na
     console.error('Admin seed skip holo (sql/update.sql run kora hoyeche kina check koro):', err.message);
+  }
+})();
+
+// ---------- Startup content fixes (fix/full-width-hero-cleanup) ----------
+// Hero copy + product-er naam-er banan — DB-te save thaka purono value
+// HUBOHU mille tobei bodlay (lib/startup-content-fixes.js dekhun).
+// Settings/product table na thakle ba query fail korle shudhu log hobe,
+// server crash korbe na — live site-er kono khoti hobe na.
+(async () => {
+  try {
+    const db = require('./config/db');
+    await fixHeroCopy(db);
+    await fixProductName(db);
+  } catch (err) {
+    console.error('Startup content fixes skip holo:', err.message);
   }
 })();
 
