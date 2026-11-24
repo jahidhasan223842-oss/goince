@@ -957,13 +957,6 @@ a { text-decoration: none; color: inherit; }
   filter: brightness(.8);
   text-decoration-thickness: 2px;
 }
-/* Category tree rows: soft background change only — no lift on rows. */
-.cat-row {
-  transition: background-color .22s ease;
-}
-.cat-row:hover {
-  background: var(--bg-hover);
-}
 .cat-chevron,
 .cat-drag,
 .cat-tree-btn,
@@ -996,6 +989,103 @@ a { text-decoration: none; color: inherit; }
   border-color: #4f8cff;
   box-shadow: 0 0 0 3px rgba(79, 140, 255, .18);
   outline: none;
+}
+
+/* =========================================================
+   ADMIN HOVER SYSTEM (PR #50) — one hover language for the
+   whole admin panel, so every option feels the same and a new
+   option gets it automatically.
+   CONVENTION for new admin pages (no extra CSS needed):
+   build lists with .admin-table (tables) or
+   .invoice-items-table (order line items), list rows with
+   .cat-row (category tree), .analytics-status-row /
+   .analytics-attention-row (dashboard lists), and cards with
+   .analytics-panel, .stat-card, .report-card, .analytics-kpi,
+   .report-summary-card or .invoice-box — the hover below then
+   applies automatically. Do NOT invent a new row/card class
+   with its own hover colour; reuse these.
+   Hover = warm gold tint (var(--table-hover) — the same gold
+   the Orders rows have had since PR #43: #fce9b8 light,
+   #54431c dark, always distinct from both stripes) + a gentle
+   lift (translateY(-2px)) + a soft shadow, all in .22s.
+   Table rows: a <tr> itself cannot be transformed (the CSS
+   Transforms spec lists table-cell, not table-row, as a
+   transformable element), so the lift is applied to the row's
+   cells, which move together as one band; the gold is painted
+   on both the row and its cells so no strip shows while it
+   lifts. A drop shadow under a lifted table row cannot be
+   painted reliably while border-collapse: collapse is in use,
+   so rows get lift + tint, and cards / list rows (real boxes)
+   get lift + tint + shadow.
+   Sidebar links and buttons already spoke this language
+   (colour + shift/lift + shadow) — they are unchanged.
+   ========================================================= */
+
+/* --- Tables: gold tint + lift (via the cells) --- */
+.admin-table tbody tr td,
+.invoice-items-table tbody tr td {
+  transition: background-color .22s ease, transform .22s ease;
+}
+.invoice-items-table tbody tr:hover {
+  background: var(--table-hover);
+}
+.admin-table tbody tr:hover td,
+.invoice-items-table tbody tr:hover td {
+  background: var(--table-hover);
+  transform: translateY(-2px);
+}
+
+/* --- Category tree rows: gold (was grey), + lift + shadow --- */
+.cat-row {
+  transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
+}
+.cat-row:hover {
+  background: var(--table-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+}
+
+/* --- Dashboard list rows: no hover before, now gold + lift + shadow --- */
+.analytics-status-row,
+.analytics-attention-row {
+  border-radius: 9px;
+  transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
+}
+.analytics-status-row:hover,
+.analytics-attention-row:hover {
+  background: var(--table-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+}
+
+/* --- Cards: add the gold tint to the lift + shadow they already had --- */
+.stat-card:hover,
+.report-card:hover,
+.analytics-kpi:hover,
+.analytics-panel:hover,
+.report-summary-card:hover,
+.invoice-box:hover {
+  background: var(--table-hover);
+}
+/* Cards that had no hover at all: same lift + shadow + tint. */
+.report-summary-card,
+.invoice-box {
+  transition: transform .22s ease, box-shadow .22s ease, background-color .22s ease;
+}
+.report-summary-card:hover,
+.invoice-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+}
+
+/* --- Admin filter pills (Inventory): no hover before --- */
+.admin-content .category-bar a:not(.active) {
+  transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
+}
+.admin-content .category-bar a:not(.active):hover {
+  background: var(--table-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .14);
 }
 
 /* Analytics */
@@ -1275,6 +1365,14 @@ a { text-decoration: none; color: inherit; }
   .admin-content .btn-sm,
   .admin-content a,
   .admin-table tbody tr,
+  .admin-table tbody tr td,
+  .invoice-items-table tbody tr,
+  .invoice-items-table tbody tr td,
+  .analytics-status-row,
+  .analytics-attention-row,
+  .report-summary-card,
+  .invoice-box,
+  .admin-content .category-bar a,
   .report-tab,
   .analytics-panel,
   .admin-quick-links a,
@@ -1303,6 +1401,21 @@ a { text-decoration: none; color: inherit; }
   .report-card:hover,
   .analytics-kpi:hover,
   .btn-primary:hover,
+  .admin-content .btn-primary:hover,
+  .admin-content .btn-sm:hover,
+  .admin-content button:hover:not(:disabled),
+  .btn-secondary:hover,
+  .btn-call:hover,
+  .admin-content a.btn-call:hover,
+  [data-theme="dark"] .admin-content a.btn-call:hover,
+  .admin-table tbody tr:hover td,
+  .invoice-items-table tbody tr:hover td,
+  .cat-row:hover,
+  .analytics-status-row:hover,
+  .analytics-attention-row:hover,
+  .report-summary-card:hover,
+  .invoice-box:hover,
+  .admin-content .category-bar a:not(.active):hover,
   .admin-content button:hover,
   .admin-content .btn-sm:hover,
   .report-tab:hover,
