@@ -138,18 +138,9 @@
     <% } %>
     <div class="analytics-chart-legend"><span class="analytics-legend-dot"></span> Sales revenue <span class="analytics-legend-note">Cancelled orders excluded</span></div>
   </article>
-
-  <article class="analytics-panel">
-    <div class="analytics-panel-heading"><div><h2>Order status</h2><p>Orders created during this period</p></div></div>
-    <% if (dashboard.statusRows.length === 0) { %><div class="analytics-small-empty">No orders in this period.</div><% } else { %>
-      <div class="analytics-status-list">
-        <% dashboard.statusRows.forEach(item => { %>
-          <div class="analytics-status-row"><span class="analytics-status-dot status-<%= String(item.status || 'other').toLowerCase().replace(/[^a-z0-9]+/g, '-') %>"></span><span class="analytics-status-name"><%= item.status || 'Unknown' %></span><strong><%= Number(item.count).toLocaleString() %></strong></div>
-        <% }) %>
-      </div>
-    <% } %>
-    <div class="analytics-total-orders"><span>All-time orders</span><strong><%= Number(totalOrders || 0).toLocaleString() %></strong></div>
-  </article>
+  <!-- NOTE (PR #49): the "Order status" panel used to sit here. It moved to
+       the Orders page (/admin/invoices) as a clickable all-time summary.
+       The chart above now spans the full width (see the :only-child rule). -->
 </section>
 
 <section class="analytics-lower-grid">

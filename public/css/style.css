@@ -617,6 +617,13 @@ a { text-decoration: none; color: inherit; }
 .analytics-kpi-foot { color:var(--text-muted); font-size:11px; }
 .trend-up { color:#16834a; font-weight:800; }.trend-down { color:#c13f3f; font-weight:800; }
 .analytics-main-grid,.analytics-lower-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr); gap:16px; margin-bottom:16px; }
+/* PR #49: the "Order status" panel left the dashboard, so the Sales trend
+   chart is now the only child of the main grid — let it span full width
+   instead of leaving an empty second column. */
+.analytics-main-grid > .analytics-chart-panel:only-child { grid-column: 1 / -1; }
+/* Orders page: clickable order-status summary pills (moved from the
+   dashboard, PR #49). Inline-flex so the status dot keeps its size. */
+.order-status-pill { display:inline-flex; align-items:center; gap:6px; }
 .analytics-panel { min-width:0; padding:20px; border:1px solid var(--border); border-radius:13px; background:var(--surface); box-shadow:0 3px 12px var(--shadow-sm); }
 .analytics-panel-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:18px; }
 .analytics-panel-heading h2 { margin:0 0 5px; font-size:17px; color:var(--text-strong); }
