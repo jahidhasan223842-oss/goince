@@ -216,14 +216,18 @@ a { text-decoration: none; color: inherit; }
 
 /* Buttons */
 .btn-primary { background: var(--accent); color: var(--navy); border: none; padding: 10px 22px; border-radius: 5px; font-weight: bold; cursor: pointer; display: inline-block; transition: background .2s ease, transform .2s ease, box-shadow .2s ease; }
-.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+@media (hover: hover) {
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+}
 /* Secondary button: dark navy background with WHITE text. .btn-primary has
    navy text, so a navy/grey inline background on it made the label
    invisible — that bug lived on Products Import/Export, Reports Export,
    order-details Undo/Refresh buttons, the invoices tabs and pagination.
    Use this class for secondary actions instead of an inline background. */
 .btn-secondary { background: var(--navy); color: #fff; border: 1px solid var(--border-strong); padding: 10px 22px; border-radius: 5px; font-weight: bold; cursor: pointer; display: inline-block; text-decoration: none; transition: background .2s ease, transform .2s ease, box-shadow .2s ease; }
-.btn-secondary:hover { background: var(--navy-2); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+@media (hover: hover) {
+  .btn-secondary:hover { background: var(--navy-2); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+}
 .btn-disabled { background: var(--border-strong); color: var(--text-muted); border: none; padding: 10px 22px; border-radius: 5px; }
 .btn-remove { background: var(--danger-solid); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
 .link-btn-danger { background: none; border: none; color: var(--danger); cursor: pointer; text-decoration: underline; padding: 0; }
@@ -381,7 +385,9 @@ a { text-decoration: none; color: inherit; }
 /* Reports page */
 .report-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 15px 0 10px; }
 .report-tab { padding: 8px 18px; border-radius: 20px; background: var(--bg); color: var(--text); font-weight: 600; font-size: 14px; }
-.report-tab:hover { background: var(--bg-hover); }
+@media (hover: hover) {
+  .report-tab:hover { background: var(--bg-hover); }
+}
 .report-tab.active { background: var(--accent); color: var(--navy); }
 .report-period-label { color: var(--text-muted); margin-bottom: 20px; }
 .report-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 30px; }
@@ -475,6 +481,10 @@ a { text-decoration: none; color: inherit; }
   .invoice-logo { background: #fff !important; }
   .invoice-box, .invoice-total-box { border: 1px solid #e2e2e6 !important; }
   .invoice-items-table thead th { background: #1a1a2e !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Tables wrapped in .table-responsive for mobile scrolling must print
+     fully (overflow:auto would clip on paper) — unwrap for print. */
+  .table-responsive { overflow: visible !important; }
+  .table-responsive table { min-width: 0 !important; }
   .invoice-divider { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
@@ -819,8 +829,10 @@ a { text-decoration: none; color: inherit; }
 .admin-table tbody tr:nth-child(even) {
   background: var(--table-stripe);
 }
-.admin-table tbody tr:hover {
-  background: var(--table-hover);
+@media (hover: hover) {
+  .admin-table tbody tr:hover {
+    background: var(--table-hover);
+  }
 }
 .admin-table td { color: var(--text); }
 .table-responsive { border-radius: 12px; }
@@ -879,11 +891,13 @@ a { text-decoration: none; color: inherit; }
   border-radius: 8px;
   transition: background .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease;
 }
-.admin-content button:hover:not(:disabled),
-.admin-content .btn-primary:hover,
-.admin-content .btn-sm:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, .16);
+@media (hover: hover) {
+  .admin-content button:hover:not(:disabled),
+  .admin-content .btn-primary:hover,
+  .admin-content .btn-sm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .16);
+  }
 }
 .admin-content button:focus-visible,
 .admin-content a:focus-visible,
@@ -898,11 +912,13 @@ a { text-decoration: none; color: inherit; }
 .analytics-kpi {
   transition: transform .22s ease, box-shadow .22s ease;
 }
-.stat-card:hover,
-.report-card:hover,
-.analytics-kpi:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+@media (hover: hover) {
+  .stat-card:hover,
+  .report-card:hover,
+  .analytics-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+  }
 }
 
 /* Admin content hover, everywhere — same language as the sidebar (PR #34):
@@ -916,23 +932,29 @@ a { text-decoration: none; color: inherit; }
 .report-tab {
   transition: background .22s ease, color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
-.report-tab:not(.active):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, .14);
+@media (hover: hover) {
+  .report-tab:not(.active):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .14);
+  }
 }
 .analytics-panel {
   transition: transform .22s ease, box-shadow .22s ease;
 }
-.analytics-panel:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+@media (hover: hover) {
+  .analytics-panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+  }
 }
 .admin-quick-links a {
   transition: border-color .22s ease, color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
-.admin-quick-links a:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+@media (hover: hover) {
+  .admin-quick-links a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+  }
 }
 .analytics-report-link,
 .analytics-panel-heading > a,
@@ -1008,6 +1030,9 @@ a { text-decoration: none; color: inherit; }
    the Orders rows have had since PR #43: #fce9b8 light,
    #54431c dark, always distinct from both stripes) + a gentle
    lift (translateY(-2px)) + a soft shadow, all in .22s.
+   Touch (PR #51): tap korle :hover lege thake — tai shob :hover rule
+   @media (hover: hover)-er vitore rakha hoyeche; touch screen-e tap-er
+   por row/card gold/lift hoye thakbe na.
    Table rows: a <tr> itself cannot be transformed (the CSS
    Transforms spec lists table-cell, not table-row, as a
    transformable element), so the lift is applied to the row's
@@ -1026,23 +1051,27 @@ a { text-decoration: none; color: inherit; }
 .invoice-items-table tbody tr td {
   transition: background-color .22s ease, transform .22s ease;
 }
-.invoice-items-table tbody tr:hover {
-  background: var(--table-hover);
-}
-.admin-table tbody tr:hover td,
-.invoice-items-table tbody tr:hover td {
-  background: var(--table-hover);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .invoice-items-table tbody tr:hover {
+    background: var(--table-hover);
+  }
+  .admin-table tbody tr:hover td,
+  .invoice-items-table tbody tr:hover td {
+    background: var(--table-hover);
+    transform: translateY(-2px);
+  }
 }
 
 /* --- Category tree rows: gold (was grey), + lift + shadow --- */
 .cat-row {
   transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
-.cat-row:hover {
-  background: var(--table-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+@media (hover: hover) {
+  .cat-row:hover {
+    background: var(--table-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+  }
 }
 
 /* --- Dashboard list rows: no hover before, now gold + lift + shadow --- */
@@ -1051,41 +1080,49 @@ a { text-decoration: none; color: inherit; }
   border-radius: 9px;
   transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
-.analytics-status-row:hover,
-.analytics-attention-row:hover {
-  background: var(--table-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+@media (hover: hover) {
+  .analytics-status-row:hover,
+  .analytics-attention-row:hover {
+    background: var(--table-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+  }
 }
 
 /* --- Cards: add the gold tint to the lift + shadow they already had --- */
-.stat-card:hover,
-.report-card:hover,
-.analytics-kpi:hover,
-.analytics-panel:hover,
-.report-summary-card:hover,
-.invoice-box:hover {
-  background: var(--table-hover);
+@media (hover: hover) {
+  .stat-card:hover,
+  .report-card:hover,
+  .analytics-kpi:hover,
+  .analytics-panel:hover,
+  .report-summary-card:hover,
+  .invoice-box:hover {
+    background: var(--table-hover);
+  }
 }
 /* Cards that had no hover at all: same lift + shadow + tint. */
 .report-summary-card,
 .invoice-box {
   transition: transform .22s ease, box-shadow .22s ease, background-color .22s ease;
 }
-.report-summary-card:hover,
-.invoice-box:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+@media (hover: hover) {
+  .report-summary-card:hover,
+  .invoice-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+  }
 }
 
 /* --- Admin filter pills (Inventory): no hover before --- */
 .admin-content .category-bar a:not(.active) {
   transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
-.admin-content .category-bar a:not(.active):hover {
-  background: var(--table-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, .14);
+@media (hover: hover) {
+  .admin-content .category-bar a:not(.active):hover {
+    background: var(--table-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .14);
+  }
 }
 
 /* Analytics */
@@ -1166,9 +1203,11 @@ a { text-decoration: none; color: inherit; }
 .btn-call,
 .admin-content a.btn-call,
 [data-theme="dark"] .admin-content a.btn-call { background: var(--success); color: #fff; border: none; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-block; text-decoration: none; white-space: nowrap; line-height: 1.4; transition: background .2s ease, transform .2s ease, box-shadow .2s ease; }
-.btn-call:hover,
-.admin-content a.btn-call:hover,
-[data-theme="dark"] .admin-content a.btn-call:hover { background: #176327; color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+@media (hover: hover) {
+  .btn-call:hover,
+  .admin-content a.btn-call:hover,
+  [data-theme="dark"] .admin-content a.btn-call:hover { background: #176327; color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+}
 .btn-call:focus-visible,
 .admin-content a.btn-call:focus-visible { outline: 2px solid #76a5ff; outline-offset: 2px; }
 
@@ -1239,7 +1278,9 @@ a { text-decoration: none; color: inherit; }
 .admin-nav-group { color: #8a8aa0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin: 16px 0 4px; padding-left: 4px; }
 .admin-quick-links { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
 .admin-quick-links a { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 16px; font-weight: 600; }
-.admin-quick-links a:hover { border-color: var(--accent); }
+@media (hover: hover) {
+  .admin-quick-links a:hover { border-color: var(--accent); }
+}
 @media (max-width: 700px) {
   .hero { flex-direction: column; align-items: flex-start; }
   .hero-image { flex: none; width: 100%; }
@@ -1271,10 +1312,14 @@ a { text-decoration: none; color: inherit; }
 .cat-check { flex: 0 0 auto; width: 16px; height: 16px; cursor: pointer; }
 .cat-bulk-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 16px 0 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
 .cat-bulk-bar button { padding: 6px 12px; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; }
-.cat-bulk-bar button:hover { background: var(--bg-hover); }
+@media (hover: hover) {
+  .cat-bulk-bar button:hover { background: var(--bg-hover); }
+}
 .cat-bulk-count { color: var(--text-muted); font-size: 13px; }
 .cat-chevron { background: none; border: none; cursor: pointer; font-size: 14px; line-height: 1; color: var(--text); padding: 6px; border-radius: 4px; }
-.cat-chevron:hover { background: var(--bg-hover); }
+@media (hover: hover) {
+  .cat-chevron:hover { background: var(--bg-hover); }
+}
 .cat-thumb-wrap { flex: 0 0 auto; }
 .cat-info { flex: 1 1 220px; min-width: 180px; }
 .cat-counts { white-space: nowrap; font-size: 13px; }
@@ -1282,11 +1327,15 @@ a { text-decoration: none; color: inherit; }
 .cat-actions button[disabled] { opacity: 0.35; cursor: not-allowed; }
 .cat-empty-sub { padding: 10px 12px 12px; color: var(--text-muted); font-size: 13px; }
 .cat-tree-btn { background: var(--surface); border: 1px solid var(--border-strong); color: var(--text); padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 13px; }
-.cat-tree-btn:hover { background: var(--bg-hover); }
+@media (hover: hover) {
+  .cat-tree-btn:hover { background: var(--bg-hover); }
+}
 /* Drag & drop reorder (admin Categories tree): shudhu ⠿ handle dhore tana
    jay; drop korar jaygay dag dekhano hoy. */
 .cat-drag { cursor: grab; color: var(--text-muted); font-size: 16px; padding: 4px 6px; border-radius: 4px; flex: 0 0 auto; user-select: none; touch-action: none; }
-.cat-drag:hover { background: var(--bg-hover); color: var(--text); }
+@media (hover: hover) {
+  .cat-drag:hover { background: var(--bg-hover); color: var(--text); }
+}
 .cat-drag:active { cursor: grabbing; }
 .cat-row.cat-dragging { opacity: 0.45; }
 .cat-row.cat-drag-over-before { box-shadow: inset 0 3px 0 #f0a500; }
@@ -1429,8 +1478,9 @@ a { text-decoration: none; color: inherit; }
 /* =========================================================
    MOBILE FRIENDLY (fix/mobile-friendly)
    Shob rule choto screen-er jonno (max-width: 768px / 480px) —
-   desktop layout ekdom ager motoi thakbe. Hover rules (PR #34/#35)
-   ekhane change kora hoy ni; touch device-e hover emnitei apply hoy na.
+   desktop layout ekdom ager motoi thakbe. Hover: touch device-e tap
+   korle :hover lege thake (PR #51) — tai admin hover rules
+   @media (hover: hover)-er vitore rakha hoyeche.
    ========================================================= */
 
 /* Shop + admin — kono chobi page-er baire jabe na. */
@@ -1509,6 +1559,19 @@ img, video { max-width: 100%; }
   .auth-box { padding: 24px 20px; }
 
   /* ---------- ADMIN ---------- */
+  /* MOBILE ADMIN CONVENTION (PR #51) — notun admin page banale ei niyom
+     gulo mene chollei mobile-e valo dekhabe, alada CSS lagbe na:
+     - header/sidebar: shared admin-header partial (hamburger topbar +
+       off-canvas drawer) — notun page-e partial-i use koro.
+     - table: .table-responsive (ba .admin-table-wrap) wrapper-er vitore
+       .admin-table — table nije page-er baire jabe na.
+     - tap target: shob button/link/pill/tab mobile-e ontoto 44px
+       (.btn-primary/.btn-secondary/.btn-call, report-tab, filter button).
+     - form: .admin-form (ek column, ek line-e ek field), input 16px.
+     - hover: @media (hover: hover)-er vitore — touch-e tap-er por
+       hover lege thakbe na.
+     - floating button: admin-e fixed bottom-right button bosabe na
+       (theme toggle topbar-er vitore thake). */
   /* Hamburger topbar: shudhu phone-e dekha jay, desktop-e display:none. */
   .admin-mobile-topbar {
     display: flex; align-items: center; gap: 12px;
@@ -1563,10 +1626,13 @@ img, video { max-width: 100%; }
   .admin-search-form select { flex: 1 1 140px; min-width: 0; }
   .admin-search-form .btn-primary { flex: 1 1 120px; }
 
-  /* Table-er choto action button/link angule chapa jay na — 36px kora holo. */
+  /* Table-er choto action button/link angule chapa jay na — 44px kora holo
+     (angul-er tap target). btn-sm-er inline padding (video button) thakleo
+     min-height kaj kore; link-gulo inline-flex hole min-height dhore. */
   .admin-table th, .admin-table td { padding: 10px 8px; font-size: 13px; }
-  .admin-table .btn-sm { min-height: 36px; padding: 8px 12px; }
-  .admin-table .link-btn-danger { padding: 10px 6px; }
+  .admin-table .btn-sm { min-height: 44px; padding: 10px 14px; }
+  .admin-table .link-btn-danger { min-height: 44px; padding: 12px 8px; }
+  .admin-table td a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
   .admin-table-wrap table { min-width: 600px; }
 
   .stat-card { min-width: 0; flex: 1 1 140px; padding: 16px; }
@@ -1574,6 +1640,43 @@ img, video { max-width: 100%; }
   .cat-row { gap: 8px; padding: 10px; }
   .cat-info { min-width: 0; }
   .chat-reply-form input { min-width: 0; }
+
+  /* Tap target (PR #51 audit): age 44px-er kom chilo — shob admin action
+     mobile-e ontoto 44px hobe. .btn-primary age thekei 44px (upore);
+     .btn-secondary-er kono mobile min-height chilo na. */
+  .btn-secondary { min-height: 44px; }
+  .btn-call { min-height: 44px; padding: 10px 18px; }
+  .report-tab { min-height: 44px; padding: 12px 18px; }
+  .analytics-filter-btn, .analytics-apply-btn { min-height: 44px; }
+  .analytics-view-link, .analytics-kpi-foot a, .analytics-panel-heading > a {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
+  }
+  .admin-sidebar nav a { min-height: 44px; }
+  .cat-actions a, .cat-actions button {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px;
+  }
+  .cat-chevron { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+  .cat-check { width: 22px; height: 22px; }
+
+  /* Inventory filter pills (admin): shop-er mobile .category-bar rule
+     (gol card strip) admin-er pill-keo dhore felto — pill gulo
+     background/border hariye 76px column hoye jeto. Admin-e pill-i thakbe. */
+  .admin-content .category-bar {
+    flex-wrap: wrap; overflow-x: visible; gap: 8px; padding: 0; margin: 16px 0;
+    -webkit-mask-image: none; mask-image: none; scroll-snap-type: none;
+  }
+  .admin-content .category-bar > a {
+    flex-direction: row; flex: 0 0 auto; width: auto; min-height: 44px;
+    padding: 10px 16px; background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: 20px; font-size: 14px;
+  }
+  .admin-content .category-bar a.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+  /* Theme toggle: mobile-e floating button (niche dan dike) page-er
+     shesher pagination/action button dheke felto. Ekhon topbar-er vitore
+     thakbe (desktop-e topbar lukano, tai floating button-i thakbe). */
+  .theme-toggle-fixed { display: none; }
+  .admin-mobile-topbar .theme-toggle-btn { margin-left: auto; }
 
   /* Admin login box: 320px fixed width chilo — choto phone-e kete jeto. */
   .admin-login-box { width: min(320px, calc(100vw - 32px)); padding: 32px 24px; }
