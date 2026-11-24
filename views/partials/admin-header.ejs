@@ -15,7 +15,7 @@
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="<%= typeof assetUrl === 'function' ? assetUrl('/css/style.css') : '/css/style.css' %>">
 </head>
 <body class="admin-body">
   <div class="admin-wrapper">

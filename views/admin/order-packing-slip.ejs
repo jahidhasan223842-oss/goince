@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Packing Slip #<%= order.id %> - <%= siteName %></title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="<%= typeof assetUrl === 'function' ? assetUrl('/css/style.css') : '/css/style.css' %>">
   <style>
     body { background: #fff; color: #111; }
     .packing-page { max-width: 800px; margin: 24px auto; padding: 0 16px; }
