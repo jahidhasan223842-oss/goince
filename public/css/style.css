@@ -202,6 +202,13 @@ a { text-decoration: none; color: inherit; }
 /* Buttons */
 .btn-primary { background: var(--accent); color: var(--navy); border: none; padding: 10px 22px; border-radius: 5px; font-weight: bold; cursor: pointer; display: inline-block; transition: background .2s ease, transform .2s ease, box-shadow .2s ease; }
 .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
+/* Secondary button: dark navy background with WHITE text. .btn-primary has
+   navy text, so a navy/grey inline background on it made the label
+   invisible — that bug lived on Products Import/Export, Reports Export,
+   order-details Undo/Refresh buttons, the invoices tabs and pagination.
+   Use this class for secondary actions instead of an inline background. */
+.btn-secondary { background: var(--navy); color: #fff; border: 1px solid var(--border-strong); padding: 10px 22px; border-radius: 5px; font-weight: bold; cursor: pointer; display: inline-block; text-decoration: none; transition: background .2s ease, transform .2s ease, box-shadow .2s ease; }
+.btn-secondary:hover { background: var(--navy-2); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .16); }
 .btn-disabled { background: var(--border-strong); color: var(--text-muted); border: none; padding: 10px 22px; border-radius: 5px; }
 .btn-remove { background: var(--danger-solid); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
 .link-btn-danger { background: none; border: none; color: var(--danger); cursor: pointer; text-decoration: underline; padding: 0; }
@@ -611,6 +618,10 @@ a { text-decoration: none; color: inherit; }
    ========================================================= */
 :root {
   --admin-bg: #f1f2f6;
+  /* Admin table stripes + hover — kept separate from --bg-hover/--border so
+     the hover colour never matches a stripe colour (see dark block below). */
+  --table-stripe: #eef1f6;
+  --table-hover: #fce9b8;
 }
 
 [data-theme="dark"] {
@@ -619,10 +630,14 @@ a { text-decoration: none; color: inherit; }
   --surface: #111c2f;
   --text: #f2f2f5;
   --text-strong: #ffffff;
-  --text-muted: #bcbcc9;
+  --text-muted: #d2d2dc;
   --border: #26354b;
   --border-strong: #3a4d68;
   --admin-bg: #0b1120;
+  /* Dark table stripes + hover: warm gold hover (#54431c) is unmistakable
+     against the cool navy rows (#111c2f / #1a2947 / header #202c42). */
+  --table-stripe: #1a2947;
+  --table-hover: #54431c;
 }
 
 /* Main layout */
@@ -723,7 +738,7 @@ a { text-decoration: none; color: inherit; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  box-shadow: 0 8px 24px var(--shadow-sm);
 }
 .admin-table th,
 .admin-table td { border-bottom-color: var(--border); }
@@ -737,10 +752,10 @@ a { text-decoration: none; color: inherit; }
 }
 .admin-table tbody tr { background: var(--surface); }
 .admin-table tbody tr:nth-child(even) {
-  background: var(--bg-hover);
+  background: var(--table-stripe);
 }
 .admin-table tbody tr:hover {
-  background: var(--border);
+  background: var(--table-hover);
 }
 .admin-table td { color: var(--text); }
 .table-responsive { border-radius: 12px; }
@@ -757,7 +772,20 @@ a { text-decoration: none; color: inherit; }
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  box-shadow: 0 8px 24px var(--shadow-sm);
+}
+
+/* Dark mode: a black drop shadow is invisible on the near-black page, so
+   admin cards/tables get a stronger border instead of relying on shadow. */
+[data-theme="dark"] .admin-table,
+[data-theme="dark"] .admin-form,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .report-card,
+[data-theme="dark"] .analytics-kpi,
+[data-theme="dark"] .analytics-filter,
+[data-theme="dark"] .stock-alert-box,
+[data-theme="dark"] .report-summary-card {
+  border-color: var(--border-strong);
 }
 .admin-form { max-width: 760px; padding: 24px; }
 .admin-form label,
