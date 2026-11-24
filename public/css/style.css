@@ -977,6 +977,17 @@ a { text-decoration: none; color: inherit; }
      hover chole jay na — na hole aste namale panel bondho hoye jeto. */
   .mega-menu-wrap::after { content: ""; position: absolute; top: 100%; left: 0; right: 0; height: 10px; }
 }
+/* Choto desktop-e (1039px) panel dan dike kete jeto: wrap Categories
+   button-er kachhe left-e thakay left:0 + 860px panel viewport chhariye
+   jeto (Winter Collection / "View all products" dekha jeto na). Wrap
+   static korle panel-er containing block .site-header hoy, tai left:50% +
+   translateX(-50%) panel-ke header-er majhkhane bosay — 769px theke upore
+   ar kono dike katbe na (width agei min(860px, 100vw - 32px)). Mobile-er
+   rule (max-width:768px) alada, etar sathe mishbe na. */
+@media (min-width: 769px) {
+  .mega-menu-wrap { position: static; }
+  .mega-menu-panel { left: 50%; transform: translateX(-50%); }
+}
 .mega-menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 24px; }
 .mega-col { min-width: 0; padding: 6px 0; }
 .mega-col-head { display: flex; align-items: center; gap: 4px; }
