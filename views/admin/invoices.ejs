@@ -1,7 +1,10 @@
 <%- include('../partials/admin-header') %>
 
-<h1>🧾 Invoices</h1>
-<p class="field-hint">Every order is an invoice — invoice number GOINCE-00035 is order #35. No separate invoice records are kept.</p>
+<h1>🛒 Orders</h1>
+<p class="field-hint">Orders and invoices in one place — every order is an invoice (invoice no. GOINCE-00035 is order #35). Confirm, ship, cancel or mark paid right from this list; phone, notes and courier booking stay on the order details page (View).</p>
+
+<% if (typeof listMsg !== 'undefined' && listMsg) { %><p class="success-msg" style="text-align:left;"><%= listMsg %></p><% } %>
+<% if (typeof listErr !== 'undefined' && listErr) { %><p class="error-msg" style="text-align:left;"><%= listErr %></p><% } %>
 
 <div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
   <% [['all','All'],['paid','Paid'],['unpaid','Unpaid'],['cancelled','Cancelled']].forEach(([t, label]) => { %>
@@ -16,9 +19,10 @@
 <% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
-  <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Paid</th><th>Due</th><th>Payment</th><th>Order Status</th><th></th></tr></thead>
+  <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Paid</th><th>Due</th><th>Payment</th><th>Order Status</th><th>Links</th><th>Actions</th></tr></thead>
   <tbody>
     <% rows.forEach(r => { %>
+      <% const rt = '/admin/invoices?tab=' + tab + '&page=' + page; %>
       <tr>
         <td><strong><%= r.invoiceNo %></strong><br><small>Order #<%= r.id %></small></td>
         <td><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
@@ -29,6 +33,27 @@
         <td><span class="status-badge <%= r.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= r.payment_status || 'Unpaid' %></span></td>
         <td><span class="status-badge status-<%= r.status.toLowerCase() %>"><%= r.status %></span></td>
         <td><a href="/admin/orders/<%= r.id %>">View</a> · <a href="/admin/orders/<%= r.id %>/invoice" target="_blank">Print</a> · <a href="/admin/orders/<%= r.id %>/invoice.pdf">PDF</a></td>
+        <td style="white-space:nowrap;">
+          <% if (r.status === 'Pending') { %>
+            <form action="/admin/orders/<%= r.id %>/status" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><input type="hidden" name="status" value="Confirmed"><input type="hidden" name="return_to" value="<%= rt %>"><button type="submit" class="btn-primary" style="padding:4px 8px;">✓ Confirm</button></form>
+          <% } %>
+          <% if (r.status === 'Confirmed') { %>
+            <form action="/admin/orders/<%= r.id %>/status" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><input type="hidden" name="status" value="Shipped"><input type="hidden" name="return_to" value="<%= rt %>"><button type="submit" class="btn-primary" style="padding:4px 8px;">🚚 Ship</button></form>
+          <% } %>
+          <% if (r.status === 'Shipped') { %>
+            <form action="/admin/orders/<%= r.id %>/status" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><input type="hidden" name="status" value="Delivered"><input type="hidden" name="return_to" value="<%= rt %>"><button type="submit" class="btn-primary" style="padding:4px 8px;">✓ Deliver</button></form>
+          <% } %>
+          <% if (r.due > 0 && r.status !== 'Cancelled') { %>
+            <% if (r.payment_method === 'Cash on Delivery') { %>
+              <form action="/admin/orders/<%= r.id %>/cod-collected" method="POST" style="display:inline;" onsubmit="return confirm('Mark the COD cash (৳<%= Number(r.due).toFixed(2) %>) as collected?');"><%- include('../partials/csrf-field') %><input type="hidden" name="return_to" value="<%= rt %>"><button type="submit" class="btn-primary" style="padding:4px 8px;">💵 Mark Paid</button></form>
+            <% } else { %>
+              <form action="/admin/orders/<%= r.id %>/advance" method="POST" style="display:inline;" onsubmit="return confirm('Record the full due amount (৳<%= Number(r.due).toFixed(2) %>) as paid?');"><%- include('../partials/csrf-field') %><input type="hidden" name="amount" value="<%= Number(r.due).toFixed(2) %>"><input type="hidden" name="note" value="Full payment"><input type="hidden" name="return_to" value="<%= rt %>"><button type="submit" class="btn-primary" style="padding:4px 8px;">💵 Mark Paid</button></form>
+            <% } %>
+          <% } %>
+          <% if (r.status !== 'Cancelled') { %>
+            <form action="/admin/orders/<%= r.id %>/status" method="POST" style="display:inline;" onsubmit="return confirm('Cancel this order?');"><%- include('../partials/csrf-field') %><input type="hidden" name="status" value="Cancelled"><input type="hidden" name="return_to" value="<%= rt %>"><input type="text" name="cancel_reason" placeholder="Cancel reason" required style="width:110px; padding:4px;"><button type="submit" class="btn-primary" style="padding:4px 8px; background:#a33;">✕ Cancel</button></form>
+          <% } %>
+        </td>
       </tr>
     <% }) %>
   </tbody>
