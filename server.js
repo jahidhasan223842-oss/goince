@@ -466,7 +466,39 @@ app.use(async (req, res, next) => {
     res.locals.menuById = {};
   }
 
+  // Search engines (Google) logo/favicon dekhate absolute URL chay, tai
+  // logo/favicon/og-image-er absolute version ekhane banano hoy. trust proxy
+  // on ache, tai req.protocol live-e https hobe (https://goince.com).
+  res.locals.siteUrl = req.protocol + '://' + req.get('host');
+  const toAbsUrl = (u) => {
+    if (!u) return '';
+    if (/^https?:\/\//i.test(u)) return u;
+    return res.locals.siteUrl + (u.startsWith('/') ? u : '/' + u);
+  };
+  res.locals.siteLogoAbs = toAbsUrl(res.locals.siteSettings.logo_url);
+  res.locals.siteFaviconAbs = toAbsUrl(res.locals.siteSettings.favicon_url);
+  res.locals.siteOgImageAbs = toAbsUrl(res.locals.siteSettings.og_image_url);
+  res.locals.pageUrl = res.locals.siteUrl + req.originalUrl;
+  res.locals.isHomePage = req.path === '/' && !req.query.category && !req.query.search;
+
   next();
+});
+
+// ---------- Favicon at /favicon.ico ----------
+// Google search-e favicon dekhate /favicon.ico-teo logo thakte hoy —
+// Google default-e ei URL-tai khoje, tai ekhane file na thakle globe icon
+// dekhay. Admin > Settings-e je favicon set kora, setai ekhane serve kora
+// hoy (local file hole direct, baire-r URL hole redirect), jate Settings
+// theke favicon bodlale /favicon.ico-o shathe shathe bodle jay.
+app.get('/favicon.ico', (req, res) => {
+  const fav = (res.locals.siteSettings && res.locals.siteSettings.favicon_url) || '/icons/icon-192.png';
+  if (/^https?:\/\//i.test(fav)) return res.redirect(fav);
+  const publicDir = path.join(__dirname, 'public');
+  const file = path.join(publicDir, fav.replace(/^\/+/, ''));
+  if (!file.startsWith(publicDir)) return res.redirect('/icons/icon-192.png');
+  res.sendFile(file, (err) => {
+    if (err) res.redirect('/icons/icon-192.png');
+  });
 });
 
 // ---------- CSRF protection (session token; shob POST form-e hidden _csrf field lage) ----------

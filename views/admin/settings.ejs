@@ -7,7 +7,7 @@
 
 <form action="/admin/settings<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
   <h3>🖼️ Logo — kothay konta, koto size</h3>
-  <p class="field-hint">Upload a file, or enter an image link (URL) — if you upload a file, that will be used. Saving updates the website and admin panel right away.</p>
+  <p class="field-hint">Upload a file, or enter an image link (URL) — if you upload a file, that will be used. Saving updates the website and admin panel right away. Main Logo-ta Google search-eo Goince-er logo hishebe dekhano hoy (Google nije decide kore, dekhate koyek din lagte pare).</p>
   <table class="admin-table" style="margin-bottom:16px;">
     <thead><tr><th>Where the logo appears</th><th>Display size</th><th>Upload size</th></tr></thead>
     <tbody>
