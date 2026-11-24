@@ -6,6 +6,7 @@
     <span class="status-badge status-<%= order.status.toLowerCase() %>"><%= order.status %></span>
     <button onclick="window.print()" class="btn-primary" style="margin-left:10px;">🖨️ Print Invoice</button>
     <a href="/admin/orders/<%= order.id %>/invoice" target="_blank" class="btn-primary" style="margin-left:6px;">📄 Invoice (Print / PDF)</a>
+    <a href="/admin/orders/<%= order.id %>/packing-slip" target="_blank" class="btn-primary" style="margin-left:6px;">📦 Packing Slip</a>
   </div>
 </div>
 
@@ -104,6 +105,16 @@
 <% if (order.status === 'Cancelled' && order.cancel_reason) { %>
   <p style="margin-top:16px;"><strong>Cancel reason:</strong> <%= order.cancel_reason %></p>
 <% } %>
+<% const _ph = (typeof phoneHistory !== 'undefined' && phoneHistory) ? phoneHistory : { total: 0, cancelled: 0, delivered: 0 }; %>
+<% const _staleDays = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 86400000); %>
+<% if (order.status === 'Pending' && _staleDays > 3) { %>
+  <p style="margin-top:12px;"><span class="status-badge status-cancelled">Stale — pending <%= _staleDays %> days</span> <small>This order has been pending for over 3 days — follow up with the customer.</small></p>
+<% } %>
+<% if (_ph.cancelled >= 3) { %>
+  <p style="margin-top:12px; padding:10px; background:#fdecea; border:1px solid #d62839; border-radius:6px;"><strong>⚠️ Warning: <%= _ph.cancelled %> cancelled orders from this phone before.</strong><br><small>Customer history for this number: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered. Confirm by phone before dispatch.</small></p>
+<% } else if (_ph.total > 0) { %>
+  <p class="field-hint">Customer history for this phone: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered.</p>
+<% } %>
 <% if (_role !== 'staff') { %>
 <div class="no-print">
   <h3 style="margin-top:30px;">Update Order Status</h3>
@@ -145,6 +156,18 @@
     </select>
     <button type="submit" class="btn-primary">Update Payment</button>
   </form>
+
+  <% if (order.payment_method === 'Cash on Delivery') { %>
+  <h3 style="margin-top:24px;">💵 COD Collection</h3>
+  <% if (order.cod_collected) { %>
+    <p><span class="status-badge status-delivered">✓ COD Collected</span> <%= order.cod_collected_at ? new Date(order.cod_collected_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %> — ৳<%= Number(order.total_amount).toFixed(2) %></p>
+  <% } else { %>
+    <form action="/admin/orders/<%= order.id %>/cod-collected" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
+      <button type="submit" class="btn-primary" onclick="return confirm('Mark the COD cash (৳<%= Number(order.total_amount).toFixed(0) %>) as collected? Payment status will become Paid.');">💵 Mark COD Collected (৳<%= Number(order.total_amount).toFixed(0) %>)</button>
+    </form>
+    <p class="field-hint">Click this once the delivery cash is in hand — it also sets the payment status to Paid.</p>
+  <% } %>
+  <% } %>
 
   <h3 style="margin-top:24px;">Courier / Tracking Info</h3>
   <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
@@ -211,6 +234,57 @@
     <button type="submit" class="btn-primary">Save Note</button>
   </form>
   <% } %>
+
+  <h3 style="margin-top:24px;">↩️ Returns</h3>
+  <% if (typeof returns !== 'undefined' && returns.length) { %>
+    <ul>
+      <% returns.forEach(r => { %>
+        <li>
+          <strong><%= r.status %></strong> — <%= r.reason %><br>
+          <small><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (r.created_by) { %> — <%= r.created_by %><% } %></small>
+          <% if (_role !== 'staff') { %>
+          <form action="/admin/orders/<%= order.id %>/returns/<%= r.id %>/status" method="POST" class="inline-form" style="margin-top:4px;"><%- include('../partials/csrf-field') %>
+            <select name="status">
+              <% ['Pending','Approved','Rejected','Completed'].forEach(s => { %>
+                <option value="<%= s %>" <%= r.status === s ? 'selected' : '' %>><%= s %></option>
+              <% }) %>
+            </select>
+            <button type="submit" class="btn-primary">Update Return</button>
+          </form>
+          <% } %>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p class="field-hint">No returns recorded for this order.</p>
+  <% } %>
+  <% if (_role !== 'staff') { %>
+  <form action="/admin/orders/<%= order.id %>/returns" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
+    <label>Record a Return</label>
+    <textarea name="reason" rows="2" placeholder="e.g. Customer returned the product — wrong size." required></textarea>
+    <button type="submit" class="btn-primary">Record Return</button>
+  </form>
+  <% } %>
+
+  <h3 style="margin-top:24px;">💬 WhatsApp</h3>
+  <% const _waMsg = 'আসসালামু আলাইকুম ' + order.customer_name + ', আপনার অর্ডার #' + order.id + ' ' + order.status + ' হয়েছে। মোট ৳' + Number(order.total_amount).toFixed(0) + ' (ডেলিভারি চার্জ ৳' + Number(order.delivery_charge || 0).toFixed(0) + ' সহ)। ধন্যবাদ — Goince।'; %>
+  <% const _waDigits = String(order.phone || '').replace(/\D/g, '').replace(/^0/, '880'); %>
+  <p class="field-hint">Ready message in Bengali — copy it or open WhatsApp with the message prefilled.</p>
+  <textarea id="wa-msg" rows="3" readonly style="width:100%;max-width:500px;"><%= _waMsg %></textarea>
+  <div style="margin-top:8px;">
+    <button type="button" class="btn-primary" id="wa-copy-btn" onclick="copyWaMsg()">📋 Copy WhatsApp Message</button>
+    <a href="https://wa.me/<%= _waDigits %>?text=<%= encodeURIComponent(_waMsg) %>" target="_blank" class="btn-primary" style="margin-left:8px; text-decoration:none;">💬 Open WhatsApp</a>
+  </div>
+  <script>
+    function copyWaMsg() {
+      var t = document.getElementById('wa-msg');
+      var btn = document.getElementById('wa-copy-btn');
+      function done() { btn.textContent = '✓ Copied'; setTimeout(function () { btn.textContent = '📋 Copy WhatsApp Message'; }, 2000); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t.value).then(done, function () { t.select(); document.execCommand('copy'); done(); });
+      } else { t.select(); document.execCommand('copy'); done(); }
+    }
+  </script>
 
   <h3 style="margin-top:24px;">💬 SMS Update</h3>
   <p class="field-hint">Sends the customer a text about this order's status (e.g. "Your order #<%= order.id %> is <%= order.status %>").</p>

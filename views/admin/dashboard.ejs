@@ -33,6 +33,11 @@
 
 <section class="analytics-kpi-grid" aria-label="Store metrics">
   <article class="analytics-kpi kpi-revenue">
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Today's pending orders</span><span class="analytics-kpi-icon">🛒</span></div>
+    <strong class="analytics-kpi-value"><%= Number((typeof todaysPendingCount !== 'undefined' ? todaysPendingCount : 0) || 0).toLocaleString() %></strong>
+    <span class="analytics-kpi-foot"><a href="/admin/orders?status=Pending">View pending orders →</a></span>
+  </article>
+  <article class="analytics-kpi kpi-revenue">
     <div class="analytics-kpi-top"><span class="analytics-kpi-label">Sales revenue</span><span class="analytics-kpi-icon">৳</span></div>
     <strong class="analytics-kpi-value">৳<%= money(dashboard.currentSummary.revenue) %></strong>
     <span class="analytics-kpi-foot"><% if (pct === null) { %>No previous-period baseline<% } else { %><span class="<%= pct >= 0 ? 'trend-up' : 'trend-down' %>"><%= pct > 0 ? '↑' : pct < 0 ? '↓' : '→' %> <%= Math.abs(pct).toFixed(1) %>%</span> vs previous period<% } %></span>

@@ -348,6 +348,9 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
     const [[{ totalRevenue }]] = await db.query("SELECT COALESCE(SUM(total_amount),0) AS totalRevenue FROM orders WHERE status != 'Cancelled'");
     const [[{ totalCustomers }]] = await db.query('SELECT COUNT(*) AS totalCustomers FROM users');
     const [pendingOrders] = await db.query("SELECT * FROM orders WHERE status = 'Pending' ORDER BY created_at DESC LIMIT 5");
+    // Orders Pro 2: today's pending orders count (prominent card on the dashboard).
+    let todaysPendingCount = 0;
+    try { const [[t]] = await db.query("SELECT COUNT(*) AS c FROM orders WHERE status = 'Pending' AND DATE(created_at) = CURDATE()"); todaysPendingCount = Number(t.c || 0); } catch (e) { /* orders table query failed — count stays 0 */ }
     const [lowStockProducts] = await db.query('SELECT * FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) ORDER BY stock ASC LIMIT 5');
     const [[{ lowStockCount }]] = await db.query('SELECT COUNT(*) AS lowStockCount FROM products WHERE stock <= COALESCE(low_stock_threshold, 5) AND stock > 0');
     const [[{ outOfStockCount }]] = await db.query('SELECT COUNT(*) AS outOfStockCount FROM products WHERE stock = 0');
@@ -392,7 +395,7 @@ router.get('/dashboard', requireAdmin, requireRole('dashboard'), async (req, res
       : (Number(currentSummary.revenue) > 0 ? null : 0);
 
     res.render('admin/dashboard', {
-      totalProducts, totalOrders, totalRevenue, totalCustomers, pendingOrders,
+      totalProducts, totalOrders, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
       lowStockProducts, lowStockCount, outOfStockCount,
       dashboard: {
         range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
@@ -1337,11 +1340,28 @@ router.get('/orders', requireAdmin, requireRole('ordersView'), async (req, res) 
   if (date_to) { where.push('DATE(created_at) <= ?'); params.push(date_to); }
   const sql = 'SELECT * FROM orders' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY created_at DESC';
   const [orders] = await db.query(sql, params);
+  // Orders Pro 2: COD collected vs pending totals for the list header
+  // (pending = COD, not collected, not cancelled). Guarded — cod_collected
+  // does not exist until the migration runs.
+  let codTotals = { collected: 0, pending: 0 };
+  try {
+    const [[ct]] = await db.query(`SELECT
+      COALESCE(SUM(CASE WHEN payment_method = 'Cash on Delivery' AND cod_collected = 1 THEN total_amount ELSE 0 END), 0) AS collected,
+      COALESCE(SUM(CASE WHEN payment_method = 'Cash on Delivery' AND (cod_collected = 0 OR cod_collected IS NULL) AND status != 'Cancelled' THEN total_amount ELSE 0 END), 0) AS pending
+      FROM orders`);
+    codTotals = { collected: Number(ct.collected || 0), pending: Number(ct.pending || 0) };
+  } catch (e) { /* cod_collected column not migrated yet — totals stay 0 */ }
+  // Orders Pro 2: cancelled-order count per phone, for the fake-order warning badge.
+  const cancelCounts = {};
+  try {
+    const [ccRows] = await db.query("SELECT phone, SUM(status = 'Cancelled') AS cancelled FROM orders GROUP BY phone");
+    ccRows.forEach(r => { cancelCounts[r.phone] = Number(r.cancelled || 0); });
+  } catch (e) { /* keep empty */ }
   const listMsg = req.query.msg === 'bulk-updated' ? 'Selected orders updated.' : null;
   const listErr = req.query.err === 'invalid-status' ? 'That order status is not valid.' :
     req.query.err === 'no-orders' ? 'Select at least one order first.' :
     req.query.err === 'cancel-reason' ? 'A cancel reason is required when cancelling orders.' : null;
-  res.render('admin/orders', { orders, listMsg, listErr, siteName: 'Goince', q: q || '', status: status || '', date_from: date_from || '', date_to: date_to || '' });
+  res.render('admin/orders', { orders, codTotals, cancelCounts, listMsg, listErr, siteName: 'Goince', q: q || '', status: status || '', date_from: date_from || '', date_to: date_to || '' });
 });
 
 // ---------- ORDER DETAILS ----------
@@ -1355,6 +1375,15 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
   let notes = [];
   try { [history] = await db.query('SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
   try { [notes] = await db.query('SELECT * FROM order_notes WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
+  // Orders Pro 2: this phone's order history — fake-order warning.
+  let phoneHistory = { total: 0, cancelled: 0, delivered: 0 };
+  try {
+    const [[ph]] = await db.query("SELECT COUNT(*) AS total, SUM(status = 'Cancelled') AS cancelled, SUM(status = 'Delivered') AS delivered FROM orders WHERE phone = ? AND id != ?", [order.phone, req.params.id]);
+    phoneHistory = { total: Number(ph.total || 0), cancelled: Number(ph.cancelled || 0), delivered: Number(ph.delivered || 0) };
+  } catch (e) { /* keep zeros */ }
+  // Orders Pro 2: returns recorded for this order.
+  let returns = [];
+  try { [returns] = await db.query('SELECT * FROM order_returns WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
   const courierMsg = req.query.courier === 'created' ? 'Consignment created with ' + (order.courier_name || 'the courier') + ' — tracking ' + (order.tracking_number || '') + '.' :
     req.query.courier === 'failed' ? 'Courier API call failed — check the API keys in Settings > Courier API and try again.' :
     req.query.courier === 'not-configured' ? 'Courier API is not configured yet — add the API keys in Settings > Courier API first.' :
@@ -1365,11 +1394,17 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
   const orderMsg = req.query.msg === 'phone-confirmed' ? 'Phone confirmed — order marked as confirmed by phone.' :
     req.query.msg === 'note-saved' ? 'Admin note saved.' :
     req.query.msg === 'sms-not-connected' ? SMS_NOT_CONFIGURED :
+    req.query.msg === 'cod-collected' ? 'COD cash marked as collected — payment status set to Paid.' :
+    req.query.msg === 'return-saved' ? 'Return recorded (Pending).' :
+    req.query.msg === 'return-updated' ? 'Return status updated.' :
     req.query.msg === 'bulk-updated' ? 'Selected orders updated.' : null;
   const orderErr = req.query.err === 'cancel-reason' ? 'A cancel reason is required when cancelling an order.' :
     req.query.err === 'invalid-status' ? 'That order status is not valid.' :
-    req.query.err === 'no-orders' ? 'Select at least one order first.' : null;
-  res.render('admin/order-details', { order, items, history, notes, orderMsg, orderErr, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
+    req.query.err === 'no-orders' ? 'Select at least one order first.' :
+    req.query.err === 'return-reason' ? 'A reason is required to record a return.' :
+    req.query.err === 'not-cod' ? 'COD collection only applies to Cash on Delivery orders.' :
+    req.query.err === 'already-collected' ? 'COD cash was already marked as collected.' : null;
+  res.render('admin/order-details', { order, items, history, notes, phoneHistory, returns, orderMsg, orderErr, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
 });
 
 // ---------- PRINTABLE INVOICE (separate print-friendly page) ----------
@@ -1379,6 +1414,15 @@ router.get('/orders/:id/invoice', requireAdmin, requireRole('ordersView'), async
   const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
   const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
   res.render('admin/order-invoice', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
+});
+
+// ---------- PACKING SLIP (print-friendly page for courier dispatch) ----------
+router.get('/orders/:id/packing-slip', requireAdmin, requireRole('ordersView'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
+  const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
+  res.render('admin/order-packing-slip', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
 });
 
 // ---------- UPDATE ORDER STATUS ----------
@@ -1437,6 +1481,44 @@ router.post('/orders/:id/sms', requireAdmin, requireRole('orders'), async (req, 
   const result = await sendSms(order.phone, message);
   if (!result.ok) return res.redirect('/admin/orders/' + req.params.id + '?msg=sms-not-connected');
   res.redirect('/admin/orders/' + req.params.id);
+});
+
+// ---------- MARK COD CASH AS COLLECTED ----------
+// Only for Cash on Delivery orders. Sets cod_collected + collected time and
+// flips payment_status to Paid (cash is in hand), so dashboard collected
+// revenue counts it. Guarded — the columns do not exist until migrated.
+router.post('/orders/:id/cod-collected', requireAdmin, requireRole('orders'), async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  if (order.payment_method !== 'Cash on Delivery') return res.redirect('/admin/orders/' + req.params.id + '?err=not-cod');
+  if (order.cod_collected) return res.redirect('/admin/orders/' + req.params.id + '?err=already-collected');
+  try {
+    await db.query("UPDATE orders SET cod_collected = 1, cod_collected_at = NOW(), payment_status = 'Paid' WHERE id = ?", [req.params.id]);
+  } catch (e) { return res.redirect('/admin/orders/' + req.params.id + '?err=not-cod'); }
+  res.redirect('/admin/orders/' + req.params.id + '?msg=cod-collected');
+});
+
+// ---------- RECORD A RETURN (admin-only) ----------
+const RETURN_STATUSES = ['Pending', 'Approved', 'Rejected', 'Completed'];
+router.post('/orders/:id/returns', requireAdmin, requireRole('orders'), async (req, res) => {
+  const reason = (req.body.reason || '').trim();
+  if (!reason) return res.redirect('/admin/orders/' + req.params.id + '?err=return-reason');
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/admin/orders');
+  try {
+    await db.query('INSERT INTO order_returns (order_id, reason, status, created_by) VALUES (?, ?, ?, ?)', [req.params.id, reason, 'Pending', req.session.adminEmail || null]);
+  } catch (e) { return res.redirect('/admin/orders/' + req.params.id); }
+  res.redirect('/admin/orders/' + req.params.id + '?msg=return-saved');
+});
+
+// ---------- UPDATE A RETURN'S STATUS (admin-only) ----------
+router.post('/orders/:id/returns/:returnId/status', requireAdmin, requireRole('orders'), async (req, res) => {
+  const { status } = req.body;
+  if (!RETURN_STATUSES.includes(status)) return res.redirect('/admin/orders/' + req.params.id + '?err=invalid-status');
+  try {
+    await db.query('UPDATE order_returns SET status = ? WHERE id = ? AND order_id = ?', [status, req.params.returnId, req.params.id]);
+  } catch (e) { /* table not migrated yet */ }
+  res.redirect('/admin/orders/' + req.params.id + '?msg=return-updated');
 });
 
 // ---------- UPDATE PAYMENT STATUS ----------
