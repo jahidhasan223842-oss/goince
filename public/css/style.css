@@ -1210,9 +1210,25 @@ img, video { max-width: 100%; }
      header-e thake na — hamburger drawer-er vitore thake, tai lukano. */
   .header-inner { gap: 12px; }
   .main-nav { display: none; }
-  .search-form { order: 3; width: 100%; max-width: none; }
+  /* Mobile search: bar sob somoy dekhay na — 🔍 icon chaple
+     .search-form.open hole niche full-width row hisebe khule, na hole
+     kono jayga ney na (display: none). Desktop-e (769px+) bar sob
+     somoy dekha jay (base rule display: flex). */
+  .search-form { display: none; }
+  .search-form.open { display: flex; order: 3; width: 100%; max-width: none; }
   .search-form button { min-height: 44px; }
   .theme-toggle-btn { width: 44px; height: 44px; }
+
+  /* WhatsApp button: mobile browser-er nicher toolbar (Chrome/Safari)
+     bottom: 20px-ke dheke fele — scroll kore toolbar na lukale button
+     dekha jay na. Tai mobile-e button-ta upore tola holo (toolbar +
+     safe-area clear kore), ar ektu choto kora holo. Desktop-e ager
+     motoi (bottom: 20px, 60px). */
+  .whatsapp-float {
+    bottom: 76px;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    right: 16px; width: 54px; height: 54px;
+  }
 
   /* iOS 16px-er choto input-e focus korle page zoom kore fele — tai
      choto screen-e shob input/select/textarea 16px. */
@@ -1359,14 +1375,15 @@ img, video { max-width: 100%; }
 /* =========================================================
    MOBILE HEADER + CATEGORY STRIP (fix/mobile-header-categories)
    Shudhu mobile (≤768px) — desktop (769px+) ekdom ager motoi.
-   Mobile header: ☰ hamburger + logo + cart icon (ek line), search
-   niche full-width. Home / Categories / Login / Sign Up drawer-er
-   vitore thake. Category bar: Daraz-er moto gol chhobi-wala card,
-   dan-bam scroll kore dekha jay.
+   Mobile header: ☰ hamburger + logo + 🔍 search icon + cart icon
+   (ek line); search bar sob somoy dekhay na — 🔍 chaple niche
+   full-width row hisebe khule. Home / Categories / Login / Sign Up
+   drawer-er vitore thake. Category bar: Daraz-er moto gol chhobi-wala
+   card, dan-bam scroll kore dekha jay.
    ========================================================= */
 
 /* Desktop-e lukano thake (mobile-e nicher media query khule dey). */
-.shop-menu-btn, .shop-cart-btn, .shop-drawer, .shop-drawer-overlay { display: none; }
+.shop-menu-btn, .shop-cart-btn, .shop-search-btn, .shop-drawer, .shop-drawer-overlay { display: none; }
 /* Letter fallback: desktop pill-e chhobi na thakle shudhu nam dekhay. */
 .cat-letter { display: none; }
 
@@ -1382,10 +1399,19 @@ img, video { max-width: 100%; }
   .shop-menu-btn:hover { background: rgba(255,255,255,0.12); }
   .shop-cart-btn {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 44px; height: 44px; flex-shrink: 0; margin-left: auto;
+    width: 44px; height: 44px; flex-shrink: 0;
     color: #fff; font-size: 22px; position: relative;
   }
   .shop-cart-btn .badge { position: absolute; top: 0; right: -2px; margin-left: 0; }
+  /* Search icon: cart icon-er motoi bare icon (44px touch target).
+     Chaple search row khule (mega-menu.js), tokhon icon ✕ hoye jay.
+     margin-left: auto — search + cart dan dike ek sathe thake. */
+  .shop-search-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; flex-shrink: 0; margin-left: auto;
+    background: none; border: none; color: #fff;
+    font-size: 20px; line-height: 1; cursor: pointer;
+  }
 
   /* ---------- Hamburger drawer (admin sidebar-er moto off-canvas) ---------- */
   .shop-drawer-overlay {

@@ -119,3 +119,34 @@
     });
   });
 })();
+
+// Mobile search (≤768px): 🔍 icon chaple search row khulbe/bondho hobe.
+// Desktop-e (769px+) search bar sob somoy dekha jay, tai ei toggle
+// tokhon lukano thake (CSS) — JS kichhu kore na. Khulle input-e focus
+// jay, Esc chaple bondho hoy. Suggestions/Enter/submit-er logic footer-er
+// inline script-e ager motoi ache — form DOM-e thake, shudhu lukano
+// thake, tai kichhu vange na.
+(function () {
+  var btn = document.getElementById('shop-search-btn');
+  var form = document.getElementById('shop-search-row');
+  var input = document.getElementById('search-input');
+  if (!btn || !form) return;
+
+  function setOpen(open) {
+    form.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Close search' : 'Search');
+    btn.textContent = open ? '✕' : '🔍';
+    if (open && input) input.focus();
+  }
+
+  btn.addEventListener('click', function () {
+    setOpen(!form.classList.contains('open'));
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && form.classList.contains('open')) {
+      setOpen(false);
+      btn.focus();
+    }
+  });
+})();

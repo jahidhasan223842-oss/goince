@@ -72,13 +72,16 @@
   <% } %>
   <header class="site-header">
     <div class="container header-inner">
-      <% /* Mobile header (≤768px): hamburger + logo + cart icon — Home /
-            Categories / Login / Sign Up ar header-e chhoriye thake na, ogulo
-            drawer-er vitore thake (niche). Desktop-e ei button duto lukano. */ %>
+      <% /* Mobile header (≤768px): hamburger + logo + search icon + cart
+            icon — Home / Categories / Login / Sign Up ar header-e chhoriye
+            thake na, ogulo drawer-er vitore thake (niche). Desktop-e ei
+            button-gulo lukano thake. Search bar mobile-e sob somoy dekhay
+            na — 🔍 icon chaple niche khule (shop-search-row). */ %>
       <button type="button" class="shop-menu-btn" id="shop-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="shop-drawer">☰</button>
       <a href="/" class="logo"><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="logo-mark"> <%= siteName %> <span class="logo-tag">Online Shop</span></a>
+      <button type="button" class="shop-search-btn" id="shop-search-btn" aria-label="Search" aria-expanded="false" aria-controls="shop-search-row">🔍</button>
       <a href="/cart" class="shop-cart-btn" aria-label="Cart">🛒<% if (cartCount > 0) { %><span class="badge"><%= cartCount %></span><% } %></a>
-      <form action="/" method="GET" class="search-form" autocomplete="off">
+      <form action="/" method="GET" class="search-form" id="shop-search-row" autocomplete="off">
         <div class="search-box">
           <input type="text" name="search" id="search-input" placeholder="Search products..." value="<%= typeof search !== 'undefined' ? search : '' %>">
           <div id="search-suggestions" class="search-suggestions" hidden></div>
