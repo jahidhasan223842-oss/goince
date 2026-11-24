@@ -94,6 +94,38 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
         if (window.fbq) fbq('track', 'Contact');
         if (window.gtag) gtag('event', 'whatsapp_click', { page_path: location.pathname });
       });
+
+      // Scroll-aware (mobile ≤768px sudhu): page-er ekdom upore thakle
+      // button lukano thake — product-er chobi/thumbnail ba hero dheke
+      // na fele; 300px-er beshi niche scroll korle fade-in hoy, upore
+      // firle abar lukay. Desktop-e button sob somoy dekha jay.
+      // JS na cholle (ba desktop-e) ager motoi sob somoy visible thake.
+      var mq = window.matchMedia ? window.matchMedia('(max-width: 768px)') : null;
+      if (!mq) return;
+      var THRESHOLD = 300;
+      var raf = window.requestAnimationFrame || function (fn) { fn(); };
+      var ticking = false;
+      function update() {
+        ticking = false;
+        if (!mq.matches) {
+          btn.classList.remove('whatsapp-float--scroll', 'is-visible');
+          btn.setAttribute('aria-hidden', 'false');
+          btn.removeAttribute('tabindex');
+          return;
+        }
+        var show = (window.pageYOffset || document.documentElement.scrollTop || 0) > THRESHOLD;
+        btn.classList.add('whatsapp-float--scroll');
+        btn.classList.toggle('is-visible', show);
+        btn.setAttribute('aria-hidden', show ? 'false' : 'true');
+        if (show) { btn.removeAttribute('tabindex'); } else { btn.setAttribute('tabindex', '-1'); }
+      }
+      function onScroll() {
+        if (!ticking) { ticking = true; raf(update); }
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      if (mq.addEventListener) { mq.addEventListener('change', update); }
+      else if (mq.addListener) { mq.addListener(update); }
+      update();
     })();
   </script>
 

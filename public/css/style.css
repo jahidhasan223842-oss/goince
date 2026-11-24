@@ -52,6 +52,14 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Horizontal overflow safety net: kono element viewport-er baire chole
+   gele mobile browser page-ta zoom-out kore dekhay — tokhon homepage-er
+   content hothat choto (55%-er moto) hoye bam dike sore jay, dan dike
+   khali jayga thake, ar fixed WhatsApp button-ta content theke alada
+   hoye dan dike "tana" lage. Code-e ekok kono offender pawa jay ni
+   (sob fixed/min-width admin-er; strip/grid/hero sob contain kora), tai
+   eta safety net hisebe thaklo — page ar dan-bam scroll hobe na. */
+html, body { overflow-x: clip; }
 body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; transition: background 0.2s, color 0.2s; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
 a { text-decoration: none; color: inherit; }
@@ -1222,12 +1230,26 @@ img, video { max-width: 100%; }
   /* WhatsApp button: mobile browser-er nicher toolbar (Chrome/Safari)
      bottom: 20px-ke dheke fele — scroll kore toolbar na lukale button
      dekha jay na. Tai mobile-e button-ta upore tola holo (toolbar +
-     safe-area clear kore), ar ektu choto kora holo. Desktop-e ager
-     motoi (bottom: 20px, 60px). */
+     safe-area clear kore), ar ektu choto kora holo, jate side-e "tana"
+     na lage. Desktop-e ager motoi (bottom: 20px, 60px).
+     Scroll-aware: page-er ekdom upore thakle (scroll ≤ 300px) button
+     lukano thake, jate product-er chobi/thumbnail ba hero dheke na fele;
+     300px-er beshi scroll korle fade-in hoy (footer.ejs-er JS
+     .whatsapp-float--scroll / .is-visible class toggle kore). */
   .whatsapp-float {
-    bottom: 76px;
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-    right: 16px; width: 54px; height: 54px;
+    bottom: 88px;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    right: 16px; width: 48px; height: 48px;
+    box-shadow: 0 4px 14px rgba(37,211,102,0.35);
+  }
+  .whatsapp-float.whatsapp-float--scroll {
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity .25s ease, visibility .25s ease, transform .25s ease;
+  }
+  .whatsapp-float.whatsapp-float--scroll.is-visible {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: none;
   }
 
   /* iOS 16px-er choto input-e focus korle page zoom kore fele — tai
@@ -1370,6 +1392,7 @@ img, video { max-width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   .admin-sidebar, .admin-sidebar-overlay { transition: none; }
+  .whatsapp-float.whatsapp-float--scroll { transition: none; }
 }
 
 /* =========================================================
