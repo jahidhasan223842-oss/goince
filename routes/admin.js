@@ -4,6 +4,10 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { getCourierConfig, createConsignment, getTrackingStatus } = require('../lib/courier');
 const { sendSms, SMS_NOT_CONFIGURED } = require('../lib/sms');
+const { invoiceNo, paidAmount, dueAmount } = require('../lib/invoice');
+const { buildInvoicePdf } = require('../lib/invoice-pdf');
+const { getWhatsAppConfig, sendInvoiceDocument, NOT_CONFIGURED: WHATSAPP_NOT_CONFIGURED } = require('../lib/whatsapp');
+const { isEmailConfigured, sendInvoiceEmail } = require('../config/email');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
@@ -1364,6 +1368,87 @@ router.get('/orders', requireAdmin, requireRole('ordersView'), async (req, res) 
   res.render('admin/orders', { orders, codTotals, cancelCounts, listMsg, listErr, siteName: 'Goince', q: q || '', status: status || '', date_from: date_from || '', date_to: date_to || '' });
 });
 
+// ---------- INVOICES ----------
+// An invoice IS an order (invoice no. GOINCE-00035 = order #35) — no separate
+// invoices table. Shared loader for the invoices page, print/PDF invoice and
+// the email/WhatsApp senders: order + items + advance payments + paid/due.
+async function loadInvoiceData(orderId) {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+  if (!order) return null;
+  const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+  let advances = [];
+  try { [advances] = await db.query('SELECT * FROM order_payments WHERE order_id = ? ORDER BY created_at DESC, id DESC', [orderId]); } catch (e) { /* table not migrated yet */ }
+  const advancesTotal = advances.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const subtotal = items.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 0), 0);
+  const paid = paidAmount(order, advancesTotal);
+  const due = dueAmount(order, advancesTotal);
+  return { order, items, advances, advancesTotal, subtotal, paid, due, invoiceNo: invoiceNo(order.id) };
+}
+
+function invoicePdfData(inv, shopPhone) {
+  return {
+    invoiceNo: inv.invoiceNo,
+    date: new Date(inv.order.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    status: inv.order.status,
+    paymentStatus: inv.order.payment_status,
+    customerName: inv.order.customer_name,
+    phone: inv.order.phone,
+    email: inv.order.email || '',
+    address: inv.order.address,
+    deliveryZone: inv.order.delivery_zone || '',
+    items: inv.items,
+    subtotal: inv.subtotal,
+    discount: Number(inv.order.discount_amount || 0),
+    deliveryCharge: Number(inv.order.delivery_charge || 0),
+    total: Number(inv.order.total_amount || 0),
+    paid: inv.paid,
+    due: inv.due,
+    shopPhone: shopPhone || '',
+  };
+}
+
+async function logInvoiceSend(orderId, channel, recipient, ok, error, createdBy) {
+  try {
+    await db.query(
+      'INSERT INTO order_invoice_sends (order_id, channel, recipient, status, error, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [orderId, channel, recipient || '', ok ? 'sent' : 'failed', error || null, createdBy || null]
+    );
+  } catch (e) { /* table not migrated yet — the send itself already happened */ }
+}
+
+// Invoices list: tabs All / Paid / Unpaid / Cancelled, 20 per page.
+router.get('/invoices', requireAdmin, requireRole('ordersView'), async (req, res) => {
+  const tab = ['all', 'paid', 'unpaid', 'cancelled'].includes(req.query.tab) ? req.query.tab : 'all';
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const PER_PAGE = 20;
+  const where = [];
+  const params = [];
+  if (tab === 'paid') { where.push("payment_status = 'Paid'"); }
+  if (tab === 'unpaid') { where.push("payment_status != 'Paid' AND status != 'Cancelled'"); }
+  if (tab === 'cancelled') { where.push("status = 'Cancelled'"); }
+  const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+  const [[countRow]] = await db.query('SELECT COUNT(*) AS cnt FROM orders' + whereSql, params);
+  const totalCount = Number(countRow.cnt || 0);
+  const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const [orders] = await db.query(
+    'SELECT * FROM orders' + whereSql + ' ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    [...params, PER_PAGE, (safePage - 1) * PER_PAGE]
+  );
+  let advancesByOrder = {};
+  try {
+    const [advRows] = await db.query('SELECT order_id, COALESCE(SUM(amount), 0) AS total FROM order_payments GROUP BY order_id');
+    advRows.forEach(r => { advancesByOrder[r.order_id] = Number(r.total || 0); });
+  } catch (e) { /* table not migrated yet */ }
+  const rows = orders.map(o => ({
+    ...o,
+    invoiceNo: invoiceNo(o.id),
+    paid: paidAmount(o, advancesByOrder[o.id] || 0),
+    due: dueAmount(o, advancesByOrder[o.id] || 0),
+  }));
+  res.render('admin/invoices', { rows, tab, page: safePage, totalPages, totalCount, perPage: PER_PAGE, siteName: 'Goince' });
+});
+
 // ---------- ORDER DETAILS ----------
 router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
@@ -1384,6 +1469,13 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
   // Orders Pro 2: returns recorded for this order.
   let returns = [];
   try { [returns] = await db.query('SELECT * FROM order_returns WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
+  // Invoices + send: advance payments, paid/due and the invoice send history.
+  const inv = await loadInvoiceData(req.params.id);
+  const advances = inv ? inv.advances : [];
+  const paid = inv ? inv.paid : 0;
+  const due = inv ? inv.due : 0;
+  let invoiceSends = [];
+  try { [invoiceSends] = await db.query('SELECT * FROM order_invoice_sends WHERE order_id = ? ORDER BY created_at DESC, id DESC LIMIT 20', [req.params.id]); } catch (e) { /* table not migrated yet */ }
   const courierMsg = req.query.courier === 'created' ? 'Consignment created with ' + (order.courier_name || 'the courier') + ' — tracking ' + (order.tracking_number || '') + '.' :
     req.query.courier === 'failed' ? 'Courier API call failed — check the API keys in Settings > Courier API and try again.' :
     req.query.courier === 'not-configured' ? 'Courier API is not configured yet — add the API keys in Settings > Courier API first.' :
@@ -1398,24 +1490,110 @@ router.get('/orders/:id', requireAdmin, requireRole('ordersView'), async (req, r
     req.query.msg === 'cod-uncollected' ? 'COD collection undone — order is not collected again and payment status is back to Unpaid.' :
     req.query.msg === 'return-saved' ? 'Return recorded (Pending).' :
     req.query.msg === 'return-updated' ? 'Return status updated.' :
+    req.query.msg === 'advance-saved' ? 'Advance payment recorded.' :
+    req.query.msg === 'email-sent' ? 'Invoice emailed to the customer.' :
+    req.query.msg === 'whatsapp-sent' ? 'Invoice sent on WhatsApp.' :
+    req.query.msg === 'email-not-configured' ? 'Email is not configured yet — set EMAIL_USER and EMAIL_PASS in the .env file first.' :
+    req.query.msg === 'whatsapp-not-connected' ? WHATSAPP_NOT_CONFIGURED :
     req.query.msg === 'bulk-updated' ? 'Selected orders updated.' : null;
   const orderErr = req.query.err === 'cancel-reason' ? 'A cancel reason is required when cancelling an order.' :
     req.query.err === 'invalid-status' ? 'That order status is not valid.' :
     req.query.err === 'no-orders' ? 'Select at least one order first.' :
     req.query.err === 'return-reason' ? 'A reason is required to record a return.' :
+    req.query.err === 'no-email' ? 'Enter a customer email address first.' :
+    req.query.err === 'email-failed' ? 'The invoice email could not be sent — check the email settings and try again.' :
+    req.query.err === 'whatsapp-failed' ? 'The WhatsApp invoice could not be sent — check the WhatsApp Business API settings and try again.' :
+    req.query.err === 'bad-amount' ? 'Enter an advance amount greater than 0.' :
     req.query.err === 'not-cod' ? 'COD collection only applies to Cash on Delivery orders.' :
     req.query.err === 'already-collected' ? 'COD cash was already marked as collected.' :
     req.query.err === 'not-collected' ? 'COD cash is not marked as collected for this order.' : null;
-  res.render('admin/order-details', { order, items, history, notes, phoneHistory, returns, orderMsg, orderErr, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
+  res.render('admin/order-details', { order, items, history, notes, phoneHistory, returns, advances, paid, due, invoiceNo: inv ? inv.invoiceNo : invoiceNo(order.id), invoiceSends, orderMsg, orderErr, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '', courier, courierMsg });
 });
 
 // ---------- PRINTABLE INVOICE (separate print-friendly page) ----------
 router.get('/orders/:id/invoice', requireAdmin, requireRole('ordersView'), async (req, res) => {
+  const inv = await loadInvoiceData(req.params.id);
+  if (!inv) return res.redirect('/admin/orders');
+  const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
+  res.render('admin/order-invoice', { order: inv.order, items: inv.items, paid: inv.paid, due: inv.due, invoiceNo: inv.invoiceNo, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
+});
+
+// ---------- INVOICE PDF (downloadable, also attached to emails / WhatsApp) ----------
+router.get('/orders/:id/invoice.pdf', requireAdmin, requireRole('ordersView'), async (req, res) => {
+  const inv = await loadInvoiceData(req.params.id);
+  if (!inv) return res.redirect('/admin/orders');
+  const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
+  const pdf = buildInvoicePdf(invoicePdfData(inv, phoneRow ? phoneRow.setting_value : ''));
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="' + inv.invoiceNo + '.pdf"');
+  res.send(pdf);
+});
+
+// ---------- RECORD AN ADVANCE / PARTIAL PAYMENT ----------
+router.post('/orders/:id/advance', requireAdmin, requireRole('orders'), async (req, res) => {
+  const amount = parseFloat(req.body.amount);
+  const note = (req.body.note || '').trim();
+  if (isNaN(amount) || amount <= 0) return res.redirect('/admin/orders/' + req.params.id + '?err=bad-amount');
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/orders');
-  const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
+  await db.query(
+    'INSERT INTO order_payments (order_id, amount, note, created_by) VALUES (?, ?, ?, ?)',
+    [req.params.id, amount, note || null, req.session.adminEmail || null]
+  );
+  // Keep payment_status in step with what is actually paid: fully paid -> Paid,
+  // partly paid -> Partial. COD-collected orders are already Paid.
+  const inv = await loadInvoiceData(req.params.id);
+  if (inv && inv.due <= 0 && order.payment_status !== 'Paid') {
+    await db.query("UPDATE orders SET payment_status = 'Paid' WHERE id = ?", [req.params.id]);
+  } else if (inv && inv.due > 0 && order.payment_status === 'Unpaid') {
+    await db.query("UPDATE orders SET payment_status = 'Partial' WHERE id = ?", [req.params.id]);
+  }
+  res.redirect('/admin/orders/' + req.params.id + '?msg=advance-saved');
+});
+
+// ---------- SEND INVOICE BY EMAIL (PDF attached) ----------
+router.post('/orders/:id/email-invoice', requireAdmin, requireRole('orders'), async (req, res) => {
+  const toEmail = (req.body.email || '').trim();
+  if (!toEmail) return res.redirect('/admin/orders/' + req.params.id + '?err=no-email');
+  const inv = await loadInvoiceData(req.params.id);
+  if (!inv) return res.redirect('/admin/orders');
+  if (!isEmailConfigured()) {
+    await logInvoiceSend(req.params.id, 'email', toEmail, false, 'Email not configured (EMAIL_USER/EMAIL_PASS missing).', req.session.adminEmail);
+    return res.redirect('/admin/orders/' + req.params.id + '?msg=email-not-configured');
+  }
   const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
-  res.render('admin/order-invoice', { order, items, siteName: 'Goince', shopPhone: phoneRow ? phoneRow.setting_value : '' });
+  const pdf = buildInvoicePdf(invoicePdfData(inv, phoneRow ? phoneRow.setting_value : ''));
+  const result = await sendInvoiceEmail(toEmail, {
+    invoiceNo: inv.invoiceNo,
+    order: inv.order,
+    items: inv.items,
+    subtotal: inv.subtotal,
+    discount: Number(inv.order.discount_amount || 0),
+    deliveryCharge: Number(inv.order.delivery_charge || 0),
+    total: Number(inv.order.total_amount || 0),
+    paid: inv.paid,
+    due: inv.due,
+    shopPhone: phoneRow ? phoneRow.setting_value : '',
+    pdfBuffer: pdf,
+  });
+  await logInvoiceSend(req.params.id, 'email', toEmail, result.ok, result.error || null, req.session.adminEmail);
+  res.redirect('/admin/orders/' + req.params.id + (result.ok ? '?msg=email-sent' : '?err=email-failed'));
+});
+
+// ---------- SEND INVOICE ON WHATSAPP (Business API document message) ----------
+router.post('/orders/:id/whatsapp-invoice', requireAdmin, requireRole('orders'), async (req, res) => {
+  const inv = await loadInvoiceData(req.params.id);
+  if (!inv) return res.redirect('/admin/orders');
+  const cfg = await getWhatsAppConfig(db);
+  if (!cfg.configured) {
+    await logInvoiceSend(req.params.id, 'whatsapp', inv.order.phone, false, 'WhatsApp Business API not configured.', req.session.adminEmail);
+    return res.redirect('/admin/orders/' + req.params.id + '?msg=whatsapp-not-connected');
+  }
+  const [[phoneRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'shop_phone'");
+  const pdf = buildInvoicePdf(invoicePdfData(inv, phoneRow ? phoneRow.setting_value : ''));
+  const result = await sendInvoiceDocument(cfg, inv.order.phone, pdf, inv.invoiceNo + '.pdf', [inv.invoiceNo, 'Tk ' + Number(inv.order.total_amount || 0).toFixed(2)]);
+  await logInvoiceSend(req.params.id, 'whatsapp', inv.order.phone, result.ok, result.error || null, req.session.adminEmail);
+  res.redirect('/admin/orders/' + req.params.id + (result.ok ? '?msg=whatsapp-sent' : '?err=whatsapp-failed'));
 });
 
 // ---------- PACKING SLIP (print-friendly page for courier dispatch) ----------
@@ -1899,7 +2077,7 @@ router.post('/delivery-zones/delete/:id', requireAdmin, requireRole('deliveryZon
 
 router.get('/settings', requireAdmin, requireRole('settings'), async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id', 'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_template_name')"
   );
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
@@ -1936,6 +2114,9 @@ router.get('/settings', requireAdmin, requireRole('settings'), async (req, res) 
     pathaoClientId: get('pathao_client_id', ''),
     pathaoUsername: get('pathao_username', ''),
     pathaoStoreId: get('pathao_store_id', ''),
+    whatsappPhoneNumberId: get('whatsapp_phone_number_id', ''),
+    whatsappTokenSet: !!get('whatsapp_access_token', ''),
+    whatsappTemplateName: get('whatsapp_template_name', 'invoice_pdf'),
     logoUrl: get('logo_url', '/icons/icon-192.png'),
     faviconUrl: get('favicon_url', '/icons/icon-192.png'),
     ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
@@ -2014,6 +2195,8 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
     ['pathao_client_id', (req.body.pathao_client_id || '').trim()],
     ['pathao_username', (req.body.pathao_username || '').trim()],
     ['pathao_store_id', (req.body.pathao_store_id || '').trim()],
+    ['whatsapp_phone_number_id', (req.body.whatsapp_phone_number_id || '').trim()],
+    ['whatsapp_template_name', (req.body.whatsapp_template_name || '').trim() || 'invoice_pdf'],
     ['logo_url', logoUrl || '/icons/icon-192.png'],
     ['favicon_url', faviconUrl || '/icons/icon-192.png'],
     ['og_image_url', ogImageUrl || '/icons/icon-512.png']
@@ -2027,6 +2210,8 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
   if ((req.body.steadfast_secret_key || '').trim()) settingsToSave.push(['steadfast_secret_key', (req.body.steadfast_secret_key || '').trim()]);
   if ((req.body.pathao_client_secret || '').trim()) settingsToSave.push(['pathao_client_secret', (req.body.pathao_client_secret || '').trim()]);
   if ((req.body.pathao_password || '').trim()) settingsToSave.push(['pathao_password', (req.body.pathao_password || '').trim()]);
+  // WhatsApp Business API token: blank keeps the saved one (never shown in the form)
+  if ((req.body.whatsapp_access_token || '').trim()) settingsToSave.push(['whatsapp_access_token', (req.body.whatsapp_access_token || '').trim()]);
 
   for (const [key, value] of settingsToSave) {
     await db.query(
@@ -2045,6 +2230,7 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
   const courierPathaoSecretSet = !!((req.body.pathao_client_secret || '').trim() || (paSecRow && paSecRow.setting_value));
   const [[paPwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'pathao_password'");
   const courierPathaoPasswordSet = !!((req.body.pathao_password || '').trim() || (paPwRow && paPwRow.setting_value));
+  const [[waTokenRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'whatsapp_access_token'");
   res.render('admin/settings', {
     shopPhone,
     deliveryChargeInside: safeInside,
@@ -2075,6 +2261,9 @@ router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{
     pathaoClientId: (req.body.pathao_client_id || '').trim(),
     pathaoUsername: (req.body.pathao_username || '').trim(),
     pathaoStoreId: (req.body.pathao_store_id || '').trim(),
+    whatsappPhoneNumberId: (req.body.whatsapp_phone_number_id || '').trim(),
+    whatsappTokenSet: !!((req.body.whatsapp_access_token || '').trim() || (waTokenRow && waTokenRow.setting_value)),
+    whatsappTemplateName: (req.body.whatsapp_template_name || '').trim() || 'invoice_pdf',
     logoUrl: logoUrl || '/icons/icon-192.png',
     faviconUrl: faviconUrl || '/icons/icon-192.png',
     ogImageUrl: ogImageUrl || '/icons/icon-512.png',

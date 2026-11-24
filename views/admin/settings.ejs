@@ -148,6 +148,16 @@
   <label>Pathao Store ID</label>
   <input type="text" name="pathao_store_id" value="<%= pathaoStoreId %>" placeholder="e.g. 149043">
 
+  <hr style="margin:20px 0;">
+  <h3>💬 WhatsApp Business API (send invoice PDF on WhatsApp)</h3>
+  <p class="field-hint">Direct WhatsApp sends are <strong>not free</strong> — they need a WhatsApp Business account (Meta Cloud API) and Meta charges per message. You also need an <strong>approved invoice template</strong> in Meta Business Manager (default template name below) before a PDF document can be sent. Until these are saved, the “Send Invoice on WhatsApp” button on an order only shows that message instead of sending. The free wa.me link on the order page keeps working without any of this.</p>
+  <label>WhatsApp Phone Number ID (from Meta Business Manager → WhatsApp → API Setup)</label>
+  <input type="text" name="whatsapp_phone_number_id" value="<%= whatsappPhoneNumberId %>" placeholder="e.g. 123456789012345">
+  <label>WhatsApp Access Token <%= whatsappTokenSet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="whatsapp_access_token" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <label>Invoice Template Name (must be approved by Meta)</label>
+  <input type="text" name="whatsapp_template_name" value="<%= whatsappTemplateName %>" placeholder="invoice_pdf">
+
   <button type="submit" class="btn-primary">Save Settings</button>
 </form>
 
