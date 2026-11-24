@@ -179,4 +179,75 @@
   <% } %>
 </section>
 
+<% const _activity = (typeof recentActivity !== 'undefined' && recentActivity) || []; %>
+<% const _phoneQueue = (typeof phoneQueue !== 'undefined' && phoneQueue) || []; %>
+<% const _phoneQueueTotal = Number((typeof phoneQueueTotal !== 'undefined' && phoneQueueTotal) || 0); %>
+<% const _catSales = (typeof dashboardCategorySales !== 'undefined' && dashboardCategorySales) || []; %>
+<% const _topCustomers = (typeof topCustomers !== 'undefined' && topCustomers) || []; %>
+<% const _shipped = (typeof shippedOrders !== 'undefined' && shippedOrders) || []; %>
+<% const _shippedTotal = Number((typeof shippedTotal !== 'undefined' && shippedTotal) || 0); %>
+<% const fmtDate = (d) => { try { return new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } }; %>
+
+<section class="analytics-lower-grid">
+  <article class="analytics-panel">
+    <div class="analytics-panel-heading"><div><h2>Recent activity</h2><p>Latest orders and status changes — live</p></div></div>
+    <% if (_activity.length === 0) { %><div class="analytics-small-empty">No recent activity yet.</div><% } else { %>
+    <div class="analytics-activity-list">
+      <% _activity.forEach(a => { %>
+      <div class="analytics-activity-row">
+        <span class="analytics-activity-icon"><%= a.kind === 'status' ? '↻' : '🛒' %></span>
+        <div><strong><%= a.text %></strong><span><%= fmtDate(a.when) %></span></div>
+        <a class="analytics-view-link" href="/admin/orders/<%= a.orderId %>">View →</a>
+      </div>
+      <% }) %>
+    </div>
+    <% } %>
+  </article>
+  <article class="analytics-panel">
+    <div class="analytics-panel-heading"><div><h2>Phone confirmation queue</h2><p>Open orders waiting for a confirmation call — oldest first</p></div><a href="/admin/orders">View all orders →</a></div>
+    <% if (_phoneQueue.length === 0) { %><div class="analytics-small-empty">All open orders are phone-confirmed.</div><% } else { %>
+    <p class="analytics-phone-note"><%= _phoneQueueTotal %> order(s) waiting for a call</p>
+    <div class="table-responsive"><table class="admin-table analytics-table"><thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead><tbody>
+      <% _phoneQueue.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %></td><td><a href="tel:<%= o.phone %>"><%= o.phone %></a> <a class="analytics-view-link" href="tel:<%= o.phone %>">📞 Call</a></td><td>৳<%= money(o.total_amount) %></td><td><%= fmtDate(o.created_at) %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
+    </tbody></table></div>
+    <% } %>
+  </article>
+</section>
+
+<section class="analytics-lower-grid">
+  <article class="analytics-panel">
+    <div class="analytics-panel-heading"><div><h2>Sales by category</h2><p>Revenue in the selected period — top-level categories including sub-categories</p></div><a href="/admin/reports">Reports →</a></div>
+    <% if (_catSales.length === 0) { %><div class="analytics-small-empty">No category sales in this period.</div><% } else { %>
+    <% const _maxCat = Math.max(1, ..._catSales.map(c => Number(c.revenue || 0))); %>
+    <div class="analytics-catbar-list">
+      <% _catSales.forEach(c => { %>
+      <div class="analytics-catbar-row" title="<%= c.name %>: ৳<%= money(c.revenue) %> · <%= Number(c.orders || 0) %> order(s)">
+        <span class="analytics-catbar-name"><%= c.name %></span>
+        <div class="analytics-catbar-track"><div class="analytics-catbar" style="width:<%= Math.max(Number(c.revenue) > 0 ? 4 : 0, (Number(c.revenue) / _maxCat) * 100) %>%"></div></div>
+        <strong class="analytics-catbar-value">৳<%= money(c.revenue) %></strong>
+      </div>
+      <% }) %>
+    </div>
+    <% } %>
+  </article>
+  <article class="analytics-panel">
+    <div class="analytics-panel-heading"><div><h2>Top customers</h2><p>By total spent in the selected period</p></div><a href="/admin/customers">Customers →</a></div>
+    <% if (_topCustomers.length === 0) { %><div class="analytics-small-empty">No customer orders in this period.</div><% } else { %>
+    <div class="table-responsive"><table class="admin-table analytics-table"><thead><tr><th>#</th><th>Customer</th><th>Orders</th><th>Total spent</th></tr></thead><tbody>
+      <% _topCustomers.forEach((c, i) => { %><tr><td><span class="analytics-rank"><%= i + 1 %></span></td><td><% if (c.user_id) { %><a class="analytics-view-link" href="/admin/customers/<%= c.user_id %>"><strong><%= c.customer_name %></strong></a><% } else { %><strong><%= c.customer_name %></strong><% } %><br><span class="analytics-sub"><%= c.phone %></span></td><td><%= Number(c.orderCount || 0) %></td><td>৳<%= money(c.totalSpent) %></td></tr><% }) %>
+    </tbody></table></div>
+    <% } %>
+  </article>
+</section>
+
+<section class="analytics-panel analytics-pending-panel">
+  <div class="analytics-panel-heading"><div><h2>Shipped — not delivered yet</h2><p>Orders out for delivery — oldest shipped first</p></div><a href="/admin/orders">View all orders →</a></div>
+  <% if (_shipped.length === 0) { %><div class="analytics-small-empty">No orders are waiting for delivery.</div><% } else { %>
+  <p class="analytics-phone-note"><%= _shippedTotal %> order(s) shipped and awaiting delivery</p>
+  <div class="table-responsive"><table class="admin-table analytics-table"><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Courier / Tracking</th><th>Waiting</th><th></th></tr></thead><tbody>
+    <% _shipped.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %><br><span class="analytics-sub"><%= o.phone %></span></td><td>৳<%= money(o.total_amount) %></td><td><%= o.courier_name || '—' %><% if (o.tracking_number) { %><br><span class="analytics-sub"><%= o.tracking_number %></span><% } %></td><td><%= Number(o.daysSinceShipped || 0) %> day(s)</td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
+  </tbody></table></div>
+  <% } %>
+</section>
+
 <%- include('../partials/admin-footer') %>
