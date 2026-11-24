@@ -804,6 +804,99 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
 }
 
+/* Admin content hover, everywhere — same language as the sidebar (PR #34):
+   colour change + 0.22s transition + slight lift/shadow where it fits. */
+.admin-content a {
+  transition: color .22s ease;
+}
+.admin-table tbody tr {
+  transition: background-color .22s ease;
+}
+.report-tab {
+  transition: background .22s ease, color .22s ease, transform .22s ease, box-shadow .22s ease;
+}
+.report-tab:not(.active):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .14);
+}
+.analytics-panel {
+  transition: transform .22s ease, box-shadow .22s ease;
+}
+.analytics-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+}
+.admin-quick-links a {
+  transition: border-color .22s ease, color .22s ease, transform .22s ease, box-shadow .22s ease;
+}
+.admin-quick-links a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .12);
+}
+.analytics-report-link,
+.analytics-panel-heading > a,
+.analytics-view-link,
+.analytics-kpi-foot a {
+  transition: color .22s ease;
+}
+.analytics-filter-btn {
+  transition: background .22s ease, color .22s ease, transform .22s ease, box-shadow .22s ease;
+}
+.analytics-filter-btn:not(.is-active):hover {
+  background: var(--bg-hover);
+  color: var(--text-strong);
+}
+.analytics-apply-btn:hover {
+  background: var(--navy-2);
+}
+.link-btn-danger {
+  transition: color .22s ease, filter .22s ease;
+}
+.link-btn-danger:hover {
+  filter: brightness(.8);
+  text-decoration-thickness: 2px;
+}
+/* Category tree rows: soft background change only — no lift on rows. */
+.cat-row {
+  transition: background-color .22s ease;
+}
+.cat-row:hover {
+  background: var(--bg-hover);
+}
+.cat-chevron,
+.cat-drag,
+.cat-tree-btn,
+.cat-bulk-bar button {
+  transition: background .22s ease, color .22s ease;
+}
+/* Admin inputs: border change on hover, clear ring on focus — no lift. */
+.admin-form input,
+.admin-form select,
+.admin-form textarea,
+.admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="file"]),
+.admin-content select,
+.admin-content textarea {
+  transition: border-color .22s ease, box-shadow .22s ease;
+}
+.admin-form input:hover,
+.admin-form select:hover,
+.admin-form textarea:hover,
+.admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="file"]):hover,
+.admin-content select:hover,
+.admin-content textarea:hover {
+  border-color: #8a97ad;
+}
+.admin-form input:focus,
+.admin-form select:focus,
+.admin-form textarea:focus,
+.admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="file"]):focus,
+.admin-content select:focus,
+.admin-content textarea:focus {
+  border-color: #4f8cff;
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, .18);
+  outline: none;
+}
+
 /* Analytics */
 .analytics-header { color: var(--text); }
 .analytics-eyebrow {
@@ -1072,7 +1165,30 @@ a { text-decoration: none; color: inherit; }
   .analytics-kpi,
   .btn-primary,
   .admin-content button,
-  .admin-content .btn-sm {
+  .admin-content .btn-sm,
+  .admin-content a,
+  .admin-table tbody tr,
+  .report-tab,
+  .analytics-panel,
+  .admin-quick-links a,
+  .analytics-report-link,
+  .analytics-panel-heading > a,
+  .analytics-view-link,
+  .analytics-kpi-foot a,
+  .analytics-filter-btn,
+  .analytics-apply-btn,
+  .link-btn-danger,
+  .cat-row,
+  .cat-chevron,
+  .cat-drag,
+  .cat-tree-btn,
+  .cat-bulk-bar button,
+  .admin-form input,
+  .admin-form select,
+  .admin-form textarea,
+  .admin-content input,
+  .admin-content select,
+  .admin-content textarea {
     transition: none;
   }
   .admin-sidebar nav a:hover,
@@ -1081,7 +1197,10 @@ a { text-decoration: none; color: inherit; }
   .analytics-kpi:hover,
   .btn-primary:hover,
   .admin-content button:hover,
-  .admin-content .btn-sm:hover {
+  .admin-content .btn-sm:hover,
+  .report-tab:hover,
+  .analytics-panel:hover,
+  .admin-quick-links a:hover {
     transform: none;
     box-shadow: none;
   }
