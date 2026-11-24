@@ -92,13 +92,13 @@ function categoryBanner(req, oldBanner) {
 // form-er data hariye jay. Shudhu category add/edit form-e bebohar hoy.
 function categoryUpload(req, res, next) {
   upload.fields([{ name: 'image', maxCount: 1 }, { name: 'banner', maxCount: 1 }])(req, res, (err) => {
-    if (!err) return next();
+    if (!err) return upload.convertToWebP(req, res, next);
     console.error('Category image upload error:', err.message);
     return res.status(400).send(`
       <div style="font-family:sans-serif; max-width:600px; margin:60px auto; padding:20px;">
         <h1>Photo upload failed</h1>
         <p>${err.message || 'There was a problem uploading the photo.'}</p>
-        <p>Only <strong>jpg, png or webp</strong> photos are allowed, and the file must be under <strong>5MB</strong>.</p>
+        <p>Only <strong>jpg, png, gif or webp</strong> photos are allowed, and the file must be under <strong>5MB</strong>.</p>
         <p><a href="/admin/categories" style="color:#f0a500; font-weight:bold;">&larr; Back to Categories</a></p>
       </div>`);
   });
@@ -497,7 +497,7 @@ function buildCategoryGroups(categories) {
   return groups;
 }
 
-router.post('/products/add', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
+router.post('/products/add', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), upload.convertToWebP, async (req, res) => {
   try {
     const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_values, custom_sizes } = req.body;
     const adv = parseProductAdvanced(req.body);
@@ -574,7 +574,7 @@ router.get('/products/edit/:id', requireAdmin, requireRole('products'), async (r
   res.render('admin/add-product', { categories, categoryGroups: buildCategoryGroups(categories), categoryFlat: flattenTree(roots), product: rows[0], galleryImages, options, relatedIds: relatedRows.map(r => r.related_id), allProducts, videos, siteName: 'Goince' });
 });
 
-router.post('/products/edit/:id', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
+router.post('/products/edit/:id', requireAdmin, requireRole('products'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }, { name: 'video', maxCount: 1 }]), upload.convertToWebP, async (req, res) => {
   try {
     const { name, description, short_description, specifications, price, compare_at_price, stock, category_id, source_link, target_audience, size_management, size_values, custom_sizes } = req.body;
     const adv = parseProductAdvanced(req.body);
@@ -781,7 +781,7 @@ router.post('/products/:id/variants/sync', requireAdmin, requireRole('products')
   }
   res.redirect('/admin/products/' + productId + '/variants');
 });
-router.post('/products/:id/variants/:vid/update', requireAdmin, requireRole('products'), upload.single('image'), async (req, res) => {
+router.post('/products/:id/variants/:vid/update', requireAdmin, requireRole('products'), upload.single('image'), upload.convertToWebP, async (req, res) => {
   const stock = parseInt(req.body.stock, 10) || 0;
   const price = req.body.price === '' || req.body.price == null ? null : parseFloat(req.body.price);
   const compareAt = req.body.compare_at_price === '' || req.body.compare_at_price == null ? null : parseFloat(req.body.compare_at_price);
@@ -884,7 +884,7 @@ router.post('/products/:id/gallery/delete/:imageId', requireAdmin, requireRole('
 });
 
 // ==================== PRODUCT OPTIONS (Color / Size / Weight — you can set the label yourself) ====================
-router.post('/products/:id/options/add', requireAdmin, requireRole('products'), upload.single('option_image'), async (req, res) => {
+router.post('/products/:id/options/add', requireAdmin, requireRole('products'), upload.single('option_image'), upload.convertToWebP, async (req, res) => {
   try {
     const productId = req.params.id;
     const submittedLabel = (req.body.option_label || '').trim();
@@ -2143,7 +2143,7 @@ router.post('/settings/change-password', requireAdmin, async (req, res) => {
   res.redirect('/admin/settings?pw=ok');
 });
 
-router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), async (req, res) => {
+router.post('/settings', requireAdmin, requireRole('settings'), upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), upload.convertToWebP, async (req, res) => {
   const shopPhone = (req.body.shop_phone || '').trim();
   // Logo upload: an uploaded file wins; otherwise the URL field value is used; if both are blank, the previous logo stays
   const logoFromFile = (req.files && req.files.logo_file && req.files.logo_file[0]) ? ('/uploads/' + req.files.logo_file[0].filename) : '';
@@ -2269,7 +2269,7 @@ router.get('/banners', requireAdmin, requireRole('banners'), async (req, res) =>
   const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
   res.render('admin/banners', { banners, editing: null, siteName: 'Goince' });
 });
-router.post('/banners/add', requireAdmin, requireRole('banners'), upload.single('image'), async (req, res) => {
+router.post('/banners/add', requireAdmin, requireRole('banners'), upload.single('image'), upload.convertToWebP, async (req, res) => {
   const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || null);
   await db.query(
     'INSERT INTO banners (title, subtitle, image, link_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)',
@@ -2283,7 +2283,7 @@ router.get('/banners/edit/:id', requireAdmin, requireRole('banners'), async (req
   const [banners] = await db.query('SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
   res.render('admin/banners', { banners, editing, siteName: 'Goince' });
 });
-router.post('/banners/edit/:id', requireAdmin, requireRole('banners'), upload.single('image'), async (req, res) => {
+router.post('/banners/edit/:id', requireAdmin, requireRole('banners'), upload.single('image'), upload.convertToWebP, async (req, res) => {
   const [[old]] = await db.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
   if (!old) return res.redirect('/admin/banners');
   const image = req.file ? '/uploads/' + req.file.filename : ((req.body.image_url || '').trim() || old.image);
