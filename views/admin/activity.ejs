@@ -23,7 +23,7 @@
     <p>All open orders are phone-confirmed.</p>
   <% } else { %>
   <div class="table-responsive"><table class="admin-table"><thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead><tbody>
-    <% _rows.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %></td><td><a href="tel:<%= o.phone %>"><%= o.phone %></a> <a class="analytics-view-link" href="tel:<%= o.phone %>">📞 Call</a></td><td>৳<%= money(o.total_amount) %></td><td><%= fmtDate(o.created_at) %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
+    <% _rows.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %></td><td><a href="tel:<%= o.phone %>"><%= o.phone %></a> <a class="btn-call" href="tel:<%= o.phone %>">📞 Call</a></td><td>৳<%= money(o.total_amount) %></td><td><%= fmtDate(o.created_at) %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
   </tbody></table></div>
   <% } %>
 <% } else { %>
