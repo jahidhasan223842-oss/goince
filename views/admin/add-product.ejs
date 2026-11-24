@@ -9,10 +9,10 @@
   .collapsible-section.drag-over-top { border-top:3px solid #f0a500; }
   .collapsible-section.drag-over-bottom { border-bottom:3px solid #f0a500; }
   .section-header { display:flex; align-items:stretch; background:var(--surface, #f7f7fa); }
-  .drag-handle { cursor:grab; padding:12px 4px 12px 12px; font-size:18px; color:#999; user-select:none; touch-action:none; display:flex; align-items:center; }
+  .drag-handle { cursor:grab; padding:12px 4px 12px 12px; font-size:18px; color:var(--text-muted); user-select:none; touch-action:none; display:flex; align-items:center; }
   .drag-handle:active { cursor:grabbing; }
   .section-move { display:flex; flex-direction:column; justify-content:center; padding:0 4px; }
-  .section-move button { border:none; background:none; cursor:pointer; font-size:11px; line-height:1.1; color:#999; padding:1px 4px; }
+  .section-move button { border:none; background:none; cursor:pointer; font-size:11px; line-height:1.1; color:var(--text-muted); padding:1px 4px; }
   .section-move button:hover { color:#f0a500; }
   .section-toggle { flex:1; display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px 12px 6px; background:transparent; border:none; cursor:pointer; font-size:16px; font-weight:700; color:var(--text, #16161a); text-align:left; }
   .section-toggle:hover { background:var(--bg-hover, #eee); }
@@ -25,8 +25,8 @@
 
 <div style="margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap;">
   <button type="button" class="btn-primary" id="expand-all-sections" style="padding:6px 14px;">🔽 Expand All</button>
-  <button type="button" class="btn-primary" id="collapse-all-sections" style="padding:6px 14px; background:var(--navy);">🔼 Collapse All</button>
-  <span style="align-self:center; font-size:13px; color:#888;">⠿ ধরে টেনে সেকশন সাজাতে পারবে — তোমার সাজানো মনে থাকবে।</span>
+  <button type="button" class="btn-secondary" id="collapse-all-sections" style="padding:6px 14px;">🔼 Collapse All</button>
+  <span style="align-self:center; font-size:13px; color:var(--text-muted);">⠿ ধরে টেনে সেকশন সাজাতে পারবে — তোমার সাজানো মনে থাকবে।</span>
 </div>
 <form action="<%= product ? '/admin/products/edit/' + product.id : '/admin/products/add' %><%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" enctype="multipart/form-data" class="admin-form" id="product-main-form"><%- include('../partials/csrf-field') %>
 <div class="collapsible-section" data-section="basic">
@@ -76,7 +76,7 @@
     <option value="kids" <%= product && product.target_audience === 'kids' ? 'selected' : '' %>>Kids</option>
     <option value="unisex" <%= product && product.target_audience === 'unisex' ? 'selected' : '' %>>Unisex</option>
   </select>
-  <small style="display:block; color:#888; margin-top:-8px; margin-bottom:12px;">For seasonal products, select Men/Women/Kids. For Home Decor or general products, keep All / General.</small>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">For seasonal products, select Men/Women/Kids. For Home Decor or general products, keep All / General.</small>
 
   <label>Short Description — In one or two lines, say what this product is; it shows just below the title on the product page</label>
   <textarea name="short_description" rows="2" maxlength="300" placeholder="e.g. 100% cotton comfortable t-shirt, perfect for everyday wear."><%= product && product.short_description ? product.short_description : '' %></textarea>
@@ -109,7 +109,7 @@
   <div id="gallery-dropzone" style="border:2px dashed #bbb; border-radius:8px; padding:20px; text-align:center; cursor:pointer; background:var(--surface);">
     <p style="margin:0 0 8px; font-size:16px;">📷 Drag &amp; drop photos here, or</p>
     <button type="button" class="btn-primary" onclick="document.getElementById('gallery-input').click()">+ Choose Photos</button>
-    <p id="gallery-count" style="margin:10px 0 0; font-size:13px; color:#888;">No photos selected yet — you can select many at once (Ctrl/Cmd + click, or drag several files).</p>
+    <p id="gallery-count" style="margin:10px 0 0; font-size:13px; color:var(--text-muted);">No photos selected yet — you can select many at once (Ctrl/Cmd + click, or drag several files).</p>
   </div>
   <input type="file" id="gallery-input" name="gallery" accept="image/*" multiple style="display:none;">
   <div id="gallery-preview" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;"></div>
@@ -177,7 +177,7 @@
 
   <label>Product Video (optional — shows on the product page)</label>
   <input type="file" name="video" accept="video/*">
-  <% if (videos && videos.length) { %><p style="font-size:13px;color:#888;">Current video: <%= videos[0].filename %></p><% } %>
+  <% if (videos && videos.length) { %><p style="font-size:13px;color:var(--text-muted);">Current video: <%= videos[0].filename %></p><% } %>
   <label>Main Image Alt Text (for Google & screen readers — e.g. "Black leather wallet")</label>
   <input type="text" name="image_alt" value="<%= product && product.image_alt ? product.image_alt : '' %>" placeholder="Describe the main image">
 
@@ -203,13 +203,13 @@
 
     <label style="margin-top:12px;">Available Sizes</label>
     <div id="size_options" style="display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 14px;">
-      <small style="color:#888;">Select a Size Type to see the available sizes.</small>
+      <small style="color:var(--text-muted);">Select a Size Type to see the available sizes.</small>
     </div>
 
     <label>Custom Sizes</label>
     <div id="add_custom_size_fields" style="display:grid;gap:8px;margin:8px 0;"></div>
     <button type="button" id="add_custom_size_button" class="btn-secondary">+ Add Another Size</button>
-    <small style="display:block;color:#888;margin:8px 0 12px;">
+    <small style="display:block;color:var(--text-muted);margin:8px 0 12px;">
       Enter each custom size in a separate box. Use Remove if you need to delete one.
     </small>
 
@@ -233,7 +233,7 @@
         const sizes = presets[this.value] || [];
 
         if (!sizes.length) {
-          container.innerHTML = '<small style="color:#888;">Select a Size Type to see the available sizes.</small>';
+          container.innerHTML = '<small style="color:var(--text-muted);">Select a Size Type to see the available sizes.</small>';
           return;
         }
 
@@ -299,7 +299,7 @@
   <div class="section-header">
     <span class="drag-handle" draggable="true" title="Drag to move this section">⠿</span>
     <span class="section-move"><button type="button" data-move="up" title="Move up">▲</button><button type="button" data-move="down" title="Move down">▼</button></span>
-    <button type="button" class="section-toggle" aria-expanded="false"><span>💰 Pricing &amp; Profit <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+    <button type="button" class="section-toggle" aria-expanded="false"><span>💰 Pricing &amp; Profit <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
   </div>
   <div class="section-body">
   <label>Cost Price (৳) — what you paid for it; used to calculate profit in Reports</label>
@@ -314,7 +314,7 @@
   <div class="section-header">
     <span class="drag-handle" draggable="true" title="Drag to move this section">⠿</span>
     <span class="section-move"><button type="button" data-move="up" title="Move up">▲</button><button type="button" data-move="down" title="Move down">▼</button></span>
-    <button type="button" class="section-toggle" aria-expanded="false"><span>📦 Inventory &amp; Shipping <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+    <button type="button" class="section-toggle" aria-expanded="false"><span>📦 Inventory &amp; Shipping <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
   </div>
   <div class="section-body">
   <label>Weight (kg) — used for delivery planning</label>
@@ -335,7 +335,7 @@
   <div class="section-header">
     <span class="drag-handle" draggable="true" title="Drag to move this section">⠿</span>
     <span class="section-move"><button type="button" data-move="up" title="Move up">▲</button><button type="button" data-move="down" title="Move down">▼</button></span>
-    <button type="button" class="section-toggle" aria-expanded="false"><span>🏷️ Brand &amp; Tags <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+    <button type="button" class="section-toggle" aria-expanded="false"><span>🏷️ Brand &amp; Tags <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
   </div>
   <div class="section-body">
   <label>Brand</label>
@@ -349,7 +349,7 @@
   <div class="section-header">
     <span class="drag-handle" draggable="true" title="Drag to move this section">⠿</span>
     <span class="section-move"><button type="button" data-move="up" title="Move up">▲</button><button type="button" data-move="down" title="Move down">▼</button></span>
-    <button type="button" class="section-toggle" aria-expanded="false"><span>🚦 Publish <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — defaults to Published)</span></span><span class="section-chevron">▼</span></button>
+    <button type="button" class="section-toggle" aria-expanded="false"><span>🚦 Publish <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">(Optional — defaults to Published)</span></span><span class="section-chevron">▼</span></button>
   </div>
   <div class="section-body">
   <label>Status — Draft products are saved but NOT shown on the website</label>
@@ -368,7 +368,7 @@
   <div class="section-header">
     <span class="drag-handle" draggable="true" title="Drag to move this section">⠿</span>
     <span class="section-move"><button type="button" data-move="up" title="Move up">▲</button><button type="button" data-move="down" title="Move down">▼</button></span>
-    <button type="button" class="section-toggle" aria-expanded="false"><span>🔍 SEO (Google) <span style="font-size:12px; color:#888; font-weight:normal;">(Optional — auto-filled if left blank)</span></span><span class="section-chevron">▼</span></button>
+    <button type="button" class="section-toggle" aria-expanded="false"><span>🔍 SEO (Google) <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">(Optional — auto-filled if left blank)</span></span><span class="section-chevron">▼</span></button>
   </div>
   <div class="section-body">
   <label>URL Slug — the product's web address (auto-filled from the name; letters, numbers and - only)</label>
@@ -384,7 +384,7 @@
   <div class="section-header">
     <span class="drag-handle" draggable="true" title="Drag to move this section">⠿</span>
     <span class="section-move"><button type="button" data-move="up" title="Move up">▲</button><button type="button" data-move="down" title="Move down">▼</button></span>
-    <button type="button" class="section-toggle" aria-expanded="false"><span>🔗 Related Products — "You may also like" <span style="font-size:12px; color:#888; font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
+    <button type="button" class="section-toggle" aria-expanded="false"><span>🔗 Related Products — "You may also like" <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">(Optional)</span></span><span class="section-chevron">▼</span></button>
   </div>
   <div class="section-body">
   <label>Select products to suggest on this product's page (hold Ctrl/Cmd to select multiple)</label>
@@ -553,7 +553,7 @@
 <% } %>
 <% if (galleryImages && galleryImages.length > 0) { %>
   <div style="margin-top:20px;">
-    <p style="font-size:13px; color:#888;">Existing gallery images:</p>
+    <p style="font-size:13px; color:var(--text-muted);">Existing gallery images:</p>
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
       <% galleryImages.forEach(img => { %>
         <div style="position:relative;">
@@ -573,7 +573,7 @@
 
   <% if (!currentOptionLabel || currentOptionLabel === 'size') { %>
     <h3>Product Size Variants</h3>
-    <p style="font-size:13px;color:#888;">Your existing sizes will stay selected. Use the checkboxes to add or remove sizes, then click Update Product.</p>
+    <p style="font-size:13px;color:var(--text-muted);">Your existing sizes will stay selected. Use the checkboxes to add or remove sizes, then click Update Product.</p>
 
     <input type="hidden" name="size_management" value="1" form="product-main-form">
 
@@ -588,13 +588,13 @@
 
     <label style="margin-top:12px;">Available Sizes</label>
     <div id="edit_size_options" style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 14px;">
-      <small style="color:#888;">Select a Size Type.</small>
+      <small style="color:var(--text-muted);">Select a Size Type.</small>
     </div>
 
     <label>Custom Sizes</label>
     <div id="edit_custom_size_fields" style="display:grid;gap:8px;margin:8px 0;"></div>
     <button type="button" id="edit_add_custom_size_button" class="btn-secondary">+ Add Another Size</button>
-    <small style="display:block;color:#888;margin:8px 0 12px;">
+    <small style="display:block;color:var(--text-muted);margin:8px 0 12px;">
       Each custom size will be in a separate box. Use Remove to delete a size.
     </small>
 
@@ -657,7 +657,7 @@
         container.innerHTML = '';
 
         if (!sizes.length) {
-          container.innerHTML = '<small style="color:#888;">Select a Size Type to see the available sizes.</small>';
+          container.innerHTML = '<small style="color:var(--text-muted);">Select a Size Type to see the available sizes.</small>';
         } else {
           sizes.forEach(function (size) {
             const label = document.createElement('label');
@@ -703,7 +703,7 @@
 
   <% } else { %>
     <h3>Product Options — <%= options[0].option_label %></h3>
-    <p style="font-size:13px;color:#888;margin-bottom:12px;">
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
       Manage the existing Color / Weight options here. The size editor does not affect them.
     </p>
 
@@ -738,7 +738,7 @@
   <% } %>
 
 <% } else { %>
-  <p style="color:#888;font-size:13px;margin-top:20px;">After saving the product, you can manage Size Variants, Color, or Weight options from the Edit page.</p>
+  <p style="color:var(--text-muted);font-size:13px;margin-top:20px;">After saving the product, you can manage Size Variants, Color, or Weight options from the Edit page.</p>
 <% } %>
 
 <hr>

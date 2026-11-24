@@ -37,7 +37,7 @@
           <td><%= a.created_at ? new Date(a.created_at).toLocaleDateString() : '-' %></td>
           <td>
             <% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %>
-              <span style="color:#999;">—</span>
+              <span style="color:var(--text-muted);">—</span>
             <% } else { %>
               <form action="/admin/staff/<%= a.id %>/role" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
                 <select name="role">
@@ -57,7 +57,7 @@
           </td>
           <td>
             <% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %>
-              <span style="color:#999;">—</span>
+              <span style="color:var(--text-muted);">—</span>
             <% } else { %>
               <form action="/admin/staff/<%= a.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this admin account?');"><%- include('../partials/csrf-field') %>
                 <button type="submit" class="link-btn-danger">Delete</button>

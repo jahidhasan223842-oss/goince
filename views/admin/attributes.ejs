@@ -24,7 +24,7 @@
       </div>
 
       <% if (attr.values.length === 0) { %>
-        <p style="color:#999; font-size:14px; margin-bottom:10px;">No values yet.</p>
+        <p style="color:var(--text-muted); font-size:14px; margin-bottom:10px;">No values yet.</p>
       <% } else { %>
         <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
           <% attr.values.forEach(v => { %>
