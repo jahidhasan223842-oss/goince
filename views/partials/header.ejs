@@ -40,9 +40,29 @@
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
-  <link rel="icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
-  <link rel="apple-touch-icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
-  <meta property="og:image" content="<%= (typeof siteSettings !== 'undefined' && siteSettings.og_image_url) ? siteSettings.og_image_url : '/icons/icon-512.png' %>">
+  <link rel="icon" type="image/png" sizes="192x192" href="<%= (typeof siteFaviconAbs !== 'undefined' && siteFaviconAbs) ? siteFaviconAbs : '/icons/icon-192.png' %>">
+  <link rel="apple-touch-icon" href="<%= (typeof siteFaviconAbs !== 'undefined' && siteFaviconAbs) ? siteFaviconAbs : '/icons/icon-192.png' %>">
+  <meta property="og:url" content="<%= (typeof pageUrl !== 'undefined' && pageUrl) ? pageUrl : '' %>">
+  <meta property="og:image" content="<%= (typeof siteOgImageAbs !== 'undefined' && siteOgImageAbs) ? siteOgImageAbs : '/icons/icon-512.png' %>">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= typeof pageTitle !== 'undefined' && pageTitle ? pageTitle : siteName + ' - Online Shop' %>">
+  <meta name="twitter:description" content="<%= typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : 'Goince - Bangladesh-er online shop. Cash on Delivery.' %>">
+  <meta name="twitter:image" content="<%= (typeof siteOgImageAbs !== 'undefined' && siteOgImageAbs) ? siteOgImageAbs : '/icons/icon-512.png' %>">
+  <% /* Google search-e logo dekhate Organization structured data — logo
+        Admin > Settings > Logo theke bodlano jay (Main Logo). Google nije
+        decide kore logo dekhabe ki na, ar dekhate koyek din somoy lagte pare. */ %>
+  <% if (typeof isHomePage !== 'undefined' && isHomePage) { %>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Goince",
+    "url": "<%= (typeof siteUrl !== 'undefined' && siteUrl) ? siteUrl : 'https://goince.com' %>",
+    "logo": "<%= (typeof siteLogoAbs !== 'undefined' && siteLogoAbs) ? siteLogoAbs : 'https://goince.com/icons/icon-192.png' %>"<% if (typeof siteSettings !== 'undefined' && siteSettings.facebook_url) { %>,
+    "sameAs": ["<%= siteSettings.facebook_url %>"]<% } %>
+  }
+  </script>
+  <% } %>
   <link rel="stylesheet" href="/css/style.css">
   <meta name="google-site-verification" content="GAj60zbiOAiiDk_FkIPCdO4W336XXdmOVd-fMGNAxgI" />
 </head>
