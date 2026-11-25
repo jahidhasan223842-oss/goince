@@ -2509,11 +2509,61 @@ router.get('/settings', requireAdmin, requirePermission('settings.manage'), asyn
   });
 });
 
+// ---------- MY PROFILE (fix/admin-profile-section) ----------
+// Every signed-in admin can open their own profile — requireAdmin only,
+// no permission check, so Staff sees it too. The admins table has NO
+// display-name column (id, email, password, role, role_id, reset_token,
+// reset_expires, created_at), so the name shown is the email local part
+// (same as the top-bar pill) and the email is read-only here.
+router.get('/profile', requireAdmin, async (req, res) => {
+  let adminRow = null;
+  try {
+    if (req.session.adminId) {
+      const [[row]] = await db.query('SELECT * FROM admins WHERE id = ?', [req.session.adminId]);
+      adminRow = row || null;
+    }
+    if (!adminRow && req.session.adminEmail) {
+      const [rows] = await db.query('SELECT * FROM admins WHERE email = ?', [req.session.adminEmail]);
+      adminRow = rows[0] || null;
+    }
+    if (!adminRow) {
+      const [rows] = await db.query('SELECT * FROM admins ORDER BY id ASC LIMIT 1');
+      adminRow = rows[0] || null;
+    }
+  } catch (e) { adminRow = null; }
+  const email = (adminRow && adminRow.email) || req.session.adminEmail || '';
+  const name = String(email).split('@')[0] || 'Admin';
+  const roleLabel = req.session.adminRole || (adminRow && adminRow.role) || 'owner';
+  let memberSince = null;
+  if (adminRow && adminRow.created_at) {
+    try { memberSince = new Date(adminRow.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { memberSince = null; }
+  }
+  res.render('admin/profile', {
+    adminName: name,
+    adminEmail: email,
+    adminRoleLabel: roleLabel,
+    memberSince,
+    pwOk: req.query.pw === 'ok',
+    pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
+      req.query.pw === 'wrong' ? 'Current password is wrong — password was not changed.' :
+      req.query.pw === 'mismatch' ? 'New passwords do not match — password was not changed.' :
+      req.query.pw === 'short' ? 'New password must be at least 6 characters.' :
+      req.query.pw === 'noaccount' ? 'No admin account found in the database — use Forgot Password instead.' : null,
+    emailConfigured: isEmailConfigured(),
+    siteName: 'Goince'
+  });
+});
+
 // ---------- CHANGE ADMIN PASSWORD (Settings theke, nijer password nije bodlano) ----------
 router.post('/settings/change-password', requireAdmin, async (req, res) => {
   const { current_password, new_password, confirm_password } = req.body;
-  if ((new_password || '').length < 6) return res.redirect('/admin/settings?pw=short');
-  if (new_password !== confirm_password) return res.redirect('/admin/settings?pw=mismatch');
+  // Where to land after the change: Settings by default. The profile
+  // page posts this SAME endpoint with return_to=/admin/profile, so the
+  // admin lands back on their profile. Only same-site /admin paths.
+  const returnTo = (typeof req.body.return_to === 'string' && /^\/admin\/[A-Za-z0-9/_-]*$/.test(req.body.return_to)) ? req.body.return_to : '/admin/settings';
+  const done = (code) => res.redirect(returnTo + '?pw=' + code);
+  if ((new_password || '').length < 6) return done('short');
+  if (new_password !== confirm_password) return done('mismatch');
   let adminRow = null;
   if (req.session.adminId) {
     const [[row]] = await db.query('SELECT * FROM admins WHERE id = ?', [req.session.adminId]);
@@ -2523,12 +2573,12 @@ router.post('/settings/change-password', requireAdmin, async (req, res) => {
     const [rows] = await db.query('SELECT * FROM admins ORDER BY id ASC LIMIT 1');
     adminRow = rows[0] || null;
   }
-  if (!adminRow) return res.redirect('/admin/settings?pw=noaccount');
+  if (!adminRow) return done('noaccount');
   const ok = await bcrypt.compare(current_password || '', adminRow.password);
-  if (!ok) return res.redirect('/admin/settings?pw=wrong');
+  if (!ok) return done('wrong');
   const hashed = await bcrypt.hash(new_password, 10);
   await db.query('UPDATE admins SET password = ? WHERE id = ?', [hashed, adminRow.id]);
-  res.redirect('/admin/settings?pw=ok');
+  return done('ok');
 });
 
 router.post('/settings', requireAdmin, requirePermission('settings.manage'), upload.fields([{ name: 'logo_file', maxCount: 1 }, { name: 'favicon_file', maxCount: 1 }, { name: 'og_file', maxCount: 1 }]), upload.convertToWebP, async (req, res) => {

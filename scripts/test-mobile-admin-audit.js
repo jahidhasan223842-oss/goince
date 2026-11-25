@@ -218,9 +218,12 @@ check('admin .category-bar override restores pill look (not the shop round-card 
 console.log('CSS — theme toggle moves into the topbar on mobile');
 check('floating theme toggle is hidden on mobile',
   /\.theme-toggle-fixed\s*\{\s*display:\s*none;/.test(mobileAdmin), 'floating toggle not hidden on mobile');
-check('topbar theme toggle is pushed to the right end of the topbar',
-  /\.admin-topbar \.theme-toggle-btn\s*\{\s*margin-left:\s*auto;/.test(mobileAdmin),
-  'topbar toggle rule missing');
+check('topbar profile pill is pushed to the right end of the topbar',
+  // (fix/admin-profile-section): the profile pill is the last top-bar
+  // item, so IT — not the theme toggle — is pushed to the far right
+  // on phones. The theme toggle stays in the top bar, before the pill.
+  /\.admin-topbar \.admin-profile-dropdown\s*\{\s*margin-left:\s*auto;/.test(mobileAdmin),
+  'profile-dropdown margin-left:auto rule missing');
 
 console.log('CSS — print unwraps .table-responsive');
 check('print block makes .table-responsive overflow visible (no clipped print)',
