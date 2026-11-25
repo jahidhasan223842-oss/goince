@@ -401,11 +401,11 @@ function dashboardLocals(overrides) {
   const emptyPhone = await renderFile(path.join(__dirname, '..', 'views', 'admin', 'activity.ejs'), activityLocals({
     totalCount: 0, totalPages: 1, phoneTotal: 0, activityTotal: 0, phoneRows: [],
   }));
-  check('direct render: phone empty state', has(emptyPhone, 'All open orders are phone-confirmed.'));
+  check('direct render: phone empty state', has(emptyPhone, 'class="empty-state"') && has(emptyPhone, 'All open orders are phone-confirmed'));
   const emptyAct = await renderFile(path.join(__dirname, '..', 'views', 'admin', 'activity.ejs'), activityLocals({
     tab: 'activity', totalCount: 0, totalPages: 1, phoneTotal: 0, activityTotal: 0, activityRows: [],
   }));
-  check('direct render: activity empty state', has(emptyAct, 'No recent activity yet.'));
+  check('direct render: activity empty state', has(emptyAct, 'class="empty-state"') && has(emptyAct, 'No recent activity yet'));
   const dashHtml = await renderFile(path.join(__dirname, '..', 'views', 'admin', 'dashboard.ejs'), dashboardLocals());
   check('direct render: dashboard has no Recent activity panel', !has(dashHtml, '<h2>Recent activity</h2>'));
   check('direct render: dashboard has no Phone queue panel', !has(dashHtml, '<h2>Phone confirmation queue</h2>'));

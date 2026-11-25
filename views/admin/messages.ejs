@@ -17,7 +17,12 @@
 </nav>
 
 <% if (messages.length === 0) { %>
-  <p>No messages yet.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">✉️</span>
+    <strong>No messages yet</strong>
+    <p>Messages from the website's Contact form will appear here as tickets.</p>
+    <a href="/contact" target="_blank" rel="noopener" class="btn-primary">Open the contact form</a>
+  </div>
 <% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
@@ -32,9 +37,11 @@
         <td><%= m.message %></td>
         <td><span class="status-badge <%= _statusBadge(m.status) %>"><%= m.status || 'open' %></span></td>
         <td style="white-space:nowrap;">
-          <a href="/admin/messages/<%= m.id %>">View</a>
-          <% if (!m.is_read) { %> | <form action="/admin/messages/<%= m.id %>/read" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;">Mark read</button></form><% } %>
-          | <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this message?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
+          <div class="admin-actions">
+            <a href="/admin/messages/<%= m.id %>" class="btn-sm btn-sm--primary">View</a>
+            <% if (!m.is_read) { %><form action="/admin/messages/<%= m.id %>/read" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm">Mark read</button></form><% } %>
+            <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this message?');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--danger">Delete</button></form>
+          </div>
         </td>
       </tr>
     <% }) %>

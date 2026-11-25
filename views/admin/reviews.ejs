@@ -16,7 +16,11 @@
 </form>
 
 <% if (reviews.length === 0) { %>
-  <p>No reviews found.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">⭐</span>
+    <strong>No reviews found</strong>
+    <p>New customer reviews will appear here for approval.</p>
+  </div>
 <% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
@@ -35,13 +39,15 @@
           <% if (r.status === 'approved') { %><span class="status-badge status-delivered">Approved</span><% } else if (r.status === 'hidden') { %><span class="status-badge status-cancelled">Hidden</span><% } else { %><span class="status-badge status-pending">Pending</span><% } %>
         </td>
         <td style="white-space:nowrap;">
-          <% if (r.status !== 'approved') { %>
-            <form action="/admin/reviews/<%= r.id %>/approve" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:green;">Approve</button></form> |
-          <% } %>
-          <% if (r.status !== 'hidden') { %>
-            <form action="/admin/reviews/<%= r.id %>/hide" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#f0a500;">Hide</button></form> |
-          <% } %>
-          <form action="/admin/reviews/<%= r.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this review permanently?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
+          <div class="admin-actions">
+            <% if (r.status !== 'approved') { %>
+              <form action="/admin/reviews/<%= r.id %>/approve" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--primary">Approve</button></form>
+            <% } %>
+            <% if (r.status !== 'hidden') { %>
+              <form action="/admin/reviews/<%= r.id %>/hide" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm">Hide</button></form>
+            <% } %>
+            <form action="/admin/reviews/<%= r.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this review permanently?');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--danger">Delete</button></form>
+          </div>
         </td>
       </tr>
     <% }) %>

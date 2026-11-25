@@ -2,17 +2,19 @@
 
 <div class="admin-page-header">
   <h1>Categories</h1>
-  <span><a href="/admin/products/add" class="btn-primary">+ Add New Product</a></span>
+  <span><a href="#add-category" class="btn-primary">+ Add Category</a></span>
 </div>
 <p class="field-hint">Categories group your products on the shop. Add a photo, set the order, hide a category without deleting it, or mark it as featured for the homepage. Click ▼ on a category to see the sub-categories inside it — nesting is unlimited.</p>
 
-<form id="add-category" action="/admin/categories/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
+<form id="add-category" action="/admin/categories/add<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form admin-form--wide" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
   <h3>➕ Add New Category</h3>
   <label>Category Name</label>
   <input type="text" name="name" placeholder="e.g. Fashion, or Men's Shirt" required>
-  <label>URL Slug (auto-filled from the name — you can change it)</label>
+  <label>URL Slug</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Auto-filled from the name — you can change it.</small>
   <input type="text" name="slug" id="cat-slug" placeholder="e.g. fashion">
-  <label>Parent Category — pick any category to make this its sub-category (leave blank for a Main Category)</label>
+  <label>Parent Category</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Pick any category to make this its sub-category. Leave blank for a Main Category.</small>
   <select name="parent_id">
     <option value="">-- None (Main Category) --</option>
     <% (typeof allCategories !== 'undefined' ? allCategories : []).forEach(cat => { %>
@@ -23,18 +25,24 @@
   <input type="file" name="image" accept="image/*">
   <label>Or image link (URL)</label>
   <input type="text" name="image_url" placeholder="https://...">
-  <label>Banner — upload a wide image (shown at the top of this category's shop page)</label>
+  <label>Banner</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Upload a wide image — shown at the top of this category's shop page.</small>
   <input type="file" name="banner" accept="image/*">
-  <label>Or banner link (URL) — wide image, 1200×400 recommended</label>
+  <label>Or banner link (URL)</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Wide image, 1200×400 recommended.</small>
   <input type="text" name="banner_url" placeholder="https://...">
-  <label>Description (optional — shown under the category name)</label>
+  <label>Description</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Optional — shown under the category name.</small>
   <textarea name="description" rows="2" placeholder="What is this category about?"></textarea>
   <h4 style="margin:18px 0 4px;">🔍 SEO (Google)</h4>
-  <label>Meta Title (optional — uses the category name if blank)</label>
+  <label>Meta Title</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Optional — uses the category name if blank.</small>
   <input type="text" name="meta_title" placeholder="e.g. Fashion — Goince">
-  <label>Meta Description (optional — uses the description above if blank)</label>
+  <label>Meta Description</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Optional — uses the description above if blank.</small>
   <textarea name="meta_description" rows="2" placeholder="What shows in Google search results..."></textarea>
-  <label>Sort Order (lower number shows first — leave empty to add at the end)</label>
+  <label>Sort Order</label>
+  <small style="display:block; color:var(--text-muted); margin-top:-8px; margin-bottom:12px;">Lower number shows first — leave empty to add at the end.</small>
   <input type="number" name="sort_order" placeholder="Auto — added at the end" min="0">
   <input type="hidden" name="is_visible" value="0">
   <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" name="is_visible" value="1" checked> Show on website</label>
@@ -64,7 +72,11 @@
   ? (categories.length > 0 || (typeof searchExtras !== 'undefined' && searchExtras && searchExtras.length > 0))
   : ((typeof treeRoots !== 'undefined' && treeRoots.length > 0) || (typeof orphanSubs !== 'undefined' && orphanSubs && orphanSubs.length > 0)); %>
 <% if (!hasResults) { %>
-  <p>No categories found. Try clearing the search.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">🗂️</span>
+    <strong>No categories found</strong>
+    <p>Try clearing the search, or add a new category above.</p>
+  </div>
 <% } else { %>
   <!-- Bulk actions: checkboxes live in the rows (outside the row's own
        forms — HTML does not allow nested forms), so this form's script
@@ -72,9 +84,9 @@
   <form id="cat-bulk-form" action="/admin/categories/bulk" method="POST" class="cat-bulk-bar"><%- include('../partials/csrf-field') %>
     <label><input type="checkbox" id="cat-check-all"> Select all</label>
     <span class="cat-bulk-count" id="cat-bulk-count"></span>
-    <button type="submit" name="action" value="hide">Hide selected</button>
-    <button type="submit" name="action" value="show">Show selected</button>
-    <button type="submit" name="action" value="delete" class="link-btn-danger">Delete selected</button>
+    <button type="submit" name="action" value="hide" class="btn-sm">Hide selected</button>
+    <button type="submit" name="action" value="show" class="btn-sm">Show selected</button>
+    <button type="submit" name="action" value="delete" class="btn-sm btn-sm--danger">Delete selected</button>
   </form>
   <% if (isFiltered) { %>
     <!-- FILTER MODE: flat list, parent context shown, collapsed state ignored -->

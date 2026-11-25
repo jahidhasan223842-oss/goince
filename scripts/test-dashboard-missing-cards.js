@@ -231,17 +231,17 @@ function dashboardLocals(overrides) {
   // Pending COD card: 1000 (order #1) + 500 (order #3 after 300 advance) = 1500,
   // 2 orders owe; Paid / COD-collected / cancelled orders excluded.
   check('Pending COD card shows ৳1,500', has(dash.text, 'Pending COD / due') && has(dash.text, '৳1,500'));
-  check('Pending COD card counts 2 open orders', has(dash.text, '2 open order(s) still owe'));
+  check('Pending COD card counts 2 open orders', has(dash.text, '2 open orders still owe'));
   check('Pending COD card links to unpaid tab', has(dash.text, '/admin/invoices?tab=unpaid'));
   // Today's revenue card.
   check("Today's revenue card shows ৳1,000", has(dash.text, "Today's revenue") && has(dash.text, '৳1,000'));
-  check("Today's revenue card counts 1 order (Asia/Dhaka)", has(dash.text, '1 order(s) today (Asia/Dhaka)'));
+  check("Today's revenue card counts 1 order (Asia/Dhaka)", has(dash.text, '1 order today (Asia/Dhaka)'));
   // Profit card: 490 with partial-coverage hint (cost set for 1 of 3 units).
   check('Profit card shows ৳490', has(dash.text, 'Profit in period') && has(dash.text, '৳490'));
   check('Profit card warns coverage is partial', has(dash.text, 'Cost price set for 1 of 3 units — partial profit.'));
   // Needs attention panel.
-  check('Needs attention panel shows 2 pending reviews', has(dash.text, 'Needs attention') && has(dash.text, '2 review(s) waiting for approval'));
-  check('Needs attention panel shows 3 unread messages', has(dash.text, '3 unread message(s)'));
+  check('Needs attention panel shows 2 pending reviews', has(dash.text, 'Needs attention') && has(dash.text, '2 reviews waiting for approval'));
+  check('Needs attention panel shows 3 unread messages', has(dash.text, '3 unread messages'));
   check('Needs attention links to reviews + messages', has(dash.text, '/admin/reviews') && has(dash.text, '/admin/messages'));
   // Old cards still there (no regression).
   check("old card still renders: Today's pending orders", has(dash.text, "Today's pending orders"));
@@ -270,7 +270,7 @@ function dashboardLocals(overrides) {
   check('no-cost variant: profit shows a dash, not a number', has(noCostHtml, 'Profit in period') && has(noCostHtml, '<strong class="analytics-kpi-value">—</strong>'));
   check('no-cost variant: cost-price hint shown', has(noCostHtml, 'Cost prices not set — add cost price in Add/Edit Product to see real profit.'));
   check('no-cost variant: empty attention state shown', has(noCostHtml, 'Nothing needs attention right now.'));
-  check('no-cost variant: pending COD shows ৳0 with 0 orders', has(noCostHtml, 'Pending COD / due') && has(noCostHtml, '0 open order(s) still owe'));
+  check('no-cost variant: pending COD shows ৳0 with 0 orders', has(noCostHtml, 'Pending COD / due') && has(noCostHtml, '0 open orders still owe'));
   // (b) full-coverage profit variant.
   const fullCostHtml = await renderFile(path.join(__dirname, '..', 'views', 'admin', 'dashboard.ejs'), dashboardLocals({
     periodProfit: { totalProfit: 1200, totalCost: 800, totalUnits: 4, costedUnits: 4 },

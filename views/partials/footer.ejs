@@ -3,7 +3,7 @@
     <div class="container footer-grid">
       <div>
         <h3><%= siteName %></h3>
-        <p><%= (typeof siteSettings !== 'undefined' && siteSettings.footer_about) ? siteSettings.footer_about : 'Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.' %></p>
+        <p><%= (typeof siteSettings !== 'undefined' && siteSettings.footer_about) ? siteSettings.footer_about : 'Online shop in Bangladesh — Cash on Delivery, delivery in 1–2 days inside Dhaka, 3–5 days outside Dhaka.' %></p>
         <p>📞 <a href="tel:<%= shopPhone %>"><%= shopPhone %></a></p>
         <% if (typeof siteSettings !== 'undefined' && siteSettings.shop_email) { %><p>✉️ <a href="mailto:<%= siteSettings.shop_email %>"><%= siteSettings.shop_email %></a></p><% } %>
         <% if (typeof siteSettings !== 'undefined' && siteSettings.shop_address) { %><p>📍 <%= siteSettings.shop_address %></p><% } %>
@@ -115,6 +115,19 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           return;
         }
         var show = (window.pageYOffset || document.documentElement.scrollTop || 0) > THRESHOLD;
+        // Professional polish 2: the float must never cover the homepage
+        // Sort control or the cart "Proceed to Checkout" button. If either
+        // is sitting in the viewport's bottom band (where the float lives),
+        // keep the float hidden until the user scrolls it clear.
+        if (show) {
+          var guarded = [document.getElementById('sort'), document.querySelector('.cart-summary .btn-primary')];
+          for (var i = 0; i < guarded.length; i++) {
+            var el = guarded[i];
+            if (!el) continue;
+            var r = el.getBoundingClientRect();
+            if (r.bottom > 0 && r.top < window.innerHeight && r.bottom > window.innerHeight - 170) { show = false; break; }
+          }
+        }
         btn.classList.add('whatsapp-float--scroll');
         btn.classList.toggle('is-visible', show);
         btn.setAttribute('aria-hidden', show ? 'false' : 'true');

@@ -1,6 +1,8 @@
 <%- include('../partials/admin-header') %>
 
 <% const money = (value) => Number(value || 0).toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); %>
+<% const _fmtDate = (iso) => { const d = new Date(String(iso || '') + 'T00:00:00'); return isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }; %>
+<% const _plural = (n, one, many) => Number(n) === 1 ? one : many; %>
 <% const pct = dashboard.revenueChange; %>
 <div class="analytics-header">
   <div>
@@ -33,21 +35,21 @@
       <% if (_phoneQueue > 0) { %>
         <div class="analytics-attention-row">
           <span class="analytics-attention-icon">📞</span>
-          <div><strong><%= _phoneQueue %> order(s) waiting for a phone call</strong><span>Confirm by phone before dispatch</span></div>
+          <div><strong><%= _phoneQueue %> <%= _plural(_phoneQueue, 'order', 'orders') %> waiting for a phone call</strong><span>Confirm by phone before dispatch</span></div>
           <a class="analytics-view-link" href="/admin/activity">Call →</a>
         </div>
       <% } %>
       <% if (Number(pendingReviews || 0) > 0) { %>
         <div class="analytics-attention-row">
           <span class="analytics-attention-icon">★</span>
-          <div><strong><%= Number(pendingReviews) %> review(s) waiting for approval</strong><span>New reviews are pending by default</span></div>
+          <div><strong><%= Number(pendingReviews) %> <%= _plural(pendingReviews, 'review', 'reviews') %> waiting for approval</strong><span>New reviews are pending by default</span></div>
           <a class="analytics-view-link" href="/admin/reviews">Review →</a>
         </div>
       <% } %>
       <% if (Number(unreadMessages || 0) > 0) { %>
         <div class="analytics-attention-row">
           <span class="analytics-attention-icon">✉</span>
-          <div><strong><%= Number(unreadMessages) %> unread message(s)</strong><span>Contact messages you have not opened yet</span></div>
+          <div><strong><%= Number(unreadMessages) %> unread <%= _plural(unreadMessages, 'message', 'messages') %></strong><span>Contact messages you have not opened yet</span></div>
           <a class="analytics-view-link" href="/admin/messages">Read →</a>
         </div>
       <% } %>
@@ -65,7 +67,7 @@
   <label>To <input type="date" name="to" value="<%= dashboard.to %>" required></label>
   <button type="submit" name="range" value="custom" class="analytics-apply-btn">Apply dates</button>
 </form>
-<p class="analytics-period-note">Showing <strong><%= dashboard.from %></strong> to <strong><%= dashboard.to %></strong>. Sales figures exclude cancelled orders; collected revenue counts orders with a recognised paid status.</p>
+<p class="analytics-period-note">Showing <strong><%= _fmtDate(dashboard.from) %></strong> to <strong><%= _fmtDate(dashboard.to) %></strong>. Sales figures exclude cancelled orders; collected revenue counts orders with a recognised paid status.</p>
 
 <section class="analytics-kpi-grid" aria-label="Store metrics">
   <article class="analytics-kpi kpi-revenue">
@@ -74,47 +76,47 @@
     <span class="analytics-kpi-foot"><a href="/admin/orders?status=Pending">View pending orders →</a></span>
   </article>
   <article class="analytics-kpi kpi-revenue">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Sales revenue</span><span class="analytics-kpi-icon">৳</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Sales revenue</span><span class="analytics-kpi-icon">💰</span></div>
     <strong class="analytics-kpi-value">৳<%= money(dashboard.currentSummary.revenue) %></strong>
     <span class="analytics-kpi-foot"><% if (pct === null) { %>No previous-period baseline<% } else { %><span class="<%= pct >= 0 ? 'trend-up' : 'trend-down' %>"><%= pct > 0 ? '↑' : pct < 0 ? '↓' : '→' %> <%= Math.abs(pct).toFixed(1) %>%</span> vs previous period<% } %></span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Orders in period</span><span class="analytics-kpi-icon">▤</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Orders in period</span><span class="analytics-kpi-icon">📦</span></div>
     <strong class="analytics-kpi-value"><%= Number(dashboard.currentSummary.ordersCount || 0).toLocaleString() %></strong>
     <span class="analytics-kpi-foot">All non-cancelled orders</span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Average order value</span><span class="analytics-kpi-icon">↗</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Average order value</span><span class="analytics-kpi-icon">📈</span></div>
     <strong class="analytics-kpi-value">৳<%= money(dashboard.currentSummary.avgOrderValue) %></strong>
     <span class="analytics-kpi-foot">Average per qualifying order</span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Collected revenue</span><span class="analytics-kpi-icon">✓</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Collected revenue</span><span class="analytics-kpi-icon">✅</span></div>
     <strong class="analytics-kpi-value">৳<%= money(dashboard.currentSummary.collectedRevenue) %></strong>
     <span class="analytics-kpi-foot">Orders marked paid / verified</span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">New customers</span><span class="analytics-kpi-icon">♙</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">New customers</span><span class="analytics-kpi-icon">👥</span></div>
     <strong class="analytics-kpi-value"><%= dashboard.newCustomers.toLocaleString() %></strong>
     <span class="analytics-kpi-foot">Registered in selected period</span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">All-time products</span><span class="analytics-kpi-icon">▦</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">All-time products</span><span class="analytics-kpi-icon">🗂️</span></div>
     <strong class="analytics-kpi-value"><%= Number(totalProducts || 0).toLocaleString() %></strong>
     <span class="analytics-kpi-foot">Products in catalogue</span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Pending COD / due</span><span class="analytics-kpi-icon">৳</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Pending COD / due</span><span class="analytics-kpi-icon">💳</span></div>
     <strong class="analytics-kpi-value">৳<%= money(pendingDue) %></strong>
-    <span class="analytics-kpi-foot"><a href="/admin/invoices?tab=unpaid"><%= Number(pendingDueOrders || 0) %> open order(s) still owe — View unpaid →</a></span>
+    <span class="analytics-kpi-foot"><a href="/admin/invoices?tab=unpaid"><%= Number(pendingDueOrders || 0) %> open <%= _plural(pendingDueOrders, 'order', 'orders') %> still owe — View unpaid →</a></span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Today's revenue</span><span class="analytics-kpi-icon">৳</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Today's revenue</span><span class="analytics-kpi-icon">💰</span></div>
     <strong class="analytics-kpi-value">৳<%= money(todaysSummary.revenue) %></strong>
-    <span class="analytics-kpi-foot"><%= Number(todaysSummary.ordersCount || 0) %> order(s) today (Asia/Dhaka)</span>
+    <span class="analytics-kpi-foot"><%= Number(todaysSummary.ordersCount || 0) %> <%= _plural(todaysSummary.ordersCount, 'order', 'orders') %> today (Asia/Dhaka)</span>
   </article>
   <article class="analytics-kpi">
-    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Profit in period</span><span class="analytics-kpi-icon">↗</span></div>
+    <div class="analytics-kpi-top"><span class="analytics-kpi-label">Profit in period</span><span class="analytics-kpi-icon">📊</span></div>
     <% if (Number(periodProfit.totalUnits || 0) === 0) { %>
       <strong class="analytics-kpi-value">৳0</strong>
       <span class="analytics-kpi-foot">No sales in this period</span>
@@ -134,8 +136,11 @@
       <div><h2>Sales trend</h2><p>Daily revenue for the selected period</p></div>
       <span class="analytics-panel-tag">BDT (৳)</span>
     </div>
-    <% if (dashboard.salesTrend.every(row => Number(row.revenue) === 0)) { %>
+    <% const _saleDays = dashboard.salesTrend.filter(row => Number(row.revenue) > 0); %>
+    <% if (_saleDays.length === 0) { %>
       <div class="analytics-empty"><span>▥</span><strong>No sales recorded in this period</strong><p>Try a different date range to view sales activity.</p></div>
+    <% } else if (_saleDays.length === 1) { %>
+      <div class="analytics-empty analytics-empty--compact"><span>📊</span><strong>Only one day of sales in this period</strong><p>৳<%= money(_saleDays[0].revenue) %> on <%= _fmtDate(_saleDays[0].day) %> — not enough to draw a trend. Try a longer date range.</p></div>
     <% } else { %>
       <div class="analytics-chart" role="img" aria-label="Daily sales bar chart">
         <% dashboard.salesTrend.forEach((point, index) => { %>
@@ -194,7 +199,7 @@
     <% const _maxCat = Math.max(1, ..._catSales.map(c => Number(c.revenue || 0))); %>
     <div class="analytics-catbar-list">
       <% _catSales.forEach(c => { %>
-      <div class="analytics-catbar-row" title="<%= c.name %>: ৳<%= money(c.revenue) %> · <%= Number(c.orders || 0) %> order(s)">
+      <div class="analytics-catbar-row" title="<%= c.name %>: ৳<%= money(c.revenue) %> · <%= Number(c.orders || 0) %> <%= _plural(c.orders, 'order', 'orders') %>">
         <span class="analytics-catbar-name"><%= c.name %></span>
         <div class="analytics-catbar-track"><div class="analytics-catbar" style="width:<%= Math.max(Number(c.revenue) > 0 ? 4 : 0, (Number(c.revenue) / _maxCat) * 100) %>%"></div></div>
         <strong class="analytics-catbar-value">৳<%= money(c.revenue) %></strong>
@@ -216,9 +221,9 @@
 <section class="analytics-panel analytics-pending-panel">
   <div class="analytics-panel-heading"><div><h2>Shipped — not delivered yet</h2><p>Orders out for delivery — oldest shipped first</p></div><a href="/admin/orders">View all orders →</a></div>
   <% if (_shipped.length === 0) { %><div class="analytics-small-empty">No orders are waiting for delivery.</div><% } else { %>
-  <p class="analytics-phone-note"><%= _shippedTotal %> order(s) shipped and awaiting delivery</p>
+  <p class="analytics-phone-note"><%= _shippedTotal %> <%= _plural(_shippedTotal, 'order', 'orders') %> shipped and awaiting delivery</p>
   <div class="table-responsive"><table class="admin-table analytics-table"><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Courier / Tracking</th><th>Waiting</th><th></th></tr></thead><tbody>
-    <% _shipped.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %><br><span class="analytics-sub"><%= o.phone %></span></td><td>৳<%= money(o.total_amount) %></td><td><%= o.courier_name || '—' %><% if (o.tracking_number) { %><br><span class="analytics-sub"><%= o.tracking_number %></span><% } %></td><td><%= Number(o.daysSinceShipped || 0) %> day(s)</td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
+    <% _shipped.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %><br><span class="analytics-sub"><%= o.phone %></span></td><td>৳<%= money(o.total_amount) %></td><td><%= o.courier_name || '—' %><% if (o.tracking_number) { %><br><span class="analytics-sub"><%= o.tracking_number %></span><% } %></td><td><%= Number(o.daysSinceShipped || 0) %> <%= _plural(o.daysSinceShipped, 'day', 'days') %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
   </tbody></table></div>
   <% } %>
 </section>

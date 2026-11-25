@@ -2,12 +2,12 @@
 
 <h1>Payment Methods</h1>
 <p class="field-hint" style="margin-bottom:16px;">
-  Customers will see these methods at checkout (Cash on Delivery always stays and does not need to be added separately).
-  For each method, set the <strong>Send Money / Cash Out / Payment</strong> type — the way customers should send the money. That is what customers will see at checkout.
-  To set up an online gateway (SSLCommerz/ShurjoPay/bKash PGW), go to the <a href="/admin/settings">Payment Gateway section on the Settings page</a>.
+  Customers see these methods at checkout. Cash on Delivery always stays and does not need to be added separately.
+  For each method, set the payment type — the way customers should send the money — and any instructions to show at checkout.
+  To set up an online gateway (SSLCommerz, ShurjoPay or bKash PGW), go to the <a href="/admin/settings">Payment Gateway section on the Settings page</a>.
 </p>
 
-<form action="/admin/payment-methods/add" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
+<form action="/admin/payment-methods/add" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
   <label>Method Name</label>
   <input type="text" name="method_name" placeholder="e.g. bKash, Nagad, Upay" required>
 
@@ -33,7 +33,7 @@
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
-    <tr><th>Method</th><th>Number</th><th>Type</th><th>Status</th><th>Actions</th></tr>
+    <tr><th>Method</th><th>Number</th><th>Type</th><th>Instructions</th><th>Status</th><th>Actions</th></tr>
   </thead>
   <tbody>
     <% methods.forEach(m => { %>
@@ -47,28 +47,28 @@
           <select name="payment_type" form="edit-form-<%= m.id %>" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
             <% ['send_money','cash_out','payment','agent','bank'].forEach(t => { %><option value="<%= t %>" <%= (m.payment_type || 'send_money') === t ? 'selected' : '' %>><%= {send_money:'Send Money',cash_out:'Cash Out',payment:'Payment',agent:'Agent Banking',bank:'Bank Transfer'}[t] %></option><% }) %>
           </select>
-          <input type="text" name="instructions" value="<%= m.instructions || '' %>" form="edit-form-<%= m.id %>" placeholder="Instructions" style="width:140px; padding:6px; border:1px solid #ccc; border-radius:4px; margin-top:4px;">
         </td>
+        <td><input type="text" name="instructions" value="<%= m.instructions || '' %>" form="edit-form-<%= m.id %>" placeholder="Instructions (shown at checkout)" style="width:180px; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
         <td>
-          <span class="status-badge <%= m.is_active ? 'status-delivered' : 'status-cancelled' %>">
+          <span class="status-badge <%= m.is_active ? 'status-delivered' : 'status-inactive' %>">
             <%= m.is_active ? 'Active' : 'Inactive' %>
           </span>
         </td>
         <td style="white-space:nowrap;">
-          <button type="submit" form="edit-form-<%= m.id %>" class="link-btn-danger" style="color:#2196f3;">Save</button>
-          |
-          <form action="/admin/payment-methods/toggle/<%= m.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
-            <button type="submit" class="link-btn-danger" style="color:#2196f3;"><%= m.is_active ? 'Deactivate' : 'Activate' %></button>
-          </form>
-          |
-          <form action="/admin/payment-methods/delete/<%= m.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
-            <button type="submit" class="link-btn-danger">Delete</button>
-          </form>
+          <div class="admin-actions">
+            <button type="submit" form="edit-form-<%= m.id %>" class="btn-sm btn-sm--primary">Save</button>
+            <form action="/admin/payment-methods/toggle/<%= m.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
+              <button type="submit" class="btn-sm"><%= m.is_active ? 'Deactivate' : 'Activate' %></button>
+            </form>
+            <form action="/admin/payment-methods/delete/<%= m.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
+              <button type="submit" class="btn-sm btn-sm--danger">Delete</button>
+            </form>
+          </div>
         </td>
       </tr>
     <% }) %>
     <% if (methods.length === 0) { %>
-      <tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No payment methods yet. Add one above.</td></tr>
+      <tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No payment methods yet. Add one above.</td></tr>
     <% } %>
   </tbody>
 </table>

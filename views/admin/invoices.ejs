@@ -1,7 +1,7 @@
 <%- include('../partials/admin-header') %>
 
 <h1>🛒 Orders</h1>
-<p class="field-hint">Orders and invoices in one place — every order is an invoice (invoice no. GOINCE-00035 is order #35). Open an order (View) to update its status, record a payment, or send its invoice.</p>
+<p class="field-hint">Every order is an invoice — open one to update its status, record a payment, or send it to the customer.</p>
 
 <% const _statusRows = (typeof statusRows !== 'undefined' && statusRows) ? statusRows : []; %>
 <% const _statusFilter = (typeof statusFilter !== 'undefined' && statusFilter) ? statusFilter : ''; %>
@@ -24,16 +24,23 @@
   <% if (_statusFilter) { %><p class="field-hint">Showing only <strong><%= _statusFilter %></strong> orders — <a href="/admin/invoices">show all orders</a>.</p><% } %>
 </section>
 
-<div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
+<!-- Payment filter: a distinct labelled control (small buttons), so it
+     cannot be confused with the Order status pills above. -->
+<div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+  <span style="font-weight:600; color:var(--text-muted); font-size:13px;">Payment:</span>
   <% [['all','All'],['paid','Paid'],['unpaid','Unpaid'],['cancelled','Cancelled']].forEach(([t, label]) => { %>
-    <a href="/admin/invoices?tab=<%= t %><%= _statusQs %>" class="<%= tab === t ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;"><%= label %></a>
+    <a href="/admin/invoices?tab=<%= t %><%= _statusQs %>" class="btn-sm <%= tab === t ? 'btn-sm--primary' : '' %>" style="text-decoration:none;"><%= label %></a>
   <% }) %>
 </div>
 
-<p><strong><%= totalCount %></strong> invoice(s)<%= _statusFilter ? ' with status ' + _statusFilter : '' %> — page <%= page %> of <%= totalPages %></p>
+<p><strong><%= totalCount %></strong> <%= Number(totalCount) === 1 ? 'invoice' : 'invoices' %><%= _statusFilter ? ' with status ' + _statusFilter : '' %> — page <%= page %> of <%= totalPages %></p>
 
 <% if (!rows.length) { %>
-  <p>No invoices in this view.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">🧾</span>
+    <strong>No invoices in this view</strong>
+    <p>Try a different filter, or clear the status filter above.</p>
+  </div>
 <% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
@@ -41,15 +48,21 @@
   <tbody>
     <% rows.forEach(r => { %>
       <tr>
-        <td><strong><%= r.invoiceNo %></strong><br><small>Order #<%= r.id %></small></td>
-        <td><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
+        <td style="white-space:nowrap;"><strong><%= r.invoiceNo %></strong><br><small>Order #<%= r.id %></small></td>
+        <td style="white-space:nowrap;"><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
         <td><%= r.customer_name %><br><small><%= r.phone %></small></td>
         <td>৳<%= Number(r.total_amount).toFixed(2) %></td>
         <td>৳<%= Number(r.paid).toFixed(2) %></td>
         <td><strong>৳<%= Number(r.due).toFixed(2) %></strong></td>
         <td><span class="status-badge <%= r.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= r.payment_status || 'Unpaid' %></span></td>
         <td><span class="status-badge status-<%= r.status.toLowerCase() %>"><%= r.status %></span></td>
-        <td><a href="/admin/orders/<%= r.id %>">View</a> · <a href="/admin/orders/<%= r.id %>/invoice" target="_blank">Print</a> · <a href="/admin/orders/<%= r.id %>/invoice.pdf">PDF</a></td>
+        <td style="white-space:nowrap;">
+          <div class="admin-actions">
+            <a href="/admin/orders/<%= r.id %>" class="btn-sm btn-sm--primary">View</a>
+            <a href="/admin/orders/<%= r.id %>/invoice" target="_blank" class="btn-sm">Print</a>
+            <a href="/admin/orders/<%= r.id %>/invoice.pdf" class="btn-sm">PDF</a>
+          </div>
+        </td>
       </tr>
     <% }) %>
   </tbody>

@@ -12,7 +12,12 @@
 </form>
 
 <% if (customers.length === 0) { %>
-  <p>No customers found.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">👥</span>
+    <strong>No customers found</strong>
+    <p>Try clearing the search, or add a new customer.</p>
+    <a href="/admin/customers/add" class="btn-primary">+ Add New Customer</a>
+  </div>
 <% } else { %>
   <div class="table-responsive">
   <table class="admin-table">
@@ -34,13 +39,15 @@
               <span class="status-badge status-delivered">Active</span>
             <% } %>
           </td>
-          <td><%= new Date(c.created_at).toLocaleDateString() %></td>
+          <td><%= new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
           <td>
-            <a href="/admin/customers/<%= c.id %>">View</a> |
-            <a href="/admin/customers/edit/<%= c.id %>">Edit</a> |
-            <form action="/admin/customers/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete this customer? Their orders will stay but unlinked.');"><%- include('../partials/csrf-field') %>
-              <button type="submit" class="link-btn-danger">Delete</button>
-            </form>
+            <div class="admin-actions">
+              <a href="/admin/customers/<%= c.id %>" class="btn-sm btn-sm--primary">View</a>
+              <a href="/admin/customers/edit/<%= c.id %>" class="btn-sm">Edit</a>
+              <form action="/admin/customers/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete this customer? Their orders will stay but unlinked.');"><%- include('../partials/csrf-field') %>
+                <button type="submit" class="btn-sm btn-sm--danger">Delete</button>
+              </form>
+            </div>
           </td>
         </tr>
       <% }) %>

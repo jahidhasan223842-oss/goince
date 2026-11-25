@@ -313,7 +313,7 @@ function dashboardLocals(overrides) {
   check('orders page shows all 7 invoice rows', has(all.text, 'GOINCE-00001') && has(all.text, 'GOINCE-00007'));
   check('orders page still has the payment tabs', has(all.text, 'tab=paid') && has(all.text, 'tab=unpaid') && has(all.text, 'tab=cancelled'));
   check('summary pills link to the status filter', has(all.text, 'status=Shipped') && has(all.text, 'status=Pending'));
-  check('count line shows 7 invoice(s)', has(all.text, '<strong>7</strong> invoice(s)'));
+  check('count line shows 7 invoices', has(all.text, '<strong>7</strong> invoices'));
 
   // (3) Clicking a status filters the list.
   const shipped = await get('/admin/invoices?status=Shipped');
@@ -321,8 +321,8 @@ function dashboardLocals(overrides) {
   check('?status=Shipped shows only the 2 Shipped rows',
     has(shipped.text, 'GOINCE-00004') && has(shipped.text, 'GOINCE-00005') &&
     !has(shipped.text, 'GOINCE-00001') && !has(shipped.text, 'GOINCE-00006') && !has(shipped.text, 'GOINCE-00007'));
-  check('?status=Shipped count line says 2 invoice(s) with status Shipped',
-    has(shipped.text, '<strong>2</strong> invoice(s) with status Shipped'));
+  check('?status=Shipped count line says 2 invoices with status Shipped',
+    has(shipped.text, '<strong>2</strong> invoices with status Shipped'));
   check('?status=Shipped shows the filter note + clear link',
     has(shipped.text, 'Showing only') && has(shipped.text, 'show all orders'));
   check('?status=Shipped pill is the active (btn-primary) one',
@@ -341,8 +341,8 @@ function dashboardLocals(overrides) {
   const unpaidShipped = await get('/admin/invoices?tab=unpaid&status=Shipped');
   check('?tab=unpaid&status=Shipped shows only the unpaid Shipped row',
     has(unpaidShipped.text, 'GOINCE-00005') && !has(unpaidShipped.text, 'GOINCE-00004'));
-  check('?tab=unpaid&status=Shipped count line says 1 invoice(s)',
-    has(unpaidShipped.text, '<strong>1</strong> invoice(s) with status Shipped'));
+  check('?tab=unpaid&status=Shipped count line says 1 invoice',
+    has(unpaidShipped.text, '<strong>1</strong> invoice with status Shipped'));
 
   // (6) /admin/orders redirect preserves the query string.
   const redirStatus = await get('/admin/orders?status=Pending');
@@ -382,7 +382,7 @@ function dashboardLocals(overrides) {
       .includes('status=Pending" class="order-status-pill btn-primary'));
   const invEmpty = await render(invoicesPath, invoicesLocals({ rows: [], totalCount: 0, statusRows: [], totalOrdersAll: 0 }));
   check('invoices.ejs renders empty state (no rows, no statuses)',
-    invEmpty.includes('No invoices in this view.') && invEmpty.includes('All <strong>0</strong>'));
+    invEmpty.includes('class="empty-state"') && invEmpty.includes('No invoices in this view') && invEmpty.includes('All <strong>0</strong>'));
   const invNoLocals = await render(invoicesPath, invoicesLocals({ statusRows: undefined, statusFilter: undefined, totalOrdersAll: undefined }));
   check('invoices.ejs renders without the new locals (typeof guards)',
     invNoLocals.includes('Order status') && invNoLocals.includes('GOINCE-00001'));

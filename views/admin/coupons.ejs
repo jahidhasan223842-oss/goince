@@ -2,7 +2,7 @@
 
 <h1>Coupons</h1>
 
-<form action="/admin/coupons/add" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
+<form action="/admin/coupons/add" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
   <label>Coupon Code</label>
   <input type="text" name="code" placeholder="e.g. WELCOME10" required>
 
@@ -26,20 +26,21 @@
       <tr>
         <td><strong><%= c.code %></strong></td>
         <td><%= c.discount_percent %>%</td>
-        <td><%= c.expiry_date ? new Date(c.expiry_date).toLocaleDateString() : 'No expiry' %></td>
+        <td><%= c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No expiry' %></td>
         <td>
-          <span class="status-badge <%= c.active ? 'status-delivered' : 'status-cancelled' %>">
+          <span class="status-badge <%= c.active ? 'status-delivered' : 'status-inactive' %>">
             <%= c.active ? 'Active' : 'Inactive' %>
           </span>
         </td>
         <td>
-          <form action="/admin/coupons/toggle/<%= c.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
-            <button type="submit" class="link-btn-danger" style="color:#2196f3;"><%= c.active ? 'Deactivate' : 'Activate' %></button>
-          </form>
-          |
-          <form action="/admin/coupons/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
-            <button type="submit" class="link-btn-danger">Delete</button>
-          </form>
+          <div class="admin-actions">
+            <form action="/admin/coupons/toggle/<%= c.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
+              <button type="submit" class="btn-sm"><%= c.active ? 'Deactivate' : 'Activate' %></button>
+            </form>
+            <form action="/admin/coupons/delete/<%= c.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
+              <button type="submit" class="btn-sm btn-sm--danger">Delete</button>
+            </form>
+          </div>
         </td>
       </tr>
     <% }) %>

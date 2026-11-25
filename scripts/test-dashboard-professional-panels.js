@@ -274,9 +274,12 @@ function dashboardLocals(overrides) {
   check('category panel ranks by revenue (A before B)', cat.indexOf('Root A') < cat.indexOf('Root B'));
   check('category panel links to Reports', has(cat, '/admin/reports'));
   const catCall = queryCalls.find(([sql]) => String(sql).includes('GROUP BY products.category_id'));
-  const periodNote = dash.text.match(/Showing <strong>(\d{4}-\d{2}-\d{2})<\/strong> to <strong>(\d{4}-\d{2}-\d{2})<\/strong>/);
+  // The period note now shows "25 Nov 2026" style dates (professional
+  // polish 2), not ISO — convert both sides to plain date strings.
+  const periodNote = dash.text.match(/Showing <strong>(\d{1,2} [A-Z][a-z]{2} \d{4})<\/strong> to <strong>(\d{1,2} [A-Z][a-z]{2} \d{4})<\/strong>/);
+  const toDay = (s) => { const d = new Date(s); return isNaN(d.getTime()) ? s : d.toDateString(); };
   check('category query uses the dashboard period as params',
-    Boolean(catCall) && Boolean(periodNote) && catCall[1][0] === periodNote[1] && catCall[1][1] === periodNote[2],
+    Boolean(catCall) && Boolean(periodNote) && toDay(catCall[1][0] + 'T00:00:00') === toDay(periodNote[1]) && toDay(catCall[1][1] + 'T00:00:00') === toDay(periodNote[2]),
     catCall ? String(catCall[1]) : 'no category query call');
   check('category query matches the Reports computation shape',
     Boolean(catCall) && String(catCall[0]).includes('DATE(orders.created_at) BETWEEN ? AND ?') && String(catCall[0]).includes("orders.status != 'Cancelled'") && String(catCall[0]).includes('GROUP_CONCAT(DISTINCT orders.id)'));
@@ -294,11 +297,11 @@ function dashboardLocals(overrides) {
   const sh = section(dash.text, 'Shipped — not delivered yet', '</section>');
   check('shipped panel shows #20 before #21 (oldest first)', has(sh, '#20') && sh.indexOf('#20') < sh.indexOf('#21'));
   check('shipped panel shows courier + tracking', has(sh, 'Steadfast') && has(sh, 'TRK1'));
-  check('shipped panel counts 2 awaiting delivery', has(sh, '2 order(s) shipped and awaiting delivery'));
+  check('shipped panel counts 2 awaiting delivery', has(sh, '2 orders shipped and awaiting delivery'));
   const days20 = daysBetween(at(4, 10));
   const days21 = daysBetween(at(2, 10));
-  check(`shipped panel shows ${days20} day(s) waiting for #20 (from Shipped change)`, has(sh, `${days20} day(s)`));
-  check(`shipped panel falls back to order date for #21 (${days21} day(s))`, has(sh, `${days21} day(s)`));
+  check(`shipped panel shows ${days20} ${days20 === 1 ? 'day' : 'days'} waiting for #20 (from Shipped change)`, has(sh, `${days20} ${days20 === 1 ? 'day' : 'days'}`));
+  check(`shipped panel falls back to order date for #21 (${days21} ${days21 === 1 ? 'day' : 'days'})`, has(sh, `${days21} ${days21 === 1 ? 'day' : 'days'}`));
   check('shipped SQL only takes Shipped orders, oldest first',
     adminJs.includes("status = 'Shipped'") && adminJs.includes('ORDER BY created_at ASC, id ASC LIMIT 10') && adminJs.includes("new_status = 'Shipped'"));
 
@@ -324,7 +327,7 @@ function dashboardLocals(overrides) {
   }));
   check('full variant: category bar renders with ৳1,500', has(fullHtml, 'Root A') && has(fullHtml, '৳1,500'));
   check('full variant: top customer renders with detail link', has(fullHtml, '/admin/customers/7'));
-  check('full variant: shipped row renders with tracking', has(fullHtml, 'TRK1') && has(fullHtml, '4 day(s)'));
+  check('full variant: shipped row renders with tracking', has(fullHtml, 'TRK1') && has(fullHtml, '4 days'));
 
   // Served CSS: new panel rules + balance.
   const cssRes = await get('/css/style.css');

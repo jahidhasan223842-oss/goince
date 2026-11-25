@@ -36,13 +36,13 @@
     <a href="/admin/products?category=<%= cat.id %>" title="<%= directProducts %> directly in this category, <%= totalProducts %> including sub-categories"><%= totalProducts %> product<%= totalProducts == 1 ? '' : 's' %></a><% if (totalSubs > 0) { %> · <%= totalSubs %> sub-categor<%= totalSubs == 1 ? 'y' : 'ies' %><% } %>
   </span>
   <span class="cat-actions">
-    <form action="/admin/categories/<%= cat.id %>/toggle-visibility" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:<%= cat.is_visible ? '#2e9e5b' : '#f0a500' %>;" title="<%= cat.is_visible ? 'Hide this category from the website (products stay safe, nothing is deleted)' : 'Show this category on the website again' %>"><%= cat.is_visible ? '👁️ Shown — Hide from website' : '🙈 Hidden — Show on website' %></button></form>
-    <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="up"><button type="submit" title="Move up" <%= isFirst ? 'disabled' : '' %>>▲</button></form>
-    <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="down"><button type="submit" title="Move down" <%= isLast ? 'disabled' : '' %>>▼</button></form>
-    <small>Order: <%= cat.sort_order %></small>
-    <a href="/admin/categories?parent=<%= cat.id %>#add-category">＋ Sub-category</a> |
-    <a href="/?category=<%= cat.id %>" target="_blank" rel="noopener" title="See this category on the website">View ↗</a> |
-    <a href="/admin/categories/edit/<%= cat.id %>">Edit</a> |
-    <form action="/admin/categories/delete/<%= cat.id %>" method="POST" style="display:inline" onsubmit="return confirm('<%= totalSubs > 0 ? ('Delete this category? Its ' + totalSubs + ' sub-categories (all levels) will also be deleted, and ' + totalProducts + ' product(s) will become Uncategorized. This cannot be undone.') : ('Delete this category? Its ' + totalProducts + ' product(s) will become Uncategorized. This cannot be undone.') %>');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
+    <form action="/admin/categories/<%= cat.id %>/toggle-visibility" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm" title="<%= cat.is_visible ? 'Hide this category from the website (products stay safe, nothing is deleted)' : 'Show this category on the website again' %>"><%= cat.is_visible ? '👁️ Shown — Hide' : '🙈 Hidden — Show' %></button></form>
+    <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="up"><button type="submit" class="btn-sm" title="Move up" <%= isFirst ? 'disabled' : '' %>>▲</button></form>
+    <form action="/admin/categories/<%= cat.id %>/move" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><input type="hidden" name="direction" value="down"><button type="submit" class="btn-sm" title="Move down" <%= isLast ? 'disabled' : '' %>>▼</button></form>
+    <span class="cat-order">Order: <%= cat.sort_order %></span>
+    <a href="/admin/categories?parent=<%= cat.id %>#add-category" class="btn-sm">＋ Sub-category</a>
+    <a href="/?category=<%= cat.id %>" target="_blank" rel="noopener" class="btn-sm" title="See this category on the website">View ↗</a>
+    <a href="/admin/categories/edit/<%= cat.id %>" class="btn-sm btn-sm--primary">Edit</a>
+    <form action="/admin/categories/delete/<%= cat.id %>" method="POST" style="display:inline" onsubmit="return confirm('<%= totalSubs > 0 ? ('Delete this category? Its ' + totalSubs + ' sub-categories (all levels) will also be deleted, and ' + totalProducts + ' product(s) will become Uncategorized. This cannot be undone.') : ('Delete this category? Its ' + totalProducts + ' product(s) will become Uncategorized. This cannot be undone.') %>');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--danger">Delete</button></form>
   </span>
 </div>
