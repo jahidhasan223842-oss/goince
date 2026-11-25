@@ -1,14 +1,27 @@
 <%- include('../partials/admin-header') %>
 
+<% const _filter = (typeof statusFilter !== 'undefined' && statusFilter) ? statusFilter : 'all'; %>
+<% const _counts = (typeof statusCounts !== 'undefined' && statusCounts) || { open: 0, answered: 0, closed: 0 }; %>
+<% const _total = (typeof total !== 'undefined' && total) || messages.length; %>
+<% const _statusBadge = (s) => (s || 'open') === 'open' ? 'status-pending' : (s === 'closed' ? 'status-cancelled' : 'status-delivered'); %>
+
 <h1>Contact Messages</h1>
-<p class="field-hint">Messages sent from the website's Contact form — reply to them by phone or WhatsApp. <strong><%= unread %> new / unread.</strong></p>
+<p class="field-hint">Messages sent from the website's Contact form — handled like support tickets. <strong><%= unread %> new / unread.</strong></p>
+
+<!-- Ticket-style status filter (fix/whmcs-style-admin). -->
+<nav class="admin-tabs" aria-label="Filter messages by status">
+  <a class="admin-tab <%= _filter === 'all' ? 'is-active' : '' %>" href="/admin/messages">All (<%= _total %>)</a>
+  <a class="admin-tab <%= _filter === 'open' ? 'is-active' : '' %>" href="/admin/messages?status=open">Open (<%= Number(_counts.open || 0) %>)</a>
+  <a class="admin-tab <%= _filter === 'answered' ? 'is-active' : '' %>" href="/admin/messages?status=answered">Answered (<%= Number(_counts.answered || 0) %>)</a>
+  <a class="admin-tab <%= _filter === 'closed' ? 'is-active' : '' %>" href="/admin/messages?status=closed">Closed (<%= Number(_counts.closed || 0) %>)</a>
+</nav>
 
 <% if (messages.length === 0) { %>
   <p>No messages yet.</p>
 <% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
-  <thead><tr><th>Date</th><th>Name</th><th>Phone / Email</th><th>Subject</th><th>Message</th><th></th></tr></thead>
+  <thead><tr><th>Date</th><th>Name</th><th>Phone / Email</th><th>Subject</th><th>Message</th><th>Status</th><th></th></tr></thead>
   <tbody>
     <% messages.forEach(m => { %>
       <tr style="<%= m.is_read ? '' : 'font-weight:600;' %>">
@@ -17,9 +30,11 @@
         <td><%= m.phone || '' %><br><%= m.email || '' %></td>
         <td><%= m.subject || '-' %></td>
         <td><%= m.message %></td>
+        <td><span class="status-badge <%= _statusBadge(m.status) %>"><%= m.status || 'open' %></span></td>
         <td style="white-space:nowrap;">
-          <% if (!m.is_read) { %><form action="/admin/messages/<%= m.id %>/read" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;">Mark read</button></form> | <% } %>
-          <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this message?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
+          <a href="/admin/messages/<%= m.id %>">View</a>
+          <% if (!m.is_read) { %> | <form action="/admin/messages/<%= m.id %>/read" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;">Mark read</button></form><% } %>
+          | <form action="/admin/messages/<%= m.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this message?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
         </td>
       </tr>
     <% }) %>

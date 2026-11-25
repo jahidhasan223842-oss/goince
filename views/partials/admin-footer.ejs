@@ -1,4 +1,5 @@
     </main>
+    </div>
   </div>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/theme.js') : '/js/theme.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/admin-push.js') : '/js/admin-push.js' %>"></script>
@@ -9,7 +10,7 @@
       const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', next);
       try { localStorage.setItem('goince-theme', next); } catch (e) {}
-      // Duto toggle button-i (desktop floating + mobile topbar) sync thakbe.
+      // Shob toggle button-i (topbar + mobile) sync thakbe.
       document.querySelectorAll('.theme-toggle-btn').forEach(function (btn) {
         btn.textContent = next === 'dark' ? '☀️' : '🌙';
         btn.title = next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
@@ -18,6 +19,75 @@
     document.querySelectorAll('.admin-sidebar nav a').forEach(function (link) {
       if (link.pathname === window.location.pathname) link.setAttribute('aria-current', 'page');
     });
+
+    // WHMCS-style top-bar dropdowns (fix/whmcs-style-admin): bell + admin
+    // menu. Button chaple khole, baire chaple / Esc chaple bondho hoy.
+    // Ekta khola thakle arekta bondho hoye jay.
+    function closeAdminDropdowns(exceptBtn) {
+      document.querySelectorAll('[data-dropdown-btn]').forEach(function (btn) {
+        if (btn === exceptBtn) return;
+        btn.setAttribute('aria-expanded', 'false');
+        var menu = btn.parentElement && btn.parentElement.querySelector('.admin-dropdown-menu');
+        if (menu) menu.classList.remove('open');
+      });
+    }
+    document.querySelectorAll('[data-dropdown-btn]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var menu = btn.parentElement && btn.parentElement.querySelector('.admin-dropdown-menu');
+        if (!menu) return;
+        var willOpen = !menu.classList.contains('open');
+        closeAdminDropdowns(btn);
+        menu.classList.toggle('open', willOpen);
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      });
+    });
+    document.addEventListener('click', function () { closeAdminDropdowns(null); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAdminDropdowns(null);
+    });
+
+    // Sidebar groups collapse (fix/whmcs-style-admin): group header chaple
+    // oi group-er link gulo lukay/khole; obostha localStorage-e thake, tai
+    // page bodleo mone thake.
+    try {
+      var collapsed = JSON.parse(localStorage.getItem('goince-admin-nav') || '[]');
+      if (!Array.isArray(collapsed)) collapsed = [];
+    } catch (e) { var collapsed = []; }
+    function applyNavGroup(btn, isCollapsed) {
+      var items = document.querySelector('.admin-nav-items[data-nav-group="' + btn.getAttribute('data-nav-group') + '"]');
+      if (items) items.classList.toggle('collapsed', isCollapsed);
+      btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+    }
+    document.querySelectorAll('.admin-nav-group-btn').forEach(function (btn) {
+      applyNavGroup(btn, collapsed.indexOf(btn.getAttribute('data-nav-group')) !== -1);
+      btn.addEventListener('click', function () {
+        var group = btn.getAttribute('data-nav-group');
+        var items = document.querySelector('.admin-nav-items[data-nav-group="' + group + '"]');
+        var willCollapse = items && !items.classList.contains('collapsed');
+        applyNavGroup(btn, willCollapse);
+        var next = collapsed.filter(function (g) { return g !== group; });
+        if (willCollapse) next.push(group);
+        collapsed = next;
+        try { localStorage.setItem('goince-admin-nav', JSON.stringify(collapsed)); } catch (e) {}
+      });
+    });
+
+    // Mobile top-bar search (fix/whmcs-style-admin): phone-e 🔍 chaple
+    // search row khole, abar chaple bondho hoy. Desktop-e button lukano.
+    var adminSearchBtn = document.getElementById('admin-topbar-search-btn');
+    var adminSearchForm = document.getElementById('admin-topbar-search');
+    if (adminSearchBtn && adminSearchForm) {
+      adminSearchBtn.addEventListener('click', function () {
+        var willOpen = !adminSearchForm.classList.contains('open');
+        adminSearchForm.classList.toggle('open', willOpen);
+        adminSearchBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (willOpen) {
+          var input = adminSearchForm.querySelector('input[name="q"]');
+          if (input) input.focus();
+        }
+      });
+    }
 
     // Mobile sidebar (hamburger): choto screen-e sidebar off-canvas thake,
     // ☰ button-e khole; link / overlay / Esc-e bondho hoy. Desktop-e kichu bodlay na.

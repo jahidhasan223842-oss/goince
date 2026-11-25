@@ -1,0 +1,87 @@
+<%- include('../partials/admin-header') %>
+
+<h1>Search Results</h1>
+<% if (!q) { %>
+  <p class="field-hint">Type an order number, a customer name/phone/email, or a product name in the search box above.</p>
+<% } else { %>
+  <p class="field-hint">Results for “<strong><%= q %></strong>”</p>
+
+  <% if (canOrders) { %>
+    <h2>Orders (<%= orderResults.length %>)</h2>
+    <% if (orderResults.length === 0) { %>
+      <p>No orders found.</p>
+    <% } else { %>
+      <div class="table-responsive">
+      <table class="admin-table">
+        <thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Status</th><th>Date</th><th></th></tr></thead>
+        <tbody>
+          <% orderResults.forEach(o => { %>
+            <tr>
+              <td><strong>#<%= o.id %></strong></td>
+              <td><%= o.customer_name %></td>
+              <td><%= o.phone %></td>
+              <td>৳<%= o.total_amount %></td>
+              <td><span class="status-badge status-<%= String(o.status || '').toLowerCase() %>"><%= o.status %></span></td>
+              <td><%= new Date(o.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) %></td>
+              <td><a href="/admin/orders/<%= o.id %>">View</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+    <% } %>
+  <% } %>
+
+  <% if (canCustomers) { %>
+    <h2>Customers (<%= customerResults.length %>)</h2>
+    <% if (customerResults.length === 0) { %>
+      <p>No customers found.</p>
+    <% } else { %>
+      <div class="table-responsive">
+      <table class="admin-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Joined</th><th></th></tr></thead>
+        <tbody>
+          <% customerResults.forEach(c => { %>
+            <tr>
+              <td><strong><%= c.name %></strong></td>
+              <td><%= c.email %></td>
+              <td><%= c.phone || '-' %></td>
+              <td><%= new Date(c.created_at).toLocaleDateString() %></td>
+              <td><a href="/admin/customers/<%= c.id %>">View</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+    <% } %>
+  <% } %>
+
+  <% if (canProducts) { %>
+    <h2>Products (<%= productResults.length %>)</h2>
+    <% if (productResults.length === 0) { %>
+      <p>No products found.</p>
+    <% } else { %>
+      <div class="table-responsive">
+      <table class="admin-table">
+        <thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+        <tbody>
+          <% productResults.forEach(p => { %>
+            <tr>
+              <td><strong><%= p.name %></strong></td>
+              <td>৳<%= p.price %></td>
+              <td><%= p.stock %></td>
+              <td><a href="/admin/products/edit/<%= p.id %>">Edit</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+    <% } %>
+  <% } %>
+
+  <% if (!canOrders && !canCustomers && !canProducts) { %>
+    <p>You don't have permission to search orders, customers or products.</p>
+  <% } %>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

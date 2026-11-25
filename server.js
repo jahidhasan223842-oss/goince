@@ -357,6 +357,32 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- WHMCS-style admin (fix/whmcs-style-admin): customer notes + ticket status ----------
+// Additive columns only, safe defaults — a missing table/column only logs,
+// the server never crashes on it.
+//   users.notes — admin note on a customer, shown on the customer-detail Notes tab.
+//   contact_messages.status / reply / replied_at — messages work ticket-style
+//   (Open / Answered / Closed); is_read stays in sync (Open = unread).
+//   Old messages are backfilled: is_read=1 -> 'answered', else 'open'.
+(async () => {
+  try {
+    const db = require('./config/db');
+    const colsOf = async (table) => {
+      const [cols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ", [table]);
+      return new Set((cols || []).map(c => c.COLUMN_NAME));
+    };
+    const userCols = await colsOf('users');
+    if (!userCols.has('notes')) await db.query('ALTER TABLE users ADD COLUMN notes TEXT DEFAULT NULL');
+    const msgCols = await colsOf('contact_messages');
+    if (!msgCols.has('status')) await db.query("ALTER TABLE contact_messages ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'open'");
+    if (!msgCols.has('reply')) await db.query('ALTER TABLE contact_messages ADD COLUMN reply TEXT DEFAULT NULL');
+    if (!msgCols.has('replied_at')) await db.query('ALTER TABLE contact_messages ADD COLUMN replied_at DATETIME DEFAULT NULL');
+    await db.query("UPDATE contact_messages SET status = 'answered' WHERE is_read = 1 AND status = 'open'");
+  } catch (err) {
+    console.error('WHMCS-style columns skip holo:', err.message);
+  }
+})();
+
 // ---------- Admin account DB-te seed kora (.env theke) ----------
 // Age Admin login shudhu .env-er ADMIN_EMAIL/ADMIN_PASSWORD diye hoto.
 // Forgot Password feature-er jonno DB-te thakte hobe (kokhono update

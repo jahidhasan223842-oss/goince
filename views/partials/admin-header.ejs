@@ -1,3 +1,20 @@
+<% /*
+  WHMCS-style admin shell (fix/whmcs-style-admin).
+  Every admin page includes this partial, so every page gets the same shell:
+  top bar (logo, global search, notifications bell, admin menu, theme toggle),
+  grouped sidebar (collapsible, badges, active highlight) and a breadcrumb.
+  The header NEVER queries the DB — counts come from res.locals
+  (routes/admin.js notification middleware); every new local is guarded with
+  typeof so direct EJS renders in tests keep working.
+
+  CONVENTION — to add a new admin page later:
+    1. Add its permission to lib/permissions.js (one entry) and guard the
+       route with requirePermission('…').
+    2. Add ONE sidebar link below (icon + permission + optional badge) inside
+       the right group, and ONE breadcrumb entry in _crumbDefs.
+    3. Done — the page gets the top bar, bell, sidebar, breadcrumb and
+       mobile drawer automatically. Do NOT build a second header.
+*/ %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,54 +35,135 @@
   <link rel="stylesheet" href="<%= typeof assetUrl === 'function' ? assetUrl('/css/style.css') : '/css/style.css' %>">
 </head>
 <body class="admin-body">
+  <% const _perms = (typeof adminPermissions !== 'undefined' && Array.isArray(adminPermissions)) ? adminPermissions : null; %>
+  <% const _can = (p) => !_perms || _perms.includes(p); %>
+  <% const _any = (...ps) => ps.some((p) => _can(p)); %>
+  <% const _notif = (typeof adminNotifications !== 'undefined' && adminNotifications) || { pendingOrders: 0, phoneQueue: 0, unreadMessages: 0, pendingReviews: 0, openOrders: 0, total: 0 }; %>
+  <% const _adminName = (typeof adminEmail !== 'undefined' && adminEmail) ? String(adminEmail).split('@')[0] : 'Admin'; %>
+  <% const _adminRoleLabel = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'Owner'; %>
+  <% /* Brand + breadcrumb root: link to the first page this admin can
+       actually open (same rule as the login landing page) — a staff admin
+       without dashboard.view must never see a Dashboard link that 403s. */ %>
+  <% const _landing = _can('dashboard.view') ? '/admin/dashboard' : _can('orders.view') ? '/admin/orders' : _can('products.view') ? '/admin/products' : '/admin/dashboard'; %>
+  <% const _rootLabel = _can('dashboard.view') ? 'Dashboard' : 'Admin'; %>
+  <% const _path = (typeof adminCurrentPath === 'string' && adminCurrentPath) ? adminCurrentPath : '/admin/dashboard'; %>
+  <% const _crumbDefs = [
+    ['/admin/dashboard', null, null],
+    ['/admin/search', 'Search results', null],
+    ['/admin/products/add', 'Shop', 'Add New Product'],
+    ['/admin/products/import', 'Shop', 'Import Products'],
+    ['/admin/products', 'Shop', 'Products'],
+    ['/admin/attributes', 'Shop', 'Attributes'],
+    ['/admin/stock-alerts', 'Shop', 'Stock Alerts'],
+    ['/admin/categories', 'Shop', 'Categories'],
+    ['/admin/banners', 'Shop', 'Banners'],
+    ['/admin/inventory', 'Shop', 'Inventory'],
+    ['/admin/orders', 'Sales', 'Orders'],
+    ['/admin/invoices', 'Sales', 'Orders'],
+    ['/admin/activity', 'Sales', 'Calls & Activity'],
+    ['/admin/reports', 'Sales', 'Reports'],
+    ['/admin/customers', 'Sales', 'Customers'],
+    ['/admin/coupons', 'Sales', 'Coupons'],
+    ['/admin/payment-methods', 'Sales', 'Payment Methods'],
+    ['/admin/delivery-zones', 'Sales', 'Delivery Zones'],
+    ['/admin/chats', 'Communication', 'Live Chat'],
+    ['/admin/messages', 'Communication', 'Contact Messages'],
+    ['/admin/reviews', 'Communication', 'Reviews'],
+    ['/admin/settings', 'System', 'Settings'],
+    ['/admin/test-email', 'System', 'Test Email'],
+    ['/admin/staff', 'System', 'Staff & Roles'],
+    ['/admin/roles', 'System', 'Roles'],
+  ]; %>
+  <% let _crumb = { group: null, title: 'Admin' }; %>
+  <% for (const _def of _crumbDefs) { if (_path === _def[0] || _path.indexOf(_def[0] + '/') === 0) { _crumb = { group: _def[1], title: _def[2] }; break; } } %>
   <div class="admin-wrapper">
-    <div class="admin-mobile-topbar">
-      <button type="button" class="admin-menu-btn" id="admin-menu-btn" aria-expanded="false" aria-controls="admin-sidebar" aria-label="Menu">☰</button>
-      <span class="admin-mobile-title"><%= siteName %> Admin</span>
-      <button type="button" class="theme-toggle-btn admin-mobile-theme-btn" onclick="toggleGoinceTheme()" title="Dark mode" aria-label="Toggle dark mode">🌙</button>
-    </div>
     <aside class="admin-sidebar" id="admin-sidebar">
       <h2><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <%= siteName %></h2>
       <nav>
-        <% const _perms = (typeof adminPermissions !== 'undefined' && Array.isArray(adminPermissions)) ? adminPermissions : null; %>
-        <% const _can = (p) => !_perms || _perms.includes(p); %>
-        <% const _any = (...ps) => ps.some((p) => _can(p)); %>
         <% if (_can('dashboard.view')) { %><a href="/admin/dashboard">🏠 Dashboard</a><% } %>
-        <% if (_any('products.view', 'products.manage', 'products.variants', 'categories.manage', 'banners.manage', 'stock-alerts.manage', 'inventory.manage')) { %><p class="admin-nav-group">Shop</p><% } %>
+        <% if (_any('products.view', 'products.manage', 'products.variants', 'categories.manage', 'banners.manage', 'stock-alerts.manage', 'inventory.manage')) { %>
+        <button type="button" class="admin-nav-group-btn" data-nav-group="shop" aria-expanded="true">Shop <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
+        <div class="admin-nav-items" data-nav-group="shop">
         <% if (_can('products.view')) { %><a href="/admin/products">📦 Products</a><% } %>
-        <% if (_can('products.manage')) { %>
-        <a href="/admin/products/import">⇪ Import Products</a>
-        <% } %>
+        <% if (_can('products.manage')) { %><a href="/admin/products/import">⇪ Import Products</a><% } %>
         <% if (_can('products.variants')) { %><a href="/admin/attributes">🧩 Attributes</a><% } %>
         <% if (_can('stock-alerts.manage')) { %><a href="/admin/stock-alerts">🔔 Stock Alerts</a><% } %>
         <% if (_can('categories.manage')) { %><a href="/admin/categories">🗂️ Categories</a><% } %>
         <% if (_can('banners.manage')) { %><a href="/admin/banners">🖼️ Banners</a><% } %>
         <% if (_can('inventory.manage')) { %><a href="/admin/inventory">📋 Inventory</a><% } %>
-        <% if (_any('orders.view', 'activity.view', 'reports.view', 'customers.manage', 'coupons.manage', 'payment-methods.manage', 'delivery-zones.manage')) { %><p class="admin-nav-group">Sales</p><% } %>
-        <% if (_can('orders.view')) { %><a href="/admin/invoices">🛒 Orders</a><% } %>
-        <% if (_can('activity.view')) { %><a href="/admin/activity">📞 Calls &amp; Activity</a><% } %>
+        </div>
+        <% } %>
+        <% if (_any('orders.view', 'activity.view', 'reports.view', 'customers.manage', 'coupons.manage', 'payment-methods.manage', 'delivery-zones.manage')) { %>
+        <button type="button" class="admin-nav-group-btn" data-nav-group="sales" aria-expanded="true">Sales <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
+        <div class="admin-nav-items" data-nav-group="sales">
+        <% if (_can('orders.view')) { %><a href="/admin/invoices">🛒 Orders<% if (Number(_notif.openOrders || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.openOrders) %></span><% } %></a><% } %>
+        <% if (_can('activity.view')) { %><a href="/admin/activity">📞 Calls &amp; Activity<% if (Number(_notif.phoneQueue || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.phoneQueue) %></span><% } %></a><% } %>
         <% if (_can('reports.view')) { %><a href="/admin/reports">📊 Reports</a><% } %>
         <% if (_can('customers.manage')) { %><a href="/admin/customers">👥 Customers</a><% } %>
         <% if (_can('coupons.manage')) { %><a href="/admin/coupons">🎟️ Coupons</a><% } %>
         <% if (_can('payment-methods.manage')) { %><a href="/admin/payment-methods">💳 Payment Methods</a><% } %>
         <% if (_can('delivery-zones.manage')) { %><a href="/admin/delivery-zones">🚚 Delivery Zones</a><% } %>
+        </div>
+        <% } %>
         <% if (_any('chats.manage', 'messages.manage', 'reviews.manage')) { %>
-        <p class="admin-nav-group">Communication</p>
+        <button type="button" class="admin-nav-group-btn" data-nav-group="communication" aria-expanded="true">Communication <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
+        <div class="admin-nav-items" data-nav-group="communication">
         <% if (_can('chats.manage')) { %><a href="/admin/chats">💬 Live Chat</a><% } %>
-        <% if (_can('messages.manage')) { %><a href="/admin/messages">✉️ Contact Messages</a><% } %>
-        <% if (_can('reviews.manage')) { %><a href="/admin/reviews">⭐ Reviews</a><% } %>
+        <% if (_can('messages.manage')) { %><a href="/admin/messages">✉️ Contact Messages<% if (Number(_notif.unreadMessages || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.unreadMessages) %></span><% } %></a><% } %>
+        <% if (_can('reviews.manage')) { %><a href="/admin/reviews">⭐ Reviews<% if (Number(_notif.pendingReviews || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.pendingReviews) %></span><% } %></a><% } %>
+        </div>
         <% } %>
         <% if (_any('settings.manage', 'test-email.send', 'staff.manage')) { %>
-        <p class="admin-nav-group">System</p>
+        <button type="button" class="admin-nav-group-btn" data-nav-group="system" aria-expanded="true">System <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
+        <div class="admin-nav-items" data-nav-group="system">
         <% if (_can('settings.manage')) { %><a href="/admin/settings">⚙️ Settings</a><% } %>
         <% if (_can('test-email.send')) { %><a href="/admin/test-email">📧 Test Email</a><% } %>
         <% if (_can('staff.manage')) { %><a href="/admin/staff">👤 Staff &amp; Roles</a><% } %>
         <% if (_can('staff.manage')) { %><a href="/admin/roles">🎭 Roles</a><% } %>
+        </div>
         <% } %>
         <a href="/" target="_blank">🌐 View Site</a>
         <a href="/admin/logout" class="logout-link">Logout</a>
       </nav>
     </aside>
     <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
-    <main class="admin-content">
-      <button type="button" class="theme-toggle-btn theme-toggle-btn-dark theme-toggle-fixed" onclick="toggleGoinceTheme()" title="Dark mode">🌙</button>
+    <div class="admin-main-col">
+      <header class="admin-topbar admin-mobile-topbar">
+        <button type="button" class="admin-menu-btn" id="admin-menu-btn" aria-expanded="false" aria-controls="admin-sidebar" aria-label="Menu">☰</button>
+        <a class="admin-topbar-brand" href="<%= _landing %>"><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <span><%= siteName %> Admin</span></a>
+        <form class="admin-topbar-search" id="admin-topbar-search" method="GET" action="/admin/search" role="search">
+          <input type="search" name="q" placeholder="Search orders, customers, products…" aria-label="Search orders, customers and products" value="<%= (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '' %>">
+          <button type="submit" aria-label="Search">🔍</button>
+        </form>
+        <button type="button" class="admin-topbar-search-btn" id="admin-topbar-search-btn" aria-label="Search" aria-expanded="false">🔍</button>
+        <div class="admin-topbar-dropdown">
+          <button type="button" class="admin-bell-btn" id="admin-bell-btn" data-dropdown-btn aria-label="Notifications" aria-expanded="false">🔔<% if (Number(_notif.total || 0) > 0) { %> <span class="admin-bell-badge"><%= Number(_notif.total) %></span><% } %></button>
+          <div class="admin-dropdown-menu admin-bell-menu" id="admin-bell-menu" role="menu" aria-label="Notifications">
+            <p class="admin-dropdown-heading">Needs attention</p>
+            <% if (Number(_notif.total || 0) === 0) { %>
+              <p class="admin-dropdown-empty">Nothing needs attention right now.</p>
+            <% } else { %>
+              <% if (_can('orders.view') && Number(_notif.pendingOrders || 0) > 0) { %><a href="/admin/orders?status=Pending">🛒 <strong><%= Number(_notif.pendingOrders) %> pending order(s)</strong><span>View pending orders →</span></a><% } %>
+              <% if (_can('activity.view') && Number(_notif.phoneQueue || 0) > 0) { %><a href="/admin/activity">📞 <strong><%= Number(_notif.phoneQueue) %> order(s) waiting for a phone call</strong><span>Open Calls &amp; Activity →</span></a><% } %>
+              <% if (_can('messages.manage') && Number(_notif.unreadMessages || 0) > 0) { %><a href="/admin/messages">✉️ <strong><%= Number(_notif.unreadMessages) %> unread message(s)</strong><span>Read messages →</span></a><% } %>
+              <% if (_can('reviews.manage') && Number(_notif.pendingReviews || 0) > 0) { %><a href="/admin/reviews">⭐ <strong><%= Number(_notif.pendingReviews) %> review(s) waiting for approval</strong><span>Review them →</span></a><% } %>
+            <% } %>
+          </div>
+        </div>
+        <div class="admin-topbar-dropdown">
+          <button type="button" class="admin-user-btn" id="admin-user-btn" data-dropdown-btn aria-label="Admin menu" aria-expanded="false"><span class="admin-user-avatar" aria-hidden="true">👤</span><span class="admin-user-name"><%= _adminName %></span><span class="admin-user-role"><%= _adminRoleLabel %></span></button>
+          <div class="admin-dropdown-menu admin-user-menu" id="admin-user-menu" role="menu" aria-label="Admin menu">
+            <p class="admin-dropdown-heading"><%= _adminName %> · <%= _adminRoleLabel %></p>
+            <% if (_can('settings.manage')) { %><a href="/admin/settings">⚙️ Settings</a><% } %>
+            <% if (_can('staff.manage')) { %><a href="/admin/staff">👤 Staff &amp; Roles</a><% } %>
+            <a href="/admin/logout">Logout</a>
+          </div>
+        </div>
+        <button type="button" class="theme-toggle-btn admin-topbar-theme-btn" onclick="toggleGoinceTheme()" title="Dark mode" aria-label="Toggle dark mode">🌙</button>
+      </header>
+      <main class="admin-content">
+        <nav class="admin-breadcrumb" aria-label="Breadcrumb">
+          <a href="<%= _landing %>"><%= _rootLabel %></a>
+          <% if (_crumb.group) { %><span aria-hidden="true"> / </span><span><%= _crumb.group %></span><% } %>
+          <% if (_crumb.title) { %><span aria-hidden="true"> / </span><span aria-current="page"><%= _crumb.title %></span><% } %>
+        </nav>

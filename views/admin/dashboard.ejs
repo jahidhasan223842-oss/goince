@@ -11,6 +11,50 @@
   <a class="analytics-report-link" href="/admin/reports">Open full reports <span aria-hidden="true">→</span></a>
 </div>
 
+<!-- WHMCS-style order (fix/whmcs-style-admin): quick actions + "what needs
+     attention" come FIRST, then the KPI tiles, then the rest. Nothing was
+     removed — the quick links and the attention panel just moved up. -->
+<section class="admin-quick-links" aria-label="Quick actions">
+  <a href="/admin/products">＋ Add Product</a>
+  <a href="/admin/orders">🛒 View Orders</a>
+  <a href="/admin/activity">📞 Calls &amp; Activity</a>
+  <a href="/admin/messages">✉️ Messages</a>
+  <a href="/admin/settings">⚙️ Edit Homepage</a>
+  <a href="/" target="_blank">🌐 View Site</a>
+</section>
+
+<section class="analytics-panel analytics-attention-panel">
+  <div class="analytics-panel-heading"><div><h2>Needs attention</h2><p>Reviews, messages and calls waiting for you</p></div></div>
+  <% const _phoneQueue = Number((typeof phoneQueueCount !== 'undefined' ? phoneQueueCount : 0) || 0); %>
+  <% if (Number(pendingReviews || 0) === 0 && Number(unreadMessages || 0) === 0 && _phoneQueue === 0) { %>
+    <div class="analytics-small-empty">Nothing needs attention right now.</div>
+  <% } else { %>
+    <div class="analytics-attention-list">
+      <% if (_phoneQueue > 0) { %>
+        <div class="analytics-attention-row">
+          <span class="analytics-attention-icon">📞</span>
+          <div><strong><%= _phoneQueue %> order(s) waiting for a phone call</strong><span>Confirm by phone before dispatch</span></div>
+          <a class="analytics-view-link" href="/admin/activity">Call →</a>
+        </div>
+      <% } %>
+      <% if (Number(pendingReviews || 0) > 0) { %>
+        <div class="analytics-attention-row">
+          <span class="analytics-attention-icon">★</span>
+          <div><strong><%= Number(pendingReviews) %> review(s) waiting for approval</strong><span>New reviews are pending by default</span></div>
+          <a class="analytics-view-link" href="/admin/reviews">Review →</a>
+        </div>
+      <% } %>
+      <% if (Number(unreadMessages || 0) > 0) { %>
+        <div class="analytics-attention-row">
+          <span class="analytics-attention-icon">✉</span>
+          <div><strong><%= Number(unreadMessages) %> unread message(s)</strong><span>Contact messages you have not opened yet</span></div>
+          <a class="analytics-view-link" href="/admin/messages">Read →</a>
+        </div>
+      <% } %>
+    </div>
+  <% } %>
+</section>
+
 <form class="analytics-filter" method="GET" action="/admin/dashboard">
   <div class="analytics-filter-presets" role="group" aria-label="Date range">
     <button type="submit" name="range" value="7" class="analytics-filter-btn <%= dashboard.range === '7' ? 'is-active' : '' %>">7 days</button>
@@ -22,15 +66,6 @@
   <button type="submit" name="range" value="custom" class="analytics-apply-btn">Apply dates</button>
 </form>
 <p class="analytics-period-note">Showing <strong><%= dashboard.from %></strong> to <strong><%= dashboard.to %></strong>. Sales figures exclude cancelled orders; collected revenue counts orders with a recognised paid status.</p>
-
-<section class="admin-quick-links" aria-label="Quick actions">
-  <a href="/admin/products">＋ Add Product</a>
-  <a href="/admin/orders">🛒 View Orders</a>
-  <a href="/admin/activity">📞 Calls &amp; Activity</a>
-  <a href="/admin/messages">✉️ Messages</a>
-  <a href="/admin/settings">⚙️ Edit Homepage</a>
-  <a href="/" target="_blank">🌐 View Site</a>
-</section>
 
 <section class="analytics-kpi-grid" aria-label="Store metrics">
   <article class="analytics-kpi kpi-revenue">
@@ -91,30 +126,6 @@
       <span class="analytics-kpi-foot"><% if (Number(periodProfit.costedUnits) < Number(periodProfit.totalUnits)) { %>Cost price set for <%= Number(periodProfit.costedUnits) %> of <%= Number(periodProfit.totalUnits) %> units — partial profit.<% } else { %>Revenue − cost in this period<% } %></span>
     <% } %>
   </article>
-</section>
-
-<section class="analytics-panel analytics-attention-panel">
-  <div class="analytics-panel-heading"><div><h2>Needs attention</h2><p>Reviews and messages waiting for you</p></div></div>
-  <% if (Number(pendingReviews || 0) === 0 && Number(unreadMessages || 0) === 0) { %>
-    <div class="analytics-small-empty">Nothing needs attention right now.</div>
-  <% } else { %>
-    <div class="analytics-attention-list">
-      <% if (Number(pendingReviews || 0) > 0) { %>
-        <div class="analytics-attention-row">
-          <span class="analytics-attention-icon">★</span>
-          <div><strong><%= Number(pendingReviews) %> review(s) waiting for approval</strong><span>New reviews are pending by default</span></div>
-          <a class="analytics-view-link" href="/admin/reviews">Review →</a>
-        </div>
-      <% } %>
-      <% if (Number(unreadMessages || 0) > 0) { %>
-        <div class="analytics-attention-row">
-          <span class="analytics-attention-icon">✉</span>
-          <div><strong><%= Number(unreadMessages) %> unread message(s)</strong><span>Contact messages you have not opened yet</span></div>
-          <a class="analytics-view-link" href="/admin/messages">Read →</a>
-        </div>
-      <% } %>
-    </div>
-  <% } %>
 </section>
 
 <section class="analytics-main-grid">

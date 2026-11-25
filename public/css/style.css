@@ -462,7 +462,7 @@ a { text-decoration: none; color: inherit; }
 .only-print { display: none; }
 
 @media print {
-  .admin-sidebar, .no-print, .site-header, .site-footer, .theme-toggle-btn, .theme-toggle-fixed { display: none !important; }
+  .admin-sidebar, .admin-topbar, .admin-breadcrumb, .no-print, .site-header, .site-footer, .theme-toggle-btn, .theme-toggle-fixed { display: none !important; }
   .invoice-cost-col { display: none !important; }
   .admin-content { padding: 0; }
   .only-print { display: block; }
@@ -1125,6 +1125,256 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
+/* =========================================================
+   WHMCS-STYLE ADMIN SHELL (fix/whmcs-style-admin) — the admin
+   panel feels like WHMCS: one top bar (logo, global search,
+   notifications bell, admin menu, theme toggle) + grouped
+   sidebar with collapsible sections and count badges + a
+   breadcrumb on every page. Everything lives in the shared
+   admin-header / admin-footer partials, so a new page gets
+   the shell automatically (see the convention comment at the
+   top of views/partials/admin-header.ejs).
+   Layout: .admin-wrapper (row) = sidebar + .admin-main-col
+   (column: topbar + content). The sidebar stays full-height
+   and sticky on desktop; on mobile it is the same off-canvas
+   drawer as before (PR #38/#51) and the topbar stays sticky.
+   ========================================================= */
+.admin-main-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #0a1221;
+  color: #fff;
+  padding: 0 16px;
+  min-height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 800;
+  border-bottom: 1px solid #26354b;
+  flex-shrink: 0;
+}
+.admin-menu-btn { display: none; }
+.admin-topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #f0a500 !important;
+  font-weight: 700;
+  font-size: 17px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.admin-topbar-brand .admin-logo-mark { width: 28px; height: 28px; }
+.admin-topbar-search {
+  display: flex;
+  flex: 1;
+  max-width: 460px;
+  margin-left: 8px;
+  gap: 8px;
+}
+.admin-topbar-search input[type="search"] {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  background: #1d2f4d;
+  border: 1px solid #26354b;
+  border-radius: 8px;
+  color: #fff;
+  padding: 0 12px;
+  font-size: 14px;
+}
+.admin-topbar-search input[type="search"]::placeholder { color: #8fa1b8; }
+.admin-topbar-search button {
+  flex-shrink: 0;
+  width: 44px;
+  height: 40px;
+  background: var(--accent);
+  color: #1a1a2e;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.admin-topbar-search-btn { display: none; }
+.admin-topbar-dropdown { position: relative; flex-shrink: 0; }
+.admin-bell-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  background: #1d2f4d;
+  color: #fff;
+  border: 1px solid #26354b;
+  border-radius: 9px;
+  font-size: 18px;
+  cursor: pointer;
+}
+.admin-bell-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 9px;
+}
+.admin-user-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 12px;
+  background: #1d2f4d;
+  color: #fff;
+  border: 1px solid #26354b;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.admin-user-avatar {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2c4a73;
+  border-radius: 50%;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.admin-user-name { font-weight: 700; font-size: 14px; }
+.admin-user-role { font-size: 11px; color: #aebdd2; }
+.admin-topbar .theme-toggle-btn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: #1d2f4d;
+  border: 1px solid #26354b;
+  border-radius: 9px;
+  font-size: 17px;
+}
+.admin-dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 280px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
+  padding: 8px;
+  z-index: 950;
+}
+.admin-dropdown-menu.open { display: block; }
+.admin-dropdown-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  padding: 8px 10px 4px;
+  margin: 0;
+}
+.admin-dropdown-empty { padding: 8px 10px 12px; margin: 0; color: var(--text-muted); }
+.admin-dropdown-menu a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 8px;
+  color: var(--text) !important;
+  font-size: 14px;
+}
+.admin-dropdown-menu a span { font-size: 12px; color: var(--text-muted); }
+@media (hover: hover) {
+  .admin-dropdown-menu a:hover { background: var(--bg-hover); color: var(--text) !important; }
+}
+
+/* Breadcrumb: Dashboard / Group / Page — same on every admin page. */
+.admin-breadcrumb {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+.admin-breadcrumb a { color: var(--accent-text); }
+.admin-breadcrumb [aria-current="page"] { color: var(--text-strong); font-weight: 600; }
+
+/* Sidebar: collapsible groups + count badges. The group button replaces
+   the old plain <p> heading — same look, now clickable. */
+.admin-nav-group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #8a8aa0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin: 16px 0 4px;
+  padding: 4px;
+  min-height: 32px;
+  cursor: pointer;
+  text-align: left;
+}
+.admin-nav-group-chevron { transition: transform .2s ease; }
+.admin-nav-group-btn[aria-expanded="false"] .admin-nav-group-chevron { transform: rotate(-90deg); }
+.admin-nav-items.collapsed { display: none; }
+.admin-nav-badge {
+  background: var(--accent);
+  color: #1a1a2e;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 7px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Client-profile / ticket tabs (customer detail, messages list). */
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+}
+.admin-content .admin-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+}
+.admin-content .admin-tab.is-active {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+@media (hover: hover) {
+  .admin-content .admin-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .admin-content .admin-tab.is-active:hover { background: var(--navy); color: #fff; }
+}
+
 /* Analytics */
 .analytics-header { color: var(--text); }
 .analytics-eyebrow {
@@ -1690,6 +1940,46 @@ img, video { max-width: 100%; }
      thakbe (desktop-e topbar lukano, tai floating button-i thakbe). */
   .theme-toggle-fixed { display: none; }
   .admin-mobile-topbar .theme-toggle-btn { margin-left: auto; }
+
+  /* WHMCS-style top bar on mobile (fix/whmcs-style-admin): hamburger +
+     logo + 🔍 + bell + user + theme, all 44px. The search box is hidden
+     until 🔍 is tapped, then it opens as a full-width row under the bar
+     (same pattern as the shop search). The admin name/role text hides —
+     the avatar button stays. */
+  .admin-main-col { width: 100%; }
+  .admin-menu-btn { display: inline-flex; align-items: center; justify-content: center; }
+  .admin-topbar-brand span { display: none; }
+  .admin-topbar-search {
+    display: none;
+    position: absolute;
+    top: 52px;
+    left: 0;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 10px 12px;
+    background: #0a1221;
+    border-bottom: 1px solid #26354b;
+  }
+  .admin-topbar-search.open { display: flex; }
+  .admin-topbar-search-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    background: #1d2f4d;
+    color: #fff;
+    border: 1px solid #26354b;
+    border-radius: 9px;
+    font-size: 17px;
+    cursor: pointer;
+  }
+  .admin-user-name, .admin-user-role { display: none; }
+  .admin-user-btn { padding: 6px; }
+  .admin-nav-group-btn { min-height: 44px; }
+  .admin-dropdown-menu { min-width: 260px; }
 
   /* Admin login box: 320px fixed width chilo — choto phone-e kete jeto. */
   .admin-login-box { width: min(320px, calc(100vw - 32px)); padding: 32px 24px; }
