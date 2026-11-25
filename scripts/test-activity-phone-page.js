@@ -21,7 +21,7 @@
 //      "Calls & Activity" quick link; the other PR #46 panels stay.
 //   6. Direct EJS render: activity.ejs phone + activity tabs (full and
 //      empty states); dashboard.ejs without the two panels.
-//   7. Route source: /admin/activity guarded by requireRole('ordersView');
+//   7. Route source: /admin/activity guarded by requirePermission('activity.view');
 //      sidebar links to it; dashboard.ejs no longer mentions the panels.
 //
 // Run:  node scripts/test-activity-phone-page.js
@@ -365,8 +365,8 @@ function dashboardLocals(overrides) {
 
   // Route + source checks.
   const adminJs = fs.readFileSync(path.join(__dirname, '..', 'routes', 'admin.js'), 'utf8');
-  check("route /admin/activity uses requireRole('ordersView')",
-    adminJs.includes("router.get('/activity', requireAdmin, requireRole('ordersView')"));
+  check("route /admin/activity uses requirePermission('activity.view')",
+    adminJs.includes("router.get('/activity', requireAdmin, requirePermission('activity.view')"));
   check('route paginates at 20 per page', adminJs.includes('const PER_PAGE = 20'));
   check('route clamps the page number', adminJs.includes('Math.min(page, totalPages)'));
   check('dashboard handler no longer queries the phone queue', !adminJs.includes('phoneQueue'));

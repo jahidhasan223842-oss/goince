@@ -11,6 +11,7 @@ const path = require('path');
 const { csrfProtection } = require('./lib/csrf');
 const { buildMenuTree, buildMenuById } = require('./lib/categories');
 const { fixHeroCopy, fixProductName } = require('./lib/startup-content-fixes');
+const { SYSTEM_ROLE_PERMISSIONS } = require('./lib/permissions');
 
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
@@ -307,6 +308,55 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- Custom roles table (fix/custom-roles-permissions) ----------
+// `roles` (name, description, permissions JSON, is_system) + `admins.role_id`.
+// System roles (Owner / Manager / Staff) are seeded once with the exact
+// permission sets the 3 old fixed roles had; Owner always resolves to every
+// permission live (lib/roles.js), so a future registry entry reaches Owner
+// automatically. Existing admins get role_id backfilled from their legacy
+// `role` string, so nothing changes for them. Everything is defensive —
+// a missing table/column only logs, the server never crashes on it.
+(async () => {
+  try {
+    const db = require('./config/db');
+    const { SYSTEM_ROLE_PERMISSIONS } = require('./lib/permissions');
+    await db.query(`CREATE TABLE IF NOT EXISTS roles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL UNIQUE,
+      description VARCHAR(500) DEFAULT NULL,
+      permissions TEXT NOT NULL,
+      is_system TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`);
+    const [aCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admins'");
+    if (!aCols.map(c => c.COLUMN_NAME).includes('role_id')) {
+      await db.query('ALTER TABLE admins ADD COLUMN role_id INT DEFAULT NULL');
+    }
+    const [roleRows] = await db.query('SELECT id, name FROM roles WHERE is_system = 1');
+    const have = new Set((roleRows || []).map(r => r.name));
+    for (const name of ['Owner', 'Manager', 'Staff']) {
+      if (!have.has(name)) {
+        await db.query('INSERT INTO roles (name, description, permissions, is_system) VALUES (?, ?, ?, 1)',
+          [name,
+           name === 'Owner' ? 'Everything — the shop owner.' : (name === 'Manager' ? 'Products, orders, customers and inventory.' : 'Orders + products, view only.'),
+           JSON.stringify(SYSTEM_ROLE_PERMISSIONS[name.toLowerCase()])]);
+      }
+    }
+    // Backfill: admins without role_id point at the matching system role.
+    const [sysRoles] = await db.query('SELECT id, name FROM roles WHERE is_system = 1');
+    const sysByName = {};
+    (sysRoles || []).forEach(r => { sysByName[r.name.toLowerCase()] = r.id; });
+    const [admins] = await db.query("SELECT id, role FROM admins WHERE role_id IS NULL");
+    for (const a of (admins || [])) {
+      const rid = sysByName[String(a.role || 'owner').toLowerCase()];
+      if (rid) await db.query('UPDATE admins SET role_id = ? WHERE id = ?', [rid, a.id]);
+    }
+  } catch (err) {
+    console.error('Custom roles table skip holo:', err.message);
+  }
+})();
+
 // ---------- Admin account DB-te seed kora (.env theke) ----------
 // Age Admin login shudhu .env-er ADMIN_EMAIL/ADMIN_PASSWORD diye hoto.
 // Forgot Password feature-er jonno DB-te thakte hobe (kokhono update
@@ -442,6 +492,11 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   res.locals.userName = req.session.userName || null;
   res.locals.adminRole = req.session.adminRole || 'owner';
+  // Permissions of the signed-in admin (custom roles, fix/custom-roles-permissions).
+  // Set at login; an old session without it falls back to the legacy role string.
+  res.locals.adminPermissions = Array.isArray(req.session.adminPermissions)
+    ? req.session.adminPermissions
+    : ((SYSTEM_ROLE_PERMISSIONS[(req.session.adminRole || 'owner').toLowerCase()] || SYSTEM_ROLE_PERMISSIONS.staff).slice());
   res.locals.adminEmail = req.session.adminEmail || null;
   res.locals.cartCount = (req.session.cart || []).reduce((sum, item) => sum + item.quantity, 0);
 

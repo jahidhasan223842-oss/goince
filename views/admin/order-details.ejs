@@ -10,7 +10,7 @@
   </div>
 </div>
 
-<% const _role = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
+<% const _perms = (typeof adminPermissions !== 'undefined' && Array.isArray(adminPermissions)) ? adminPermissions : null; const _can = (perm) => !_perms || _perms.includes(perm); %>
 <% const _paid = Number((typeof paid !== 'undefined' && paid) ? paid : 0); %>
 <% const _due = Number((typeof due !== 'undefined' && due) ? due : Number(order.total_amount)); %>
 
@@ -138,13 +138,13 @@
       <p><a href="tel:<%= order.phone %>"><%= order.phone %></a> <a href="tel:<%= order.phone %>" class="btn-call">📞 Call</a></p>
       <% if (order.phone_confirmed) { %>
         <p><span class="status-badge status-delivered">✓ Phone Confirmed</span> <small><%= order.phone_confirmed_at ? new Date(order.phone_confirmed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' %></small></p>
-        <% if (_role !== 'staff') { %>
+        <% if (_can('orders.manage')) { %>
         <form action="/admin/orders/<%= order.id %>/phone-unconfirmed" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
           <button type="submit" class="btn-secondary" onclick="return confirm('Are you sure? This will mark the order as not phone-confirmed again.');">↩ Undo Phone Confirmed</button>
         </form>
         <p class="field-hint">Marked by mistake? Undo returns the order to not phone-confirmed.</p>
         <% } %>
-      <% } else if (_role !== 'staff') { %>
+      <% } else if (_can('orders.manage')) { %>
         <form action="/admin/orders/<%= order.id %>/phone-confirmed" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
           <button type="submit" class="btn-primary">✓ Phone Confirmed</button>
         </form>
@@ -175,7 +175,7 @@
       </script>
     </section>
 
-    <% if (_role !== 'staff') { %>
+    <% if (_can('orders.manage')) { %>
     <section class="report-card">
       <h3>💰 Payment</h3>
       <h4>Update Payment Status</h4>
@@ -224,7 +224,7 @@
     </section>
     <% } %>
 
-    <% if (_role !== 'staff') { %>
+    <% if (_can('orders.manage')) { %>
     <section class="report-card">
       <h3>📧 Send Invoice</h3>
       <p class="field-hint">Sends the current invoice (items, totals, payment status, Paid / Due) — the PDF is attached to the email and sent as a document on WhatsApp.</p>
@@ -250,7 +250,7 @@
   </div>
   <div class="order-detail-col">
 
-    <% if (_role !== 'staff') { %>
+    <% if (_can('orders.manage')) { %>
     <section class="report-card">
       <h3>⚙️ Order Actions</h3>
       <form action="/admin/orders/<%= order.id %>/status" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
@@ -275,7 +275,7 @@
 
     <section class="report-card">
       <h3>🚚 Courier &amp; Tracking</h3>
-      <% if (_role !== 'staff') { %>
+      <% if (_can('orders.manage')) { %>
       <form action="/admin/orders/<%= order.id %>/shipping" method="POST" class="admin-form" style="max-width:400px;"><%- include('../partials/csrf-field') %>
         <label>Courier Company</label>
         <input type="text" name="courier_name" value="<%= order.courier_name || '' %>" placeholder="e.g. Pathao, Steadfast">
@@ -318,7 +318,7 @@
       <% } else { %>
         <p class="field-hint">No notes yet.</p>
       <% } %>
-      <% if (_role !== 'staff') { %>
+      <% if (_can('orders.manage')) { %>
       <form action="/admin/orders/<%= order.id %>/notes" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
         <label>Add a Note</label>
         <textarea name="note" rows="2" placeholder="e.g. Customer did not pick up the phone — try again tomorrow." required></textarea>
@@ -353,7 +353,7 @@
             <li>
               <strong><%= r.status %></strong> — <%= r.reason %><br>
               <small><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (r.created_by) { %> — <%= r.created_by %><% } %></small>
-              <% if (_role !== 'staff') { %>
+              <% if (_can('orders.manage')) { %>
               <form action="/admin/orders/<%= order.id %>/returns/<%= r.id %>/status" method="POST" class="inline-form" style="margin-top:4px;"><%- include('../partials/csrf-field') %>
                 <select name="status">
                   <% ['Pending','Approved','Rejected','Completed'].forEach(s => { %>
@@ -369,7 +369,7 @@
       <% } else { %>
         <p class="field-hint">No returns recorded for this order.</p>
       <% } %>
-      <% if (_role !== 'staff') { %>
+      <% if (_can('orders.manage')) { %>
       <form action="/admin/orders/<%= order.id %>/returns" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
         <label>Record a Return</label>
         <textarea name="reason" rows="2" placeholder="e.g. Customer returned the product — wrong size." required></textarea>
@@ -381,7 +381,7 @@
     <section class="report-card">
       <h3>💬 SMS Update</h3>
       <p class="field-hint">Sends the customer a text about this order's status (e.g. "Your order #<%= order.id %> is <%= order.status %>").</p>
-      <% if (_role !== 'staff') { %>
+      <% if (_can('orders.manage')) { %>
       <form action="/admin/orders/<%= order.id %>/sms" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %>
         <button type="submit" class="btn-primary">📩 Send SMS Update</button>
       </form>
