@@ -125,6 +125,10 @@ a { text-decoration: none; color: inherit; }
 .subcategory-label { font-size: 13px; color: var(--text-muted); margin-right: 4px; }
 .subcategory-bar a { padding: 6px 14px; background: var(--surface); border-radius: 16px; border: 1px dashed var(--border-strong); font-size: 13px; color: var(--text-muted); }
 .subcategory-bar a.active { background: var(--accent); color: var(--navy); border-color: var(--accent); border-style: solid; }
+/* Category-bar-e sorasori sub-category pill (jemon Kitchen, Home Utility):
+   dropdown sudhu hover-e khole bole touch-e sub-category dekha jeto na. */
+.category-bar a.cat-sub-pill { border-style: dashed; font-size: 13px; color: var(--text-muted); }
+.category-bar a.cat-sub-pill.active { background: var(--accent); color: var(--navy); border-color: var(--accent); border-style: solid; }
 
 /* ---------- Category-bar pill dropdown (hover) ---------- */
 .cat-pill-wrap { position: relative; display: inline-flex; }
