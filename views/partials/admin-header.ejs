@@ -1,19 +1,23 @@
 <% /*
-  WHMCS-style admin shell (fix/whmcs-style-admin).
-  Every admin page includes this partial, so every page gets the same shell:
-  top bar (logo, global search, notifications bell, admin menu, theme toggle),
-  grouped sidebar (collapsible, badges, active highlight) and a breadcrumb.
-  The header NEVER queries the DB — counts come from res.locals
-  (routes/admin.js notification middleware); every new local is guarded with
-  typeof so direct EJS renders in tests keep working.
+  WHMCS-style admin shell (fix/whmcs-style-admin, top nav in
+  fix/whmcs-top-nav). WHMCS has NO left sidebar — the admin nav is a
+  horizontal bar with dropdown buttons directly under the top bar
+  (logo, global search, notifications bell, admin menu, theme toggle),
+  and the same links live in the off-canvas drawer on phones.
+  Every admin page includes this partial, so every page gets the same
+  shell: top bar + top nav + breadcrumb. The header NEVER queries the
+  DB — counts come from res.locals (routes/admin.js notification
+  middleware); every new local is guarded with typeof so direct EJS
+  renders in tests keep working.
 
   CONVENTION — to add a new admin page later:
     1. Add its permission to lib/permissions.js (one entry) and guard the
        route with requirePermission('…').
-    2. Add ONE sidebar link below (icon + permission + optional badge) inside
-       the right group, and ONE breadcrumb entry in _crumbDefs.
-    3. Done — the page gets the top bar, bell, sidebar, breadcrumb and
-       mobile drawer automatically. Do NOT build a second header.
+    2. Add ONE link in _navGroups below (icon + permission + optional
+       badge) inside the right group, and ONE breadcrumb entry in
+       _crumbDefs.
+    3. Done — the page gets the top bar, top nav, drawer, bell, sidebar
+       badges and breadcrumb automatically. Do NOT build a second header.
 */ %>
 <!DOCTYPE html>
 <html lang="en">
@@ -88,50 +92,55 @@
   ]; %>
   <% let _crumb = { group: null, title: 'Admin' }; %>
   <% for (const _def of _crumbDefs) { if (_path === _def[0] || _path.indexOf(_def[0] + '/') === 0) { _crumb = { group: _def[1], title: _def[2] }; break; } } %>
+  <% /* Top nav + drawer share ONE link list (fix/whmcs-top-nav): WHMCS
+       has no left sidebar — the nav is a horizontal bar with dropdown
+       buttons under the top bar, and the same links render a second
+       time inside the mobile drawer (off-canvas, ≤768px). One array
+       keeps both in sync; each link keeps its permission guard, and
+       `badge` names the res.locals.adminNotifications count to show. */ %>
+  <% const _navGroups = [
+    { key: 'shop', label: 'Shop', perms: ['products.view', 'products.manage', 'products.variants', 'categories.manage', 'banners.manage', 'stock-alerts.manage', 'inventory.manage'], links: [
+      { href: '/admin/products', label: '📦 Products', perm: 'products.view' },
+      { href: '/admin/products/import', label: '⇪ Import Products', perm: 'products.manage' },
+      { href: '/admin/attributes', label: '🧩 Attributes', perm: 'products.variants' },
+      { href: '/admin/stock-alerts', label: '🔔 Stock Alerts', perm: 'stock-alerts.manage' },
+      { href: '/admin/categories', label: '🗂️ Categories', perm: 'categories.manage' },
+      { href: '/admin/banners', label: '🖼️ Banners', perm: 'banners.manage' },
+      { href: '/admin/inventory', label: '📋 Inventory', perm: 'inventory.manage' },
+    ] },
+    { key: 'sales', label: 'Sales', perms: ['orders.view', 'activity.view', 'reports.view', 'customers.manage', 'coupons.manage', 'payment-methods.manage', 'delivery-zones.manage'], links: [
+      { href: '/admin/invoices', label: '🛒 Orders', perm: 'orders.view', badge: 'openOrders' },
+      { href: '/admin/activity', label: '📞 Calls & Activity', perm: 'activity.view', badge: 'phoneQueue' },
+      { href: '/admin/reports', label: '📊 Reports', perm: 'reports.view' },
+      { href: '/admin/customers', label: '👥 Customers', perm: 'customers.manage' },
+      { href: '/admin/coupons', label: '🎟️ Coupons', perm: 'coupons.manage' },
+      { href: '/admin/payment-methods', label: '💳 Payment Methods', perm: 'payment-methods.manage' },
+      { href: '/admin/delivery-zones', label: '🚚 Delivery Zones', perm: 'delivery-zones.manage' },
+    ] },
+    { key: 'communication', label: 'Communication', perms: ['chats.manage', 'messages.manage', 'reviews.manage'], links: [
+      { href: '/admin/chats', label: '💬 Live Chat', perm: 'chats.manage' },
+      { href: '/admin/messages', label: '✉️ Contact Messages', perm: 'messages.manage', badge: 'unreadMessages' },
+      { href: '/admin/reviews', label: '⭐ Reviews', perm: 'reviews.manage', badge: 'pendingReviews' },
+    ] },
+    { key: 'system', label: 'System', perms: ['settings.manage', 'test-email.send', 'staff.manage'], links: [
+      { href: '/admin/settings', label: '⚙️ Settings', perm: 'settings.manage' },
+      { href: '/admin/test-email', label: '📧 Test Email', perm: 'test-email.send' },
+      { href: '/admin/staff', label: '👤 Staff & Roles', perm: 'staff.manage' },
+      { href: '/admin/roles', label: '🎭 Roles', perm: 'staff.manage' },
+    ] },
+  ]; %>
+  <% const _isNavActive = (href) => _path === href || _path.indexOf(href + '/') === 0 || (href === '/admin/invoices' && _path.indexOf('/admin/orders') === 0); %>
   <div class="admin-wrapper">
-    <aside class="admin-sidebar" id="admin-sidebar">
+    <aside class="admin-sidebar" id="admin-sidebar" aria-label="Admin navigation">
       <h2><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <%= siteName %></h2>
       <nav>
-        <% if (_can('dashboard.view')) { %><a href="/admin/dashboard">🏠 Dashboard</a><% } %>
-        <% if (_any('products.view', 'products.manage', 'products.variants', 'categories.manage', 'banners.manage', 'stock-alerts.manage', 'inventory.manage')) { %>
-        <button type="button" class="admin-nav-group-btn" data-nav-group="shop" aria-expanded="true">Shop <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
-        <div class="admin-nav-items" data-nav-group="shop">
-        <% if (_can('products.view')) { %><a href="/admin/products">📦 Products</a><% } %>
-        <% if (_can('products.manage')) { %><a href="/admin/products/import">⇪ Import Products</a><% } %>
-        <% if (_can('products.variants')) { %><a href="/admin/attributes">🧩 Attributes</a><% } %>
-        <% if (_can('stock-alerts.manage')) { %><a href="/admin/stock-alerts">🔔 Stock Alerts</a><% } %>
-        <% if (_can('categories.manage')) { %><a href="/admin/categories">🗂️ Categories</a><% } %>
-        <% if (_can('banners.manage')) { %><a href="/admin/banners">🖼️ Banners</a><% } %>
-        <% if (_can('inventory.manage')) { %><a href="/admin/inventory">📋 Inventory</a><% } %>
-        </div>
+        <% if (_can('dashboard.view')) { %><a href="/admin/dashboard"<%- _isNavActive('/admin/dashboard') ? ' aria-current="page"' : '' %>>🏠 Dashboard</a><% } %>
+        <% for (const _g of _navGroups) { if (!_any(..._g.perms)) continue; %>
+        <button type="button" class="admin-nav-group-btn" data-nav-group="<%= _g.key %>" aria-expanded="true"><%= _g.label %> <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
+        <div class="admin-nav-items" data-nav-group="<%= _g.key %>">
+        <% for (const _l of _g.links) { if (!_can(_l.perm)) continue; %>
+        <a href="<%= _l.href %>"<%- _isNavActive(_l.href) ? ' aria-current="page"' : '' %>><%= _l.label %><% if (_l.badge && Number(_notif[_l.badge] || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif[_l.badge]) %></span><% } %></a>
         <% } %>
-        <% if (_any('orders.view', 'activity.view', 'reports.view', 'customers.manage', 'coupons.manage', 'payment-methods.manage', 'delivery-zones.manage')) { %>
-        <button type="button" class="admin-nav-group-btn" data-nav-group="sales" aria-expanded="true">Sales <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
-        <div class="admin-nav-items" data-nav-group="sales">
-        <% if (_can('orders.view')) { %><a href="/admin/invoices">🛒 Orders<% if (Number(_notif.openOrders || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.openOrders) %></span><% } %></a><% } %>
-        <% if (_can('activity.view')) { %><a href="/admin/activity">📞 Calls &amp; Activity<% if (Number(_notif.phoneQueue || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.phoneQueue) %></span><% } %></a><% } %>
-        <% if (_can('reports.view')) { %><a href="/admin/reports">📊 Reports</a><% } %>
-        <% if (_can('customers.manage')) { %><a href="/admin/customers">👥 Customers</a><% } %>
-        <% if (_can('coupons.manage')) { %><a href="/admin/coupons">🎟️ Coupons</a><% } %>
-        <% if (_can('payment-methods.manage')) { %><a href="/admin/payment-methods">💳 Payment Methods</a><% } %>
-        <% if (_can('delivery-zones.manage')) { %><a href="/admin/delivery-zones">🚚 Delivery Zones</a><% } %>
-        </div>
-        <% } %>
-        <% if (_any('chats.manage', 'messages.manage', 'reviews.manage')) { %>
-        <button type="button" class="admin-nav-group-btn" data-nav-group="communication" aria-expanded="true">Communication <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
-        <div class="admin-nav-items" data-nav-group="communication">
-        <% if (_can('chats.manage')) { %><a href="/admin/chats">💬 Live Chat</a><% } %>
-        <% if (_can('messages.manage')) { %><a href="/admin/messages">✉️ Contact Messages<% if (Number(_notif.unreadMessages || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.unreadMessages) %></span><% } %></a><% } %>
-        <% if (_can('reviews.manage')) { %><a href="/admin/reviews">⭐ Reviews<% if (Number(_notif.pendingReviews || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif.pendingReviews) %></span><% } %></a><% } %>
-        </div>
-        <% } %>
-        <% if (_any('settings.manage', 'test-email.send', 'staff.manage')) { %>
-        <button type="button" class="admin-nav-group-btn" data-nav-group="system" aria-expanded="true">System <span class="admin-nav-group-chevron" aria-hidden="true">▾</span></button>
-        <div class="admin-nav-items" data-nav-group="system">
-        <% if (_can('settings.manage')) { %><a href="/admin/settings">⚙️ Settings</a><% } %>
-        <% if (_can('test-email.send')) { %><a href="/admin/test-email">📧 Test Email</a><% } %>
-        <% if (_can('staff.manage')) { %><a href="/admin/staff">👤 Staff &amp; Roles</a><% } %>
-        <% if (_can('staff.manage')) { %><a href="/admin/roles">🎭 Roles</a><% } %>
         </div>
         <% } %>
         <a href="/" target="_blank">🌐 View Site</a>
@@ -173,6 +182,21 @@
         </div>
         <button type="button" class="theme-toggle-btn admin-topbar-theme-btn" onclick="toggleGoinceTheme()" title="Dark mode" aria-label="Toggle dark mode">🌙</button>
       </header>
+      <nav class="admin-topnav" aria-label="Admin navigation">
+        <% if (_can('dashboard.view')) { %><a href="/admin/dashboard" class="admin-topnav-link<%= _isNavActive('/admin/dashboard') ? ' is-active' : '' %>"<%- _isNavActive('/admin/dashboard') ? ' aria-current="page"' : '' %>>🏠 Dashboard</a><% } %>
+        <% for (const _g of _navGroups) { if (!_any(..._g.perms)) continue; %>
+        <div class="admin-topnav-dropdown">
+          <button type="button" class="admin-topnav-btn<%= _crumb.group === _g.label ? ' is-active' : '' %>" data-topnav-btn aria-haspopup="true" aria-expanded="false"><%= _g.label %> <span class="admin-topnav-chevron" aria-hidden="true">▾</span></button>
+          <div class="admin-topnav-menu" role="menu" aria-label="<%= _g.label %>">
+            <% for (const _l of _g.links) { if (!_can(_l.perm)) continue; %>
+            <a href="<%= _l.href %>" class="admin-topnav-menu-link<%= _isNavActive(_l.href) ? ' is-active' : '' %>"<%- _isNavActive(_l.href) ? ' aria-current="page"' : '' %>><%= _l.label %><% if (_l.badge && Number(_notif[_l.badge] || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif[_l.badge]) %></span><% } %></a>
+            <% } %>
+          </div>
+        </div>
+        <% } %>
+        <a href="/" target="_blank" class="admin-topnav-link admin-topnav-right">🌐 View Site</a>
+        <a href="/admin/logout" class="admin-topnav-link admin-topnav-logout">Logout</a>
+      </nav>
       <main class="admin-content">
         <nav class="admin-breadcrumb" aria-label="Breadcrumb">
           <a href="<%= _landing %>"><%= _rootLabel %></a>

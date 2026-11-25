@@ -10,11 +10,12 @@
 // carries only "admin-topbar", the hiding rule is deleted, and the
 // mobile block styles .admin-topbar directly. This suite proves the
 // bar is visible at desktop width AND at mobile width.
-// (2) WHMCS LOOK — light theme only: white top bar, slate sidebar
-// (#2c3e50), light grey content (#eef1f5), WHMCS-blue primary
-// (#1a7bb9), light-blue row hover (#e3f0f8). Gold must not dominate
-// the admin anymore. The dark theme keeps its navy look and is still
-// available from the theme toggle.
+// (2) WHMCS LOOK — light theme only: white top bar, slate top nav bar
+// (#2c3e50; the old left sidebar is gone — see fix/whmcs-top-nav, it
+// survives only as the mobile drawer), light grey content (#eef1f5),
+// WHMCS-blue primary (#1a7bb9), light-blue row hover (#e3f0f8). Gold
+// must not dominate the admin anymore. The dark theme keeps its navy
+// look and is still available from the theme toggle.
 // (3) THEME DEFAULT — the admin header defaults the stored theme to
 // 'dark', and donal's browser already has 'dark' stored, so the CSS
 // alone is not enough: a one-time migration (versioned localStorage
@@ -149,12 +150,15 @@ check('top bar is white with dark text in the light theme',
   /\.admin-topbar\s*\{[^}]*background:\s*#ffffff;/.test(cssTopLevel) &&
   /\.admin-topbar\s*\{[^}]*color:\s*var\(--admin-slate\);/.test(cssTopLevel),
   'topbar not white/slate');
-check('sidebar is slate in the light theme',
+check('top nav bar is slate in the light theme (the sidebar moved there)',
+  /\.admin-topnav\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(cssTopLevel),
+  'topnav not slate');
+check('mobile drawer keeps the slate background',
   /\.admin-sidebar\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(cssTopLevel),
-  'sidebar not slate');
-check('sidebar brand is white, not gold',
+  'drawer not slate');
+check('drawer brand is white, not gold',
   /\.admin-sidebar h2\s*\{[^}]*color:\s*#ffffff;/.test(cssTopLevel),
-  'sidebar brand still gold');
+  'drawer brand still gold');
 check('topbar brand is dark slate, not gold',
   /\.admin-topbar-brand\s*\{[^}]*color:\s*var\(--admin-slate\)/.test(cssTopLevel),
   'topbar brand still gold');
@@ -182,9 +186,12 @@ console.log('Dark theme still available via the toggle');
 check('dark theme keeps the navy top bar',
   /\[data-theme="dark"\] \.admin-topbar\s*\{[^}]*background:\s*#0a1221;/.test(css),
   'dark topbar override missing');
-check('dark theme keeps the navy sidebar',
+check('dark theme keeps the navy drawer',
   /\[data-theme="dark"\] \.admin-sidebar\s*\{[^}]*background:\s*#0a1221;/.test(css),
-  'dark sidebar override missing');
+  'dark drawer override missing');
+check('dark theme keeps the navy top nav',
+  /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*#0a1221;/.test(css),
+  'dark topnav override missing');
 check('dark theme keeps the gold admin primary button',
   /\[data-theme="dark"\] \.admin-content \.btn-primary/.test(css) &&
   /\[data-theme="dark"\] \.admin-content \.btn-primary,\s*\[data-theme="dark"\] \.admin-login-box \.btn-primary\s*\{[^}]*background:\s*var\(--accent\);/.test(css),
