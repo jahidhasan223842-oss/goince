@@ -36,7 +36,7 @@ const SITE_SETTING_DEFAULTS = {
   shop_address: '',
   facebook_url: '',
   hero_product_id: '',
-  footer_about: 'Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.',
+  footer_about: 'বাংলাদেশের অনলাইন শপ — ক্যাশ অন ডেলিভারি, ঢাকার ভিতরে ১–২ দিনে, ঢাকার বাইরে ৩–৫ দিনে ডেলিভারি। অর্ডারের আগে ফোনে কনফার্ম করা হয়।',
   shop_email: '',
   footer_hours: '',
   youtube_url: '',
