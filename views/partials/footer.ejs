@@ -3,12 +3,14 @@
     <div class="container footer-grid">
       <div>
         <h3><%= siteName %></h3>
-        <p><%= (typeof siteSettings !== 'undefined' && siteSettings.footer_about) ? siteSettings.footer_about : 'Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.' %></p>
+        <p><%= (typeof siteSettings !== 'undefined' && siteSettings.footer_about) ? siteSettings.footer_about : 'বাংলাদেশের অনলাইন শপ — ক্যাশ অন ডেলিভারি, ঢাকার ভিতরে ১–২ দিনে, ঢাকার বাইরে ৩–৫ দিনে ডেলিভারি। অর্ডারের আগে ফোনে কনফার্ম করা হয়।' %></p>
         <p>📞 <a href="tel:<%= shopPhone %>"><%= shopPhone %></a></p>
         <% if (typeof siteSettings !== 'undefined' && siteSettings.shop_email) { %><p>✉️ <a href="mailto:<%= siteSettings.shop_email %>"><%= siteSettings.shop_email %></a></p><% } %>
         <% if (typeof siteSettings !== 'undefined' && siteSettings.shop_address) { %><p>📍 <%= siteSettings.shop_address %></p><% } %>
         <% if (typeof siteSettings !== 'undefined' && siteSettings.footer_hours) { %><p>🕒 <%= siteSettings.footer_hours %></p><% } %>
         <% if (typeof siteSettings !== 'undefined' && (siteSettings.facebook_url || siteSettings.youtube_url || siteSettings.instagram_url)) { %><p><% if (siteSettings.facebook_url) { %>📘 <a href="<%= siteSettings.facebook_url %>" target="_blank" rel="noopener">Facebook</a> &nbsp;<% } %><% if (siteSettings.youtube_url) { %>▶️ <a href="<%= siteSettings.youtube_url %>" target="_blank" rel="noopener">YouTube</a> &nbsp;<% } %><% if (siteSettings.instagram_url) { %>📸 <a href="<%= siteSettings.instagram_url %>" target="_blank" rel="noopener">Instagram</a><% } %></p><% } %>
+        <% /* Facebook fallback: Settings-e facebook_url na thakleo Goince Page-er link dekhabe. */ %>
+        <% if (typeof siteSettings === 'undefined' || !siteSettings || !siteSettings.facebook_url) { %><p>📘 <a href="https://www.facebook.com/profile.php?id=61594037744280" target="_blank" rel="noopener">Facebook</a></p><% } %>
       </div>
       <div>
         <h3>Quick Links</h3>
@@ -27,7 +29,8 @@
     </div>
     <div class="container">
       <p class="footer-trust">✅ Cash on Delivery &nbsp;·&nbsp; 🚚 Fast Delivery &nbsp;·&nbsp; 🔄 24h Return (defective/wrong product) &nbsp;·&nbsp; 💬 WhatsApp Support</p>
-      <p class="footer-payments">💳 Payment: Cash on Delivery<% if (typeof paymentMethods !== 'undefined' && paymentMethods && paymentMethods.length) { %> · <%= paymentMethods.map(function (m) { return m.method_name; }).join(' · ') %><% } %></p>
+      <% /* Payment badge: shop page-e paymentMethods pathano hoy na bole dynamic list khali thakto — Admin > Payment Methods-er verified method (bKash/Nagad/Rocket Send Money + COD) sthir vabe dekhano holo. */ %>
+      <p class="footer-payments">💳 পেমেন্ট: ক্যাশ অন ডেলিভারি · বিকাশ · নগদ · রকেট</p>
       <p>&copy; <%= new Date().getFullYear() %> <%= siteName %>. All rights reserved.</p>
     </div>
   </footer>
