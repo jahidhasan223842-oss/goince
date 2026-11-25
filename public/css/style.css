@@ -499,8 +499,9 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* Admin login */
-.admin-login-body { display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--navy); }
-.admin-login-box { background: var(--surface); padding: 40px; border-radius: 8px; width: 320px; }
+.admin-login-body { display: flex; align-items: center; justify-content: center; height: 100vh; background: #eef1f5; }
+.admin-login-box { background: var(--surface); padding: 40px; border-radius: 8px; width: 320px; border: 1px solid #dde3ea; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+.admin-login-box a { color: var(--admin-blue); }
 .admin-login-box h2 { text-align: center; margin-bottom: 20px; color: var(--text-strong); }
 .admin-login-box form { display: flex; flex-direction: column; gap: 10px; }
 .admin-login-box label { font-weight: 600; }
@@ -682,7 +683,7 @@ a { text-decoration: none; color: inherit; }
 .analytics-catbar-row { display:flex; align-items:center; gap:10px; }
 .analytics-catbar-name { flex:0 0 130px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-strong); font-size:13px; }
 .analytics-catbar-track { flex:1; min-width:0; height:12px; background:var(--bg); border-radius:6px; overflow:hidden; }
-.analytics-catbar { height:100%; border-radius:6px; background:linear-gradient(90deg,var(--accent),#4b78ca); }
+.analytics-catbar { height:100%; border-radius:6px; background:linear-gradient(90deg,var(--admin-blue),#4b78ca); }
 .analytics-catbar-value { flex-shrink:0; color:var(--text-strong); font-size:13px; }
 @media (max-width:1100px) { .analytics-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.analytics-main-grid,.analytics-lower-grid { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:650px) { .admin-content { padding:16px; }.analytics-kpi-grid { gap:9px; }.analytics-kpi { padding:13px; }.analytics-kpi-value { font-size:23px; }.analytics-filter { align-items:stretch; }.analytics-filter-presets { width:100%; }.analytics-filter-btn { flex:1; }.analytics-filter label { flex:1; min-width:130px; flex-direction:column; align-items:stretch; }.analytics-filter input[type=date] { width:100%; box-sizing:border-box; }.analytics-apply-btn { flex:1; }.analytics-panel { padding:14px; }.analytics-chart { gap:2px; height:180px; }.analytics-bar-value { font-size:8px; }.analytics-legend-note { display:none; } }
@@ -690,13 +691,30 @@ a { text-decoration: none; color: inherit; }
 
 /* =========================================================
    GOINCE ADMIN — LIGHT / DARK THEME
+   WHMCS look (fix/whmcs-light-theme): the admin LIGHT theme is the
+   WHMCS admin look — light grey content (#eef1f5), white cards,
+   slate sidebar (#2c3e50), white top bar, WHMCS-blue primary
+   (#1a7bb9). Gold must not dominate the admin anymore: the row
+   hover tint is light blue now (was warm gold #fce9b8) and the
+   admin primary buttons/links are blue. The gold logo mark stays
+   as a small brand image only. The DARK theme keeps its navy look
+   and is still available from the theme toggle.
+   NOTE: these vars are admin-only (--admin-bg / --table-stripe /
+   --table-hover are used by admin surfaces only); the shop theme
+   vars in :root above are untouched.
    ========================================================= */
 :root {
-  --admin-bg: #f1f2f6;
+  --admin-bg: #eef1f5;
   /* Admin table stripes + hover — kept separate from --bg-hover/--border so
      the hover colour never matches a stripe colour (see dark block below). */
   --table-stripe: #eef1f6;
-  --table-hover: #fce9b8;
+  --table-hover: #e3f0f8;
+  /* WHMCS admin palette (light theme). */
+  --admin-blue: #1a7bb9;
+  --admin-blue-dark: #146a9e;
+  --admin-blue-soft: #e8f3fa;
+  --admin-slate: #2c3e50;
+  --admin-slate-light: #34495e;
 }
 
 [data-theme="dark"] {
@@ -726,13 +744,16 @@ a { text-decoration: none; color: inherit; }
   align-items: stretch;
 }
 
-/* Sidebar: fixed brand appearance in both themes */
+/* Sidebar: WHMCS look in the light theme — slate blue-grey (#2c3e50)
+   with white text and a blue active highlight. The dark theme keeps
+   the old navy sidebar (see the [data-theme="dark"] overrides in the
+   WHMCS LIGHT THEME block below the shell rules). */
 .admin-sidebar {
   width: 252px;
   min-width: 252px;
   padding: 26px 16px;
-  background: #0a1221;
-  border-right: 1px solid #26354b;
+  background: var(--admin-slate);
+  border-right: 1px solid #22303e;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -740,12 +761,12 @@ a { text-decoration: none; color: inherit; }
   z-index: 700;
 }
 .admin-sidebar h2 {
-  color: #f0a500;
+  color: #ffffff;
   font-size: 22px;
   letter-spacing: .04em;
   padding: 0 12px 22px;
   margin-bottom: 18px;
-  border-bottom: 1px solid #26354b;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
 }
 .admin-sidebar nav { gap: 5px; }
 .admin-sidebar nav a {
@@ -754,31 +775,31 @@ a { text-decoration: none; color: inherit; }
   min-height: 42px;
   padding: 10px 12px;
   border-radius: 9px;
-  color: #aebdd2;
+  color: #c7d2de;
   font-size: 14px;
   font-weight: 550;
   transition: background .22s ease, color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
 .admin-sidebar nav a:hover {
   color: #fff;
-  background: #1d2f4d;
+  background: var(--admin-slate-light);
   transform: translateX(3px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, .28);
 }
 .admin-sidebar nav a:focus-visible {
   color: #fff;
-  background: #17243a;
+  background: var(--admin-slate-light);
 }
 .admin-sidebar nav a[href="/admin/dashboard"],
 .admin-sidebar nav a[aria-current="page"] {
   color: #fff;
-  background: #1a3762;
-  box-shadow: inset 3px 0 #4f8cff;
+  background: var(--admin-blue);
+  box-shadow: inset 3px 0 rgba(255, 255, 255, .85);
 }
 .admin-sidebar nav .logout-link {
   margin-top: 18px;
   color: #ff8c98 !important;
-  border-top: 1px solid #26354b;
+  border-top: 1px solid rgba(255, 255, 255, .12);
   border-radius: 0 0 9px 9px;
   padding-top: 18px;
 }
@@ -797,9 +818,9 @@ a { text-decoration: none; color: inherit; }
 }
 .admin-content p { color: var(--text-muted); }
 .admin-content a:not(.btn-primary):not(.report-tab):not(.analytics-report-link) {
-  color: var(--accent-text);
+  color: var(--admin-blue);
 }
-.admin-content a:hover { color: var(--accent-hover); }
+.admin-content a:hover { color: var(--admin-blue-dark); }
 .admin-page-header { margin-bottom: 24px; }
 .admin-page-header h1,
 .admin-content > h1 {
@@ -818,7 +839,7 @@ a { text-decoration: none; color: inherit; }
 .admin-table th,
 .admin-table td { border-bottom-color: var(--border); }
 .admin-table th {
-  background: var(--bg-hover);
+  background: #f4f6f9;
   color: var(--text-strong);
   font-size: 12px;
   font-weight: 700;
@@ -891,6 +912,37 @@ a { text-decoration: none; color: inherit; }
   border-radius: 8px;
   transition: background .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease;
 }
+/* WHMCS primary action (fix/whmcs-light-theme): blue in the light theme.
+   The shared .btn-primary is gold for the shop — the admin overrides it
+   here. The dark theme keeps the gold button (dark override below). */
+.admin-content .btn-primary,
+.admin-login-box .btn-primary {
+  background: var(--admin-blue);
+  color: #fff;
+}
+@media (hover: hover) {
+  .admin-content .btn-primary:hover,
+  .admin-login-box .btn-primary:hover {
+    background: var(--admin-blue-dark);
+    color: #fff;
+  }
+}
+/* WHMCS secondary action: white with a light border in the light theme. */
+.admin-content .btn-secondary {
+  background: #fff;
+  color: var(--admin-slate);
+  border-color: #cfd8e3;
+}
+@media (hover: hover) {
+  .admin-content .btn-secondary:hover {
+    background: #f4f6f9;
+    color: var(--admin-slate);
+  }
+}
+/* Admin text-button links (roles editor, tables): blue, not shop gold.
+   Scoped to .admin-content — the shop uses .link-btn too (cart/wishlist). */
+.admin-content .link-btn { color: var(--admin-blue); }
+.admin-content .link-btn:hover { color: var(--admin-blue-dark); }
 @media (hover: hover) {
   .admin-content button:hover:not(:disabled),
   .admin-content .btn-primary:hover,
@@ -1026,13 +1078,13 @@ a { text-decoration: none; color: inherit; }
    .report-summary-card or .invoice-box — the hover below then
    applies automatically. Do NOT invent a new row/card class
    with its own hover colour; reuse these.
-   Hover = warm gold tint (var(--table-hover) — the same gold
-   the Orders rows have had since PR #43: #fce9b8 light,
-   #54431c dark, always distinct from both stripes) + a gentle
+   Hover = light blue tint (var(--table-hover) — WHMCS blue since
+   fix/whmcs-light-theme: #e3f0f8 light, #54431c dark, always
+   distinct from both stripes) + a gentle
    lift (translateY(-2px)) + a soft shadow, all in .22s.
    Touch (PR #51): tap korle :hover lege thake — tai shob :hover rule
    @media (hover: hover)-er vitore rakha hoyeche; touch screen-e tap-er
-   por row/card gold/lift hoye thakbe na.
+   por row/card blue/lift hoye thakbe na.
    Table rows: a <tr> itself cannot be transformed (the CSS
    Transforms spec lists table-cell, not table-row, as a
    transformable element), so the lift is applied to the row's
@@ -1138,6 +1190,19 @@ a { text-decoration: none; color: inherit; }
    (column: topbar + content). The sidebar stays full-height
    and sticky on desktop; on mobile it is the same off-canvas
    drawer as before (PR #38/#51) and the topbar stays sticky.
+
+   TOPBAR BUG (fix/whmcs-light-theme): the header used to carry
+   BOTH classes "admin-topbar admin-mobile-topbar" while the CSS
+   had ".admin-mobile-topbar { display: none; }" AFTER the
+   ".admin-topbar { display: flex; }" rule — same specificity, so
+   the later rule won and the whole top bar was invisible on
+   desktop (it only re-appeared inside the 768px media query).
+   The header now carries only "admin-topbar", the hiding rule
+   is deleted, and the mobile block styles .admin-topbar directly.
+   NEVER add a second class to the header that hides it again.
+   WHMCS look: the top bar is WHITE with dark text in the light
+   theme (dark theme keeps the old navy bar — see the
+   [data-theme="dark"] overrides at the end of this section).
    ========================================================= */
 .admin-main-col {
   flex: 1;
@@ -1149,14 +1214,14 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #0a1221;
-  color: #fff;
+  background: #ffffff;
+  color: var(--admin-slate);
   padding: 0 16px;
   min-height: 56px;
   position: sticky;
   top: 0;
   z-index: 800;
-  border-bottom: 1px solid #26354b;
+  border-bottom: 1px solid #dde3ea;
   flex-shrink: 0;
 }
 .admin-menu-btn { display: none; }
@@ -1164,7 +1229,7 @@ a { text-decoration: none; color: inherit; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #f0a500 !important;
+  color: var(--admin-slate) !important;
   font-weight: 700;
   font-size: 17px;
   white-space: nowrap;
@@ -1182,20 +1247,20 @@ a { text-decoration: none; color: inherit; }
   flex: 1;
   min-width: 0;
   height: 40px;
-  background: #1d2f4d;
-  border: 1px solid #26354b;
+  background: #f4f6f9;
+  border: 1px solid #cfd8e3;
   border-radius: 8px;
-  color: #fff;
+  color: var(--admin-slate);
   padding: 0 12px;
   font-size: 14px;
 }
-.admin-topbar-search input[type="search"]::placeholder { color: #8fa1b8; }
+.admin-topbar-search input[type="search"]::placeholder { color: #7a8a9c; }
 .admin-topbar-search button {
   flex-shrink: 0;
   width: 44px;
   height: 40px;
-  background: var(--accent);
-  color: #1a1a2e;
+  background: var(--admin-blue);
+  color: #fff;
   border: none;
   border-radius: 8px;
   font-size: 16px;
@@ -1207,9 +1272,9 @@ a { text-decoration: none; color: inherit; }
   position: relative;
   width: 44px;
   height: 44px;
-  background: #1d2f4d;
-  color: #fff;
-  border: 1px solid #26354b;
+  background: #f4f6f9;
+  color: var(--admin-slate);
+  border: 1px solid #cfd8e3;
   border-radius: 9px;
   font-size: 18px;
   cursor: pointer;
@@ -1235,9 +1300,9 @@ a { text-decoration: none; color: inherit; }
   gap: 8px;
   min-height: 44px;
   padding: 6px 12px;
-  background: #1d2f4d;
-  color: #fff;
-  border: 1px solid #26354b;
+  background: #f4f6f9;
+  color: var(--admin-slate);
+  border: 1px solid #cfd8e3;
   border-radius: 9px;
   cursor: pointer;
 }
@@ -1247,19 +1312,21 @@ a { text-decoration: none; color: inherit; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #2c4a73;
+  background: var(--admin-blue);
+  color: #fff;
   border-radius: 50%;
   font-size: 15px;
   flex-shrink: 0;
 }
 .admin-user-name { font-weight: 700; font-size: 14px; }
-.admin-user-role { font-size: 11px; color: #aebdd2; }
+.admin-user-role { font-size: 11px; color: #7a8a9c; }
 .admin-topbar .theme-toggle-btn {
   width: 44px;
   height: 44px;
   flex-shrink: 0;
-  background: #1d2f4d;
-  border: 1px solid #26354b;
+  background: #f4f6f9;
+  color: var(--admin-slate);
+  border: 1px solid #cfd8e3;
   border-radius: 9px;
   font-size: 17px;
 }
@@ -1303,13 +1370,92 @@ a { text-decoration: none; color: inherit; }
   .admin-dropdown-menu a:hover { background: var(--bg-hover); color: var(--text) !important; }
 }
 
+/* WHMCS LIGHT THEME — dark overrides (fix/whmcs-light-theme): the dark
+   theme keeps the old navy admin (navy top bar + navy sidebar + gold
+   primary buttons), so anyone who toggles to dark still gets the look
+   they had before this PR. Only the light theme is WHMCS. */
+[data-theme="dark"] .admin-topbar {
+  background: #0a1221;
+  color: #fff;
+  border-bottom-color: #26354b;
+}
+[data-theme="dark"] .admin-topbar-brand { color: #f0a500 !important; }
+[data-theme="dark"] .admin-topbar-search input[type="search"] {
+  background: #1d2f4d;
+  border-color: #26354b;
+  color: #fff;
+}
+[data-theme="dark"] .admin-topbar-search input[type="search"]::placeholder { color: #8fa1b8; }
+[data-theme="dark"] .admin-topbar-search button {
+  background: var(--accent);
+  color: #1a1a2e;
+}
+[data-theme="dark"] .admin-bell-btn,
+[data-theme="dark"] .admin-user-btn,
+[data-theme="dark"] .admin-topbar .theme-toggle-btn {
+  background: #1d2f4d;
+  border-color: #26354b;
+  color: #fff;
+}
+[data-theme="dark"] .admin-user-avatar { background: #2c4a73; }
+[data-theme="dark"] .admin-user-role { color: #aebdd2; }
+[data-theme="dark"] .admin-sidebar {
+  background: #0a1221;
+  border-right-color: #26354b;
+}
+[data-theme="dark"] .admin-sidebar h2 {
+  color: #f0a500;
+  border-bottom-color: #26354b;
+}
+[data-theme="dark"] .admin-sidebar nav a { color: #aebdd2; }
+[data-theme="dark"] .admin-sidebar nav a:hover { background: #1d2f4d; }
+[data-theme="dark"] .admin-sidebar nav a:focus-visible { background: #17243a; }
+[data-theme="dark"] .admin-sidebar nav a[href="/admin/dashboard"],
+[data-theme="dark"] .admin-sidebar nav a[aria-current="page"] {
+  background: #1a3762;
+  box-shadow: inset 3px 0 #4f8cff;
+}
+[data-theme="dark"] .admin-sidebar nav .logout-link { border-top-color: #26354b; }
+[data-theme="dark"] .admin-nav-group-btn { color: #8a8aa0; }
+[data-theme="dark"] .admin-breadcrumb a { color: #8bb4ff; }
+[data-theme="dark"] .admin-content .link-btn { color: #8bb4ff; }
+[data-theme="dark"] .admin-content .link-btn:hover { color: #b5ceff; }
+[data-theme="dark"] .admin-content .btn-primary,
+[data-theme="dark"] .admin-login-box .btn-primary {
+  background: var(--accent);
+  color: var(--navy);
+}
+@media (hover: hover) {
+  [data-theme="dark"] .admin-content .btn-primary:hover,
+  [data-theme="dark"] .admin-login-box .btn-primary:hover {
+    background: var(--accent-hover);
+    color: var(--navy);
+  }
+  [data-theme="dark"] .admin-content .btn-secondary:hover {
+    background: var(--navy-2);
+    color: #fff;
+  }
+}
+[data-theme="dark"] .admin-content .btn-secondary {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--border-strong);
+}
+[data-theme="dark"] .admin-table th { background: var(--bg-hover); }
+[data-theme="dark"] .admin-login-body { background: var(--navy); }
+[data-theme="dark"] .theme-toggle-fixed {
+  background: #17243a;
+  color: #e5edf8;
+  border-color: #3a4d68;
+}
+
 /* Breadcrumb: Dashboard / Group / Page — same on every admin page. */
 .admin-breadcrumb {
   font-size: 13px;
   color: var(--text-muted);
   margin-bottom: 18px;
 }
-.admin-breadcrumb a { color: var(--accent-text); }
+.admin-breadcrumb a { color: var(--admin-blue); }
 .admin-breadcrumb [aria-current="page"] { color: var(--text-strong); font-weight: 600; }
 
 /* Sidebar: collapsible groups + count badges. The group button replaces
@@ -1321,7 +1467,7 @@ a { text-decoration: none; color: inherit; }
   width: 100%;
   background: none;
   border: none;
-  color: #8a8aa0;
+  color: #93a5b5;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1336,8 +1482,8 @@ a { text-decoration: none; color: inherit; }
 .admin-nav-group-btn[aria-expanded="false"] .admin-nav-group-chevron { transform: rotate(-90deg); }
 .admin-nav-items.collapsed { display: none; }
 .admin-nav-badge {
-  background: var(--accent);
-  color: #1a1a2e;
+  background: var(--admin-blue);
+  color: #fff;
   font-size: 11px;
   font-weight: 700;
   border-radius: 10px;
@@ -1366,13 +1512,13 @@ a { text-decoration: none; color: inherit; }
   font-size: 14px;
 }
 .admin-content .admin-tab.is-active {
-  background: var(--navy);
+  background: var(--admin-blue);
   color: #fff;
-  border-color: var(--navy);
+  border-color: var(--admin-blue);
 }
 @media (hover: hover) {
   .admin-content .admin-tab:hover { background: var(--bg-hover); color: var(--text); }
-  .admin-content .admin-tab.is-active:hover { background: var(--navy); color: #fff; }
+  .admin-content .admin-tab.is-active:hover { background: var(--admin-blue-dark); color: #fff; }
 }
 
 /* Analytics */
@@ -1414,13 +1560,14 @@ a { text-decoration: none; color: inherit; }
 }
 .status-badge { filter: saturate(.9); }
 
-/* Fixed theme toggle */
+/* Fixed theme toggle — white in the WHMCS light theme (dark theme
+   keeps the navy button, see the dark overrides above). */
 .theme-toggle-fixed {
   bottom: 20px;
   right: 20px;
-  background: #17243a;
-  color: #e5edf8;
-  border: 1px solid #3a4d68;
+  background: #ffffff;
+  color: var(--admin-slate);
+  border: 1px solid #cfd8e3;
 }
 
 /* Dark theme-specific analytics and link colors */
@@ -1735,8 +1882,12 @@ a { text-decoration: none; color: inherit; }
 
 /* Shop + admin — kono chobi page-er baire jabe na. */
 img, video { max-width: 100%; }
-/* Admin hamburger topbar + overlay: desktop-e lukano thake. */
-.admin-mobile-topbar { display: none; }
+/* Admin sidebar overlay: desktop-e lukano thake (drawer khulle JS
+   .open class dey). NOTE (fix/whmcs-light-theme): the admin top bar
+   used to be hidden on desktop by ".admin-mobile-topbar { display:
+   none; }" here — that rule is DELETED. The top bar (.admin-topbar)
+   is visible at every width; only the hamburger button and the
+   collapsed search are mobile-only (see the 768px block). */
 .admin-sidebar-overlay { display: none; }
 /* Staff page-er table wrap (.admin-table-wrap-er kono CSS chilo na, tai
    choto screen-e table page-er baire chole jeto) — .table-responsive-er motoi. */
@@ -1752,7 +1903,7 @@ img, video { max-width: 100%; }
 .role-perm-group legend { font-weight: 700; padding: 0 6px; }
 .perm-check-row { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
 .perm-check-row:last-child { border-bottom: none; }
-.perm-check-row input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--accent); cursor: pointer; }
+.perm-check-row input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--admin-blue); cursor: pointer; }
 .perm-check-row input[type="checkbox"]:disabled { cursor: not-allowed; }
 
 @media (max-width: 768px) {
@@ -1835,20 +1986,20 @@ img, video { max-width: 100%; }
        hover lege thakbe na.
      - floating button: admin-e fixed bottom-right button bosabe na
        (theme toggle topbar-er vitore thake). */
-  /* Hamburger topbar: shudhu phone-e dekha jay, desktop-e display:none. */
-  .admin-mobile-topbar {
-    display: flex; align-items: center; gap: 12px;
-    background: #0a1221; color: #fff;
-    padding: 0 12px; height: 52px; flex-shrink: 0;
+  /* Hamburger topbar: the top bar is visible at EVERY width
+     (fix/whmcs-light-theme) — on phones it is 52px tall and the
+     hamburger opens the off-canvas drawer. */
+  .admin-topbar {
+    height: 52px; min-height: 52px;
+    padding: 0 12px;
     position: sticky; top: 0; z-index: 850;
   }
   .admin-menu-btn {
     width: 44px; height: 44px; flex-shrink: 0;
-    background: #1d2f4d; color: #fff;
-    border: 1px solid #26354b; border-radius: 8px;
+    background: #f4f6f9; color: var(--admin-slate);
+    border: 1px solid #cfd8e3; border-radius: 8px;
     font-size: 20px; line-height: 1; cursor: pointer;
   }
-  .admin-mobile-title { font-weight: 700; color: #f0a500; font-size: 17px; }
 
   /* Sidebar: age 252px fixed sidebar + 100vh height niye content-er upore
      puro menu (~1000px) boshe jeto — content dekhte onek scroll kora lagto,
@@ -1937,9 +2088,9 @@ img, video { max-width: 100%; }
 
   /* Theme toggle: mobile-e floating button (niche dan dike) page-er
      shesher pagination/action button dheke felto. Ekhon topbar-er vitore
-     thakbe (desktop-e topbar lukano, tai floating button-i thakbe). */
+     thakbe, tai mobile-e floating button lukano thake. */
   .theme-toggle-fixed { display: none; }
-  .admin-mobile-topbar .theme-toggle-btn { margin-left: auto; }
+  .admin-topbar .theme-toggle-btn { margin-left: auto; }
 
   /* WHMCS-style top bar on mobile (fix/whmcs-style-admin): hamburger +
      logo + 🔍 + bell + user + theme, all 44px. The search box is hidden
@@ -1958,8 +2109,8 @@ img, video { max-width: 100%; }
     max-width: none;
     margin: 0;
     padding: 10px 12px;
-    background: #0a1221;
-    border-bottom: 1px solid #26354b;
+    background: #ffffff;
+    border-bottom: 1px solid #dde3ea;
   }
   .admin-topbar-search.open { display: flex; }
   .admin-topbar-search-btn {
@@ -1969,12 +2120,29 @@ img, video { max-width: 100%; }
     width: 44px;
     height: 44px;
     flex-shrink: 0;
-    background: #1d2f4d;
-    color: #fff;
-    border: 1px solid #26354b;
+    background: #f4f6f9;
+    color: var(--admin-slate);
+    border: 1px solid #cfd8e3;
     border-radius: 9px;
     font-size: 17px;
     cursor: pointer;
+  }
+  /* Dark theme on mobile: the top bar, hamburger and search row keep
+     the old navy look (light theme above is WHMCS white). */
+  [data-theme="dark"] .admin-topbar { background: #0a1221; border-bottom-color: #26354b; }
+  [data-theme="dark"] .admin-menu-btn {
+    background: #1d2f4d;
+    color: #fff;
+    border-color: #26354b;
+  }
+  [data-theme="dark"] .admin-topbar-search {
+    background: #0a1221;
+    border-bottom-color: #26354b;
+  }
+  [data-theme="dark"] .admin-topbar-search-btn {
+    background: #1d2f4d;
+    color: #fff;
+    border-color: #26354b;
   }
   .admin-user-name, .admin-user-role { display: none; }
   .admin-user-btn { padding: 6px; }

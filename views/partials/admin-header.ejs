@@ -22,14 +22,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin - <%= siteName %></title>
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#1a1a2e">
+  <meta name="theme-color" content="#ffffff">
   <% if (typeof csrfToken !== 'undefined' && csrfToken) { %><meta name="csrf-token" content="<%= csrfToken %>"><% } %>
   <link rel="icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
   <link rel="apple-touch-icon" href="<%= (typeof siteSettings !== 'undefined' && siteSettings.favicon_url) ? siteSettings.favicon_url : '/icons/icon-192.png' %>">
   <script>
     (function () {
-      var t = localStorage.getItem('goince-theme') || 'dark';
-      document.documentElement.setAttribute('data-theme', t);
+      /* One-time theme reset (fix/whmcs-light-theme): the WHMCS light look
+         is the new admin default. A browser that already stored 'dark'
+         (the old default) is reset to 'light' ONCE; after that the
+         theme toggle choice is respected and never reset again. */
+      var MIGRATION_KEY = 'goince-theme-whmcs-v1';
+      var stored = null;
+      try {
+        if (!localStorage.getItem(MIGRATION_KEY)) {
+          localStorage.setItem('goince-theme', 'light');
+          localStorage.setItem(MIGRATION_KEY, '1');
+        }
+        stored = localStorage.getItem('goince-theme');
+      } catch (e) {}
+      document.documentElement.setAttribute('data-theme', stored || 'light');
     })();
   </script>
   <link rel="stylesheet" href="<%= typeof assetUrl === 'function' ? assetUrl('/css/style.css') : '/css/style.css' %>">
@@ -128,7 +140,7 @@
     </aside>
     <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
     <div class="admin-main-col">
-      <header class="admin-topbar admin-mobile-topbar">
+      <header class="admin-topbar">
         <button type="button" class="admin-menu-btn" id="admin-menu-btn" aria-expanded="false" aria-controls="admin-sidebar" aria-label="Menu">☰</button>
         <a class="admin-topbar-brand" href="<%= _landing %>"><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <span><%= siteName %> Admin</span></a>
         <form class="admin-topbar-search" id="admin-topbar-search" method="GET" action="/admin/search" role="search">

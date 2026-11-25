@@ -213,7 +213,7 @@ async function waitForServer(tries = 50) {
   check('admin dashboard renders 200', dash.status === 200, 'got ' + dash.status);
   check('dashboard has hamburger toggle button', has(dash.text, 'id="admin-menu-btn"'));
   check('dashboard has sidebar overlay', has(dash.text, 'id="admin-sidebar-overlay"'));
-  check('dashboard has mobile topbar', has(dash.text, 'admin-mobile-topbar'));
+  check('dashboard has topbar', has(dash.text, 'admin-topbar'));
   check('dashboard sidebar has id for toggle', has(dash.text, 'id="admin-sidebar"'));
 
   const orders = await get('/admin/invoices');
@@ -235,7 +235,7 @@ async function waitForServer(tries = 50) {
   check('style.css serves 200', cssRes.status === 200, 'got ' + cssRes.status);
   check('mobile media query present', has(css, '@media (max-width: 768px)'));
   check('mobile off-canvas sidebar rule present', has(css, 'translateX(-105%)') && has(css, '.admin-sidebar.open'));
-  check('mobile topbar + hamburger rules present', has(css, '.admin-mobile-topbar') && has(css, '.admin-menu-btn'));
+  check('topbar + hamburger rules present', has(css, '.admin-topbar') && has(css, '.admin-menu-btn'));
   check('checkout min-width overflow fix present', has(css, '.checkout-form { min-width: 0'));
   check('mobile 2-column product grid present', has(css, 'grid-template-columns: repeat(2, 1fr)'));
   check('iOS zoom guard (16px inputs) present', has(css, 'input, select, textarea { font-size: 16px; }'));

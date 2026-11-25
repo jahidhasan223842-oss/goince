@@ -217,7 +217,7 @@ console.log('CSS — theme toggle moves into the topbar on mobile');
 check('floating theme toggle is hidden on mobile',
   /\.theme-toggle-fixed\s*\{\s*display:\s*none;/.test(mobileAdmin), 'floating toggle not hidden on mobile');
 check('topbar theme toggle is pushed to the right end of the topbar',
-  /\.admin-mobile-topbar \.theme-toggle-btn\s*\{\s*margin-left:\s*auto;/.test(mobileAdmin),
+  /\.admin-topbar \.theme-toggle-btn\s*\{\s*margin-left:\s*auto;/.test(mobileAdmin),
   'topbar toggle rule missing');
 
 console.log('CSS — print unwraps .table-responsive');
@@ -304,8 +304,8 @@ const dashLocals = {
 };
 
 const cases = [
-  { view: 'dashboard', need: 'admin-mobile-topbar', locals: dashLocals },
-  { view: 'dashboard', need: 'admin-mobile-theme-btn', locals: dashLocals },
+  { view: 'dashboard', need: 'admin-topbar', locals: dashLocals },
+  { view: 'dashboard', need: 'admin-topbar-theme-btn', locals: dashLocals },
   { view: 'dashboard', need: 'admin-menu-btn', locals: dashLocals },
   { view: 'dashboard', need: 'Calls &amp; Activity', locals: dashLocals },
   { view: 'dashboard', need: '/admin/orders?status=Pending', locals: dashLocals },
