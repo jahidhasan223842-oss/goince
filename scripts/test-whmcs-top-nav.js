@@ -312,10 +312,14 @@ function navSlice(html, marker) {
     ['Shop', 'Sales', 'Communication', 'System'].every((g) => topnav.includes('>' + g + ' <')) &&
     (topnav.match(/data-topnav-btn/g) || []).length === 4,
     'a dropdown group is missing from the top nav');
-  check('View Site + Logout are in both the top nav and the drawer',
-    topnav.includes('🌐 View Site') && topnav.includes('/admin/logout') &&
-    drawer.includes('🌐 View Site') && drawer.includes('/admin/logout'),
-    'View Site/Logout missing from a nav');
+  // (fix/admin-profile-section): the standalone Logout links in the top
+  // nav and the drawer are gone — Logout lives only in the profile
+  // dropdown menu in the top bar. View Site stays in both places.
+  check('View Site is in both the top nav and the drawer; Logout is only in the profile menu',
+    topnav.includes('🌐 View Site') && !topnav.includes('/admin/logout') &&
+    drawer.includes('🌐 View Site') && !drawer.includes('/admin/logout') &&
+    dash.includes('admin-profile-menu-link admin-profile-menu-logout'),
+    'View Site missing from a nav, or a standalone Logout remains');
   check('top nav and drawer both list every link (Products…Roles, 22 links)',
     ['/admin/products', '/admin/products/import', '/admin/attributes', '/admin/stock-alerts',
       '/admin/categories', '/admin/banners', '/admin/inventory', '/admin/invoices', '/admin/activity',

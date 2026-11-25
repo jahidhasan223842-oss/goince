@@ -20,10 +20,10 @@
       if (link.pathname === window.location.pathname) link.setAttribute('aria-current', 'page');
     });
 
-    // WHMCS-style top-bar dropdowns (fix/whmcs-style-admin): bell + admin
-    // menu. Button chaple khole, baire chaple / Esc chaple bondho hoy.
-    // Ekta khola thakle arekta bondho hoye jay. Top nav dropdowns
-    // (fix/whmcs-top-nav) follow the same close rules.
+    // WHMCS-style top-bar dropdowns (fix/whmcs-style-admin): bell + profile
+    // menu. Button chaple khole, baire chaple / Esc chaple / focus
+    // beriye gele bondho hoy. Ekta khola thakle arekta bondho hoye jay.
+    // Top nav dropdowns (fix/whmcs-top-nav) follow the same close rules.
     function closeAdminDropdowns(exceptBtn) {
       document.querySelectorAll('[data-dropdown-btn]').forEach(function (btn) {
         if (btn === exceptBtn) return;
@@ -48,6 +48,17 @@
         menu.classList.toggle('open', willOpen);
         btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
       });
+      // Focus leaving the dropdown (bell / profile menu) closes it, so
+      // the button state follows the keyboard too — same as the top nav.
+      var wrap = btn.parentElement;
+      if (wrap) {
+        wrap.addEventListener('focusout', function (e) {
+          if (wrap.contains(e.relatedTarget)) return;
+          var menu = wrap.querySelector('.admin-dropdown-menu');
+          if (menu) menu.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        });
+      }
     });
     // Top nav dropdowns (fix/whmcs-top-nav): same click latch as the
     // bell/user menus. Hover/focus opening is pure CSS (:hover +

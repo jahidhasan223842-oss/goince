@@ -1,0 +1,54 @@
+<%- include('../partials/admin-header') %>
+
+<% const _name = (typeof adminName !== 'undefined' && adminName) ? String(adminName) : 'Admin'; %>
+<% const _email = (typeof adminEmail !== 'undefined' && adminEmail) ? String(adminEmail) : ''; %>
+<% const _role = (typeof adminRoleLabel !== 'undefined' && adminRoleLabel) ? String(adminRoleLabel) : 'Owner'; %>
+<% const _initial = _name.charAt(0).toUpperCase(); %>
+<% const _since = (typeof memberSince !== 'undefined' && memberSince) ? memberSince : null; %>
+<% const _emailOk = (typeof emailConfigured !== 'undefined' && emailConfigured); %>
+
+<h1>My Profile</h1>
+<p class="field-hint">Your admin account — sign-in details, password and recovery.</p>
+
+<% if (typeof pwMessage !== 'undefined' && pwMessage) { %><p class="<%= (typeof pwOk !== 'undefined' && pwOk) ? 'success-msg' : 'error-msg' %>" style="text-align:left;"><%= pwMessage %></p><% } %>
+
+<div class="admin-profile-card">
+  <div class="admin-profile-overview">
+    <span class="admin-user-avatar admin-profile-avatar" aria-hidden="true"><%= _initial %></span>
+    <div class="admin-profile-details">
+      <h2 class="admin-profile-name"><%= _name %></h2>
+      <div class="admin-profile-field"><span class="admin-profile-label">Email</span><span><%= _email %></span></div>
+      <div class="admin-profile-field"><span class="admin-profile-label">Role</span><span class="admin-profile-role-badge"><%= _role %></span></div>
+      <% if (_since) { %><div class="admin-profile-field"><span class="admin-profile-label">Member since</span><span><%= _since %></span></div><% } %>
+    </div>
+  </div>
+  <p class="field-hint" style="margin-bottom:0;">Your email is the address you sign in with — it cannot be changed from this page.</p>
+</div>
+
+<div class="admin-profile-card" id="change-password">
+  <h2>🔑 Change Password</h2>
+  <p class="field-hint">Change the password you use to sign in to the admin panel.</p>
+  <form action="/admin/settings/change-password" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
+    <input type="hidden" name="return_to" value="/admin/profile">
+    <label>Current Password</label>
+    <input type="password" name="current_password" required autocomplete="current-password">
+    <label>New Password (at least 6 characters)</label>
+    <input type="password" name="new_password" required autocomplete="new-password">
+    <label>Confirm New Password</label>
+    <input type="password" name="confirm_password" required autocomplete="new-password">
+    <button type="submit" class="btn-primary">Change Password</button>
+  </form>
+</div>
+
+<div class="admin-profile-card" id="forgot-password">
+  <h2>✉️ Forgot Password</h2>
+  <p class="field-hint">Forgot your password? Request a reset link for your admin email — it is valid for 1 hour.</p>
+  <% if (_emailOk) { %>
+    <p>A reset link will be emailed to the address you enter on the next page.</p>
+  <% } else { %>
+    <p>Email is not set up on the server yet, so the reset link will be shown on screen after you submit the form instead of being emailed.</p>
+  <% } %>
+  <a href="/admin/forgot-password" class="btn-secondary" style="text-decoration:none;">Request a reset link</a>
+</div>
+
+<%- include('../partials/admin-footer') %>
