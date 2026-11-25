@@ -1,0 +1,60 @@
+<%- include('../partials/admin-header') %>
+
+<% const _roles = (typeof roles !== 'undefined' && Array.isArray(roles)) ? roles : []; %>
+
+<div class="admin-page-header">
+  <h1>Roles &amp; Permissions</h1>
+  <p style="color:#666;">Create your own roles and tick exactly what each role can do. System roles (Owner, Manager, Staff) cannot be edited or deleted — they keep the access they always had.</p>
+</div>
+
+<% if (message) { %><p class="success-msg"><%= message %></p><% } %>
+<% if (error) { %><p class="error-msg"><%= error %></p><% } %>
+
+<p style="margin-bottom:16px;">
+  <a href="/admin/roles/add" class="btn-primary" style="text-decoration:none; display:inline-block; padding:10px 18px;">+ Create Custom Role</a>
+  <a href="/admin/staff" class="btn-secondary" style="text-decoration:none; display:inline-block; padding:10px 18px; margin-left:8px;">← Back to Staff</a>
+</p>
+
+<div class="admin-table-wrap">
+  <table class="admin-table">
+    <thead>
+      <tr><th>Role</th><th>Description</th><th>Permissions</th><th>Staff using it</th><th></th></tr>
+    </thead>
+    <tbody>
+      <% _roles.forEach(r => { %>
+        <tr>
+          <td>
+            <strong><%= r.name %></strong>
+            <% if (r.is_system) { %><br><span class="status-badge status-confirmed">System role</span><% } else { %><br><span class="status-badge status-delivered">Custom role</span><% } %>
+          </td>
+          <td><%= r.description || '-' %></td>
+          <td>
+            <% if (r.is_system && r.name === 'Owner') { %>
+              All permissions
+            <% } else { %>
+              <%= (r.permissions || []).length %> permission(s)
+              <% if ((r.permissions || []).length) { %><br><small style="color:var(--text-muted);"><%= (r.permissions || []).slice(0, 4).join(', ') %><%= (r.permissions || []).length > 4 ? '…' : '' %></small><% } %>
+            <% } %>
+          </td>
+          <td><%= Number(r.member_count || 0) %></td>
+          <td style="white-space:nowrap;">
+            <a href="/admin/roles/edit/<%= r.id %>"><%= r.is_system ? 'View' : 'Edit' %></a>
+            <% if (!r.is_system) { %>
+              |
+              <form action="/admin/roles/delete/<%= r.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Delete the role &quot;<%= r.name %>&quot;? Staff using it must be moved first.');"><%- include('../partials/csrf-field') %>
+                <button type="submit" class="link-btn-danger">Delete</button>
+              </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!_roles.length) { %>
+        <tr><td colspan="5" style="color:var(--text-muted);">No roles found.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<p style="color:var(--text-muted); margin-top:16px;">Tip: when a new admin feature is added later, it appears automatically in the role editor — open the role and tick it on or off.</p>
+
+<%- include('../partials/admin-footer') %>

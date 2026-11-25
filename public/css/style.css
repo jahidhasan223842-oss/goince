@@ -1492,6 +1492,19 @@ img, video { max-width: 100%; }
    choto screen-e table page-er baire chole jeto) — .table-responsive-er motoi. */
 .admin-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
 
+/* ===== fix/custom-roles-permissions: role editor (Roles & Permissions) =====
+   Permission checkboxes are grouped by sidebar section (SHOP / SALES /
+   COMMUNICATION / SYSTEM) and rendered from lib/permissions.js. Rows are
+   44px tall so they are thumb-sized on mobile; checkboxes are 20px. */
+.link-btn { background: none; border: none; color: var(--accent); cursor: pointer; text-decoration: underline; padding: 0; font-size: inherit; }
+.link-btn:hover { color: var(--accent-hover); }
+.role-perm-group { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px 8px; margin: 0 0 16px; }
+.role-perm-group legend { font-weight: 700; padding: 0 6px; }
+.perm-check-row { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.perm-check-row:last-child { border-bottom: none; }
+.perm-check-row input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--accent); cursor: pointer; }
+.perm-check-row input[type="checkbox"]:disabled { cursor: not-allowed; }
+
 @media (max-width: 768px) {
   /* ---------- SHOP ---------- */
   .container { padding: 0 14px; }

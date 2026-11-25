@@ -27,41 +27,40 @@
     <aside class="admin-sidebar" id="admin-sidebar">
       <h2><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <%= siteName %></h2>
       <nav>
-        <% const _ar = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
-        <% if (_ar !== 'staff') { %><a href="/admin/dashboard">🏠 Dashboard</a><% } %>
-        <p class="admin-nav-group">Shop</p>
-        <a href="/admin/products">📦 Products</a>
-        <% if (_ar !== 'staff') { %>
+        <% const _perms = (typeof adminPermissions !== 'undefined' && Array.isArray(adminPermissions)) ? adminPermissions : null; %>
+        <% const _can = (p) => !_perms || _perms.includes(p); %>
+        <% const _any = (...ps) => ps.some((p) => _can(p)); %>
+        <% if (_can('dashboard.view')) { %><a href="/admin/dashboard">🏠 Dashboard</a><% } %>
+        <% if (_any('products.view', 'products.manage', 'products.variants', 'categories.manage', 'banners.manage', 'stock-alerts.manage', 'inventory.manage')) { %><p class="admin-nav-group">Shop</p><% } %>
+        <% if (_can('products.view')) { %><a href="/admin/products">📦 Products</a><% } %>
+        <% if (_can('products.manage')) { %>
         <a href="/admin/products/import">⇪ Import Products</a>
-        <a href="/admin/attributes">🧩 Attributes</a>
-        <a href="/admin/stock-alerts">🔔 Stock Alerts</a>
-        <a href="/admin/categories">🗂️ Categories</a>
-        <a href="/admin/banners">🖼️ Banners</a>
-        <a href="/admin/inventory">📋 Inventory</a>
         <% } %>
-        <p class="admin-nav-group">Sales</p>
-        <a href="/admin/invoices">🛒 Orders</a>
-        <a href="/admin/activity">📞 Calls &amp; Activity</a>
-        <% if (_ar !== 'staff') { %>
-        <a href="/admin/reports">📊 Reports</a>
-        <a href="/admin/customers">👥 Customers</a>
-        <a href="/admin/coupons">🎟️ Coupons</a>
-        <% } %>
-        <% if (_ar === 'owner') { %>
-        <a href="/admin/payment-methods">💳 Payment Methods</a>
-        <a href="/admin/delivery-zones">🚚 Delivery Zones</a>
-        <% } %>
-        <% if (_ar !== 'staff') { %>
+        <% if (_can('products.variants')) { %><a href="/admin/attributes">🧩 Attributes</a><% } %>
+        <% if (_can('stock-alerts.manage')) { %><a href="/admin/stock-alerts">🔔 Stock Alerts</a><% } %>
+        <% if (_can('categories.manage')) { %><a href="/admin/categories">🗂️ Categories</a><% } %>
+        <% if (_can('banners.manage')) { %><a href="/admin/banners">🖼️ Banners</a><% } %>
+        <% if (_can('inventory.manage')) { %><a href="/admin/inventory">📋 Inventory</a><% } %>
+        <% if (_any('orders.view', 'activity.view', 'reports.view', 'customers.manage', 'coupons.manage', 'payment-methods.manage', 'delivery-zones.manage')) { %><p class="admin-nav-group">Sales</p><% } %>
+        <% if (_can('orders.view')) { %><a href="/admin/invoices">🛒 Orders</a><% } %>
+        <% if (_can('activity.view')) { %><a href="/admin/activity">📞 Calls &amp; Activity</a><% } %>
+        <% if (_can('reports.view')) { %><a href="/admin/reports">📊 Reports</a><% } %>
+        <% if (_can('customers.manage')) { %><a href="/admin/customers">👥 Customers</a><% } %>
+        <% if (_can('coupons.manage')) { %><a href="/admin/coupons">🎟️ Coupons</a><% } %>
+        <% if (_can('payment-methods.manage')) { %><a href="/admin/payment-methods">💳 Payment Methods</a><% } %>
+        <% if (_can('delivery-zones.manage')) { %><a href="/admin/delivery-zones">🚚 Delivery Zones</a><% } %>
+        <% if (_any('chats.manage', 'messages.manage', 'reviews.manage')) { %>
         <p class="admin-nav-group">Communication</p>
-        <a href="/admin/chats">💬 Live Chat</a>
-        <a href="/admin/messages">✉️ Contact Messages</a>
-        <a href="/admin/reviews">⭐ Reviews</a>
+        <% if (_can('chats.manage')) { %><a href="/admin/chats">💬 Live Chat</a><% } %>
+        <% if (_can('messages.manage')) { %><a href="/admin/messages">✉️ Contact Messages</a><% } %>
+        <% if (_can('reviews.manage')) { %><a href="/admin/reviews">⭐ Reviews</a><% } %>
         <% } %>
-        <% if (_ar === 'owner') { %>
+        <% if (_any('settings.manage', 'test-email.send', 'staff.manage')) { %>
         <p class="admin-nav-group">System</p>
-        <a href="/admin/settings">⚙️ Settings</a>
-        <a href="/admin/test-email">📧 Test Email</a>
-        <a href="/admin/staff">👤 Staff &amp; Roles</a>
+        <% if (_can('settings.manage')) { %><a href="/admin/settings">⚙️ Settings</a><% } %>
+        <% if (_can('test-email.send')) { %><a href="/admin/test-email">📧 Test Email</a><% } %>
+        <% if (_can('staff.manage')) { %><a href="/admin/staff">👤 Staff &amp; Roles</a><% } %>
+        <% if (_can('staff.manage')) { %><a href="/admin/roles">🎭 Roles</a><% } %>
         <% } %>
         <a href="/" target="_blank">🌐 View Site</a>
         <a href="/admin/logout" class="logout-link">Logout</a>

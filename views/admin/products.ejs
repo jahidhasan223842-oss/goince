@@ -1,9 +1,9 @@
 <%- include('../partials/admin-header') %>
 
-<% const _role = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'owner'; %>
+<% const _perms = (typeof adminPermissions !== 'undefined' && Array.isArray(adminPermissions)) ? adminPermissions : null; const _can = (perm) => !_perms || _perms.includes(perm); %>
 <div class="admin-page-header">
   <h1>Products</h1>
-  <% if (_role !== 'staff') { %>
+  <% if (_can('products.manage')) { %>
   <span>
     <a href="/admin/products/add" class="btn-primary">+ Add New Product</a>
     <a href="/admin/products/import" class="btn-secondary">⇪ Import CSV</a>
@@ -66,7 +66,7 @@
         <td style="min-width:160px;">
           <% if (p.video_filename) { %>
             <span style="color:green; font-size:12px;">✓ Video Ready</span><br>
-            <% if (_role !== 'staff') { %><a href="/admin/products/<%= p.id %>/video/download" class="btn-sm" style="margin-top:4px; display:inline-block;">Download</a>
+            <% if (_can('products.manage')) { %><a href="/admin/products/<%= p.id %>/video/download" class="btn-sm" style="margin-top:4px; display:inline-block;">Download</a>
             <form action="/admin/products/<%= p.id %>/video/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this video?');"><%- include('../partials/csrf-field') %>
               <button type="submit" class="link-btn-danger" style="font-size:12px;">Delete</button>
             </form><% } %>
@@ -74,13 +74,13 @@
             <span style="color:var(--text-muted); font-size:12px;">No video</span>
           <% } %>
           <br>
-          <% if (_role !== 'staff') { %><button type="button" class="btn-sm generate-video-btn" data-id="<%= p.id %>" style="margin-top:6px; background:#e94560; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">
+          <% if (_can('products.manage')) { %><button type="button" class="btn-sm generate-video-btn" data-id="<%= p.id %>" style="margin-top:6px; background:#e94560; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">
             🎬 Generate Video
           </button><% } %>
           <span class="video-status" id="status-<%= p.id %>" style="font-size:11px; display:block; margin-top:4px;"></span>
         </td>
         <td>
-          <% if (_role !== 'staff') { %>
+          <% if (_can('products.manage')) { %>
           <a href="/admin/products/edit/<%= p.id %>">Edit</a> |
           <a href="/admin/products/<%= p.id %>/stock-history">History</a> |
           <form action="/admin/products/<%= p.id %>/duplicate" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;">Duplicate</button></form> |
