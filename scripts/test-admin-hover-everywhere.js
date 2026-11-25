@@ -75,7 +75,12 @@ function sectionOf(text, start, end) {
   return text.slice(i, j < 0 ? text.length : j);
 }
 // The unified hover section: from its banner comment to the Analytics section.
-const hoverSection = sectionOf(css, 'ADMIN HOVER SYSTEM', '/* Analytics */');
+const hoverSection = sectionOf(css, 'ADMIN HOVER SYSTEM', 'WHMCS-STYLE ADMIN SHELL');
+// NOTE (fix/whmcs-light-theme): the end marker used to be '/* Analytics */',
+// but the WHMCS shell section (PR #54) now sits between the hover system
+// and the Analytics rules, and its dropdown/tab hovers legitimately use
+// var(--bg-hover) — so the old end marker made the "no bg-hover" hygiene
+// check fail on main. The hover system itself ends at the shell section.
 // The admin reduced-motion block (the first one; the second is shop-only).
 const reducedMotion = sectionOf(css, '/* Respect reduced-motion: no hover lift or transitions in the admin */', '\n}\n');
 
@@ -199,8 +204,8 @@ check('reduced-motion transform:none covers the full admin button selectors',
   'admin button lift escapes reduced motion');
 
 // --- Hygiene: theme variables only, no hardcoded grey, braces balanced ---
-check('gold hover vars defined in both themes',
-  /--table-hover:\s*#fce9b8/.test(css) && /--table-hover:\s*#54431c/.test(css),
+check('hover vars defined in both themes',
+  /--table-hover:\s*#e3f0f8/.test(css) && /--table-hover:\s*#54431c/.test(css),
   'table-hover vars missing');
 check('no hardcoded grey hover colour in the new section',
   !/#888|#999|#666/.test(hoverSection) && !hoverSection.includes('var(--bg-hover)'),
