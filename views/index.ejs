@@ -68,6 +68,10 @@
     <% } else { %>
       <a href="/?category=<%= cat.id %>&sort=<%= sort %>" class="<%= selectedCategory == cat.id ? 'active' : '' %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="cat-thumb"><% } else { %><span class="cat-letter"><%= (cat.display_name || cat.name).charAt(0).toUpperCase() %></span><% } %><span class="cat-name"><%= cat.display_name || cat.name %></span></a>
     <% } %>
+    <% /* Sub-category pill: top-level pill-er dropdown-e thaka sub-category (jemon Kitchen, Home Utility) bar-eo sorasori pill hisebe dekhabe, jate touch-eo khuje paoa jay. */ %>
+    <% pillKids.forEach(function (sub) { %>
+      <a href="/?category=<%= sub.id %>&sort=<%= sort %>" class="cat-sub-pill <%= selectedCategory == sub.id ? 'active' : '' %>"><span class="cat-name"><%= sub.name %></span> <span class="cat-count">(<%= sub.totalProductCount %>)</span></a>
+    <% }) %>
   <% }) %>
 </div>
 
@@ -182,12 +186,12 @@
 </div>
 
 <section class="why-shop">
-  <div class="section-heading"><h2>Why Shop With Goince?</h2></div>
+  <div class="section-heading"><h2>গোইন্স থেকে কেন কিনবেন?</h2></div>
   <div class="why-grid">
-    <div><strong>✅ Cash on Delivery</strong><p>Product hate peye taka dao — age taka dite hoy na.</p></div>
-    <div><strong>🚚 Fast Delivery</strong><p>Dhaka 1–2 din, baire 3–5 din. Order-er age phone-e confirm.</p></div>
-    <div><strong>🔄 Easy Return</strong><p>Defective ba vul product pele 24 ghontar vitore janalei hobe.</p></div>
-    <div><strong>💬 WhatsApp Support</strong><p>Jekono proshne WhatsApp-e likho, amra uttor dibo.</p></div>
+    <div><strong>✅ ক্যাশ অন ডেলিভারি</strong><p>পণ্য হাতে পেয়ে টাকা দিন — আগে টাকা দিতে হয় না।</p></div>
+    <div><strong>🚚 দ্রুত ডেলিভারি</strong><p>ঢাকায় ১–২ দিনে, ঢাকার বাইরে ৩–৫ দিনে ডেলিভারি। অর্ডারের আগে ফোনে কনফার্ম করা হয়।</p></div>
+    <div><strong>🔄 সহজ রিটার্ন</strong><p>ত্রুটিপূর্ণ বা ভুল পণ্য পেলে ২৪ ঘণ্টার ভিতরে জানালেই হবে।</p></div>
+    <div><strong>💬 হোয়াটসঅ্যাপ সাপোর্ট</strong><p>যেকোনো প্রশ্নে হোয়াটসঅ্যাপে লিখুন, আমরা উত্তর দেবো।</p></div>
   </div>
 </section>
 
@@ -196,6 +200,8 @@
   (function () {
     try {
       var items = JSON.parse(localStorage.getItem('goince-recent') || '[]');
+      // Shudhu purno entry (id, naam, chobi) rakhbo — vanga/text-only entry dekhabe na.
+      items = (items || []).filter(function (it) { return it && it.id && it.name && it.image; });
       if (!items.length) return;
       var grid = document.getElementById('recently-viewed-grid');
       grid.innerHTML = items.map(function (it) {
