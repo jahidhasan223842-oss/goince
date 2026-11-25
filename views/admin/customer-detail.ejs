@@ -1,5 +1,12 @@
 <%- include('../partials/admin-header') %>
 
+<% const _perms = (typeof adminPermissions !== 'undefined' && Array.isArray(adminPermissions)) ? adminPermissions : null; %>
+<% const _can = (p) => !_perms || _perms.includes(p); %>
+<% const _tab = (typeof tab !== 'undefined' && ['overview', 'orders', 'messages', 'notes'].includes(tab)) ? tab : 'overview'; %>
+<% const _msgs = (typeof customerMessages !== 'undefined' && Array.isArray(customerMessages)) ? customerMessages : []; %>
+<% const _chats = (typeof customerChats !== 'undefined' && Array.isArray(customerChats)) ? customerChats : []; %>
+<% const _notes = (typeof customer.notes !== 'undefined' && customer.notes) ? customer.notes : ''; %>
+
 <div class="admin-page-header">
   <h1><%= customer.name %></h1>
   <div>
@@ -16,6 +23,16 @@
 
 <p><a href="/admin/customers">&larr; Back to Customers</a></p>
 
+<!-- WHMCS-style client profile tabs (fix/whmcs-style-admin): the same data
+     as before, only organised — Overview / Orders / Messages / Notes. -->
+<nav class="admin-tabs" aria-label="Customer profile">
+  <a class="admin-tab <%= _tab === 'overview' ? 'is-active' : '' %>" href="/admin/customers/<%= customer.id %>?tab=overview">Overview</a>
+  <a class="admin-tab <%= _tab === 'orders' ? 'is-active' : '' %>" href="/admin/customers/<%= customer.id %>?tab=orders">Orders (<%= totalOrders %>)</a>
+  <a class="admin-tab <%= _tab === 'messages' ? 'is-active' : '' %>" href="/admin/customers/<%= customer.id %>?tab=messages">Messages (<%= _msgs.length + _chats.length %>)</a>
+  <a class="admin-tab <%= _tab === 'notes' ? 'is-active' : '' %>" href="/admin/customers/<%= customer.id %>?tab=notes">Notes</a>
+</nav>
+
+<% if (_tab === 'overview') { %>
 <div class="invoice-box" style="margin-bottom:20px;">
   <div class="invoice-grid">
     <div>
@@ -57,9 +74,13 @@
     <p>Last Order</p>
   </div>
 </div>
+<% } %>
 
+<% if (_tab === 'orders') { %>
 <h2>Order History</h2>
-<% if (orders.length === 0) { %>
+<% if (!_can('orders.view')) { %>
+  <p>You don't have permission to view orders.</p>
+<% } else if (orders.length === 0) { %>
   <p>This customer hasn't placed any orders yet.</p>
 <% } else { %>
   <div class="table-responsive">
@@ -81,6 +102,64 @@
     </tbody>
   </table>
   </div>
+<% } %>
+<% } %>
+
+<% if (_tab === 'messages') { %>
+<h2>Contact Messages</h2>
+<% if (!_can('messages.manage')) { %>
+  <p>You don't have permission to view contact messages.</p>
+<% } else if (_msgs.length === 0) { %>
+  <p>No contact messages from this customer.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead><tr><th>Date</th><th>Subject</th><th>Message</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      <% _msgs.forEach(m => { %>
+        <tr>
+          <td><%= new Date(m.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
+          <td><%= m.subject || '-' %></td>
+          <td><%= m.message %></td>
+          <td><span class="status-badge <%= (m.status || 'open') === 'open' ? 'status-pending' : (m.status === 'closed' ? 'status-cancelled' : 'status-delivered') %>"><%= (m.status || 'open') %></span></td>
+          <td><a href="/admin/messages/<%= m.id %>">View</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+<h2>Live Chats</h2>
+<% if (!_can('chats.manage')) { %>
+  <p>You don't have permission to view live chats.</p>
+<% } else if (_chats.length === 0) { %>
+  <p>No live chats with this customer.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead><tr><th>Conversation</th><th>Last activity</th><th></th></tr></thead>
+    <tbody>
+      <% _chats.forEach(c => { %>
+        <tr>
+          <td>#<%= c.id %> — <%= c.customer_name || 'Guest' %></td>
+          <td><%= new Date(c.last_message_at || c.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
+          <td><a href="/admin/chats/<%= c.id %>">Open chat</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+<% } %>
+
+<% if (_tab === 'notes') { %>
+<h2>Admin Notes</h2>
+<p class="field-hint">Private notes about this customer — only admins can see them.</p>
+<form action="/admin/customers/<%= customer.id %>/notes" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
+  <label for="customer-notes">Notes</label>
+  <textarea id="customer-notes" name="notes" rows="6" placeholder="e.g. Prefers evening delivery, always pays by bKash…"><%= _notes %></textarea>
+  <div style="margin-top:12px;"><button type="submit" class="btn-primary">Save Notes</button></div>
+</form>
 <% } %>
 
 <%- include('../partials/admin-footer') %>

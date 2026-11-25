@@ -369,7 +369,11 @@ function dashboardLocals(overrides) {
     adminJs.includes("router.get('/activity', requireAdmin, requirePermission('activity.view')"));
   check('route paginates at 20 per page', adminJs.includes('const PER_PAGE = 20'));
   check('route clamps the page number', adminJs.includes('Math.min(page, totalPages)'));
-  check('dashboard handler no longer queries the phone queue', !adminJs.includes('phoneQueue'));
+  // The queue panels/rows live on /admin/activity (PR #47). The dashboard
+  // only fetches the queue COUNT for the attention-panel link (PR #54).
+  const dashHandler = adminJs.slice(adminJs.indexOf("router.get('/dashboard'"), adminJs.indexOf("router.get('/activity'"));
+  check('dashboard handler fetches only the phone queue COUNT, not the queue rows',
+    dashHandler.includes('phoneQueueCount') && !dashHandler.includes('phoneRows') && !dashHandler.includes('LIMIT ? OFFSET ?'));
   check('dashboard handler no longer queries recent activity', !adminJs.includes('recentActivity'));
   const dashEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'admin', 'dashboard.ejs'), 'utf8');
   check('dashboard.ejs no longer mentions the two panels',

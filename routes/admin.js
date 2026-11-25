@@ -11,7 +11,7 @@ const { isEmailConfigured, sendInvoiceEmail } = require('../config/email');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
-const { ROLES, requirePermission, resolveAdminPermissions } = require('../lib/roles');
+const { ROLES, requirePermission, hasPermission, resolveAdminPermissions } = require('../lib/roles');
 const { PERMISSION_GROUPS, filterGrantable, parsePermissions } = require('../lib/permissions');
 const { buildCategoryTree, flattenTree } = require('../lib/categories');
 
@@ -19,6 +19,75 @@ function requireAdmin(req, res, next) {
   if (req.session.isAdmin) return next();
   res.redirect('/admin/login');
 }
+
+// WHMCS-style shell (fix/whmcs-style-admin): every admin GET page shows the
+// same top bar (bell + badges) and sidebar. The counts are computed once per
+// page load into res.locals — the header partial only reads them, it never
+// queries. Each COUNT is guarded, so a missing table/column can never break
+// a page; a failed count just shows 0. Skipped for non-GET requests, for
+// signed-out visitors, and for the live-chat JSON poll (it renders no page).
+router.use(async (req, res, next) => {
+  res.locals.adminCurrentPath = (req.baseUrl || '') + (req.path || '');
+  if (req.method !== 'GET' || !req.session || !req.session.isAdmin) return next();
+  if (/^\/chats\/\d+\/messages$/.test(req.path || '')) return next();
+  const count = async (sql) => {
+    try {
+      const [[r]] = await db.query(sql);
+      return Number((r && r.c) || 0);
+    } catch (e) { return 0; }
+  };
+  const [pendingOrders, phoneQueue, unreadMessages, pendingReviews, openOrders] = await Promise.all([
+    count("SELECT COUNT(*) AS c FROM orders WHERE status = 'Pending'"),
+    count("SELECT COUNT(*) AS c FROM orders WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)"),
+    count('SELECT COUNT(*) AS c FROM contact_messages WHERE is_read = 0'),
+    count("SELECT COUNT(*) AS c FROM reviews WHERE status = 'pending'"),
+    count("SELECT COUNT(*) AS c FROM orders WHERE status NOT IN ('Delivered', 'Cancelled')"),
+  ]);
+  res.locals.adminNotifications = {
+    pendingOrders, phoneQueue, unreadMessages, pendingReviews, openOrders,
+    total: pendingOrders + phoneQueue + unreadMessages + pendingReviews,
+  };
+  next();
+});
+
+// WHMCS-style global search (fix/whmcs-style-admin): one box in the top bar
+// searches orders (by number or phone), customers (name / phone / email)
+// and products (name). Guarded by requireAdmin only — each section is
+// filtered by the permission that opens it, so a search can never leak a
+// record the admin cannot open (no customers.manage -> no customer results,
+// no orders.view -> no order results, no products.view -> no products).
+router.get('/search', requireAdmin, async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 100);
+  const canOrders = hasPermission(req, 'orders.view');
+  const canCustomers = hasPermission(req, 'customers.manage');
+  const canProducts = hasPermission(req, 'products.view');
+  let orderResults = [], customerResults = [], productResults = [];
+  if (q) {
+    try {
+      if (canOrders) {
+        // A phone number is all digits too — treat a short number as an
+        // order number, anything longer as a phone search (BD numbers are
+        // 11 digits, order ids are small).
+        if (/^\d+$/.test(q) && Number(q) <= 999999) {
+          [orderResults] = await db.query('SELECT id, customer_name, phone, total_amount, status, created_at FROM orders WHERE id = ? ORDER BY created_at DESC LIMIT 10', [Number(q)]);
+        } else {
+          [orderResults] = await db.query('SELECT id, customer_name, phone, total_amount, status, created_at FROM orders WHERE phone LIKE ? ORDER BY created_at DESC LIMIT 10', ['%' + q + '%']);
+        }
+      }
+    } catch (e) { orderResults = []; }
+    try {
+      if (canCustomers) {
+        [customerResults] = await db.query('SELECT id, name, email, phone, created_at FROM users WHERE name LIKE ? OR phone LIKE ? OR email LIKE ? ORDER BY created_at DESC LIMIT 10', ['%' + q + '%', '%' + q + '%', '%' + q + '%']);
+      }
+    } catch (e) { customerResults = []; }
+    try {
+      if (canProducts) {
+        [productResults] = await db.query('SELECT id, name, price, stock FROM products WHERE name LIKE ? ORDER BY id DESC LIMIT 10', ['%' + q + '%']);
+      }
+    } catch (e) { productResults = []; }
+  }
+  res.render('admin/search', { q, searchQuery: q, orderResults, customerResults, productResults, canOrders, canCustomers, canProducts, siteName: 'Goince' });
+});
 
 // ---------- ADD PRODUCT: advanced fields ----------
 function slugify(text) {
@@ -390,6 +459,10 @@ router.get('/dashboard', requireAdmin, requirePermission('dashboard.view'), asyn
     let pendingReviews = 0, unreadMessages = 0;
     try { const [[r]] = await db.query("SELECT COUNT(*) AS pending FROM reviews WHERE status = 'pending'"); pendingReviews = Number(r.pending || 0); } catch (e) { /* reviews table query failed — count stays 0 */ }
     try { const [[m]] = await db.query('SELECT COUNT(*) AS unread FROM contact_messages WHERE is_read = 0'); unreadMessages = Number(m.unread || 0); } catch (e) { /* contact_messages table query failed — count stays 0 */ }
+    // (b2) WHMCS-style: phone confirmation queue count, so the attention
+    // panel can link straight to Calls & Activity. Same rule as /admin/activity.
+    let phoneQueueCount = 0;
+    try { const [[pq]] = await db.query("SELECT COUNT(*) AS c FROM orders WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)"); phoneQueueCount = Number((pq && pq.c) || 0); } catch (e) { /* queue count stays 0 */ }
     // (c) Today's revenue, Asia/Dhaka calendar day (the server/MySQL timezone
     // is not Dhaka, so the date is computed here and passed as a parameter).
     const dhakaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
@@ -546,7 +619,7 @@ router.get('/dashboard', requireAdmin, requirePermission('dashboard.view'), asyn
     res.render('admin/dashboard', {
       totalProducts, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
       lowStockProducts, lowStockCount, outOfStockCount,
-      pendingDue, pendingDueOrders, pendingReviews, unreadMessages, todaysSummary, periodProfit,
+      pendingDue, pendingDueOrders, pendingReviews, unreadMessages, phoneQueueCount, todaysSummary, periodProfit,
       dashboardCategorySales, topCustomers, shippedOrders, shippedTotal,
       dashboard: {
         range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
@@ -2156,7 +2229,12 @@ router.post('/customers/:id/toggle-block', requireAdmin, requirePermission('cust
 // ---------- CUSTOMER DETAIL (profile + full order history) ----------
 // This is kept at the bottom because Express matches routes in order —
 // if it came first, "/customers/add" and "/customers/edit/5" would be mistaken for :id.
+// WHMCS-style client profile (fix/whmcs-style-admin): the customer detail
+// page has tabs — Overview (profile + stats), Orders, Messages (that
+// customer's contact messages + live chats), Notes (admin note on the
+// customer). Same data as before, only organised; no new data sources.
 router.get('/customers/:id', requireAdmin, requirePermission('customers.manage'), async (req, res) => {
+  const tab = ['overview', 'orders', 'messages', 'notes'].includes(req.query.tab) ? req.query.tab : 'overview';
   const [[customer]] = await db.query('SELECT * FROM users WHERE id = ?', [req.params.id]);
   if (!customer) return res.redirect('/admin/customers');
 
@@ -2176,12 +2254,38 @@ router.get('/customers/:id', requireAdmin, requirePermission('customers.manage')
   const avgOrderValue = validOrders.length ? totalSpent / validOrders.length : 0;
   const lastOrderDate = orders.length ? orders[0].created_at : null;
 
+  // Messages tab: this customer's contact messages (matched by email or
+  // phone) and live-chat conversations (matched by user_id). Guarded so a
+  // missing table can never break the profile page.
+  let customerMessages = [], customerChats = [];
+  try {
+    [customerMessages] = await db.query(
+      'SELECT * FROM contact_messages WHERE email = ? OR phone = ? ORDER BY created_at DESC LIMIT 50',
+      [customer.email || '', customer.phone || '']
+    );
+  } catch (e) { customerMessages = []; }
+  try {
+    [customerChats] = await db.query(
+      'SELECT * FROM chat_conversations WHERE user_id = ? ORDER BY last_message_at DESC LIMIT 20',
+      [req.params.id]
+    );
+  } catch (e) { customerChats = []; }
+
   res.render('admin/customer-detail', {
-    customer, orders,
+    customer, orders, tab, customerMessages, customerChats,
     wishlistCount: wishlistRow.wishlistCount,
     totalOrders, totalSpent, avgOrderValue, lastOrderDate,
     siteName: 'Goince'
   });
+});
+
+// Save the admin note on a customer (Notes tab). customers.manage only.
+router.post('/customers/:id/notes', requireAdmin, requirePermission('customers.manage'), async (req, res) => {
+  const notes = String(req.body.notes || '').slice(0, 5000);
+  try {
+    await db.query('UPDATE users SET notes = ? WHERE id = ?', [notes || null, req.params.id]);
+  } catch (e) { /* users.notes column not migrated yet — the tab still renders */ }
+  res.redirect('/admin/customers/' + req.params.id + '?tab=notes');
 });
 
 // ==================== LIVE CHAT ====================
@@ -2555,13 +2659,57 @@ router.post('/banners/:id/delete', requireAdmin, requirePermission('banners.mana
 });
 
 // ==================== CONTACT MESSAGES (website-er Contact form) ====================
+// ==================== CONTACT MESSAGES (ticket-style, WHMCS-style admin) ====================
+// Messages work like support tickets: each has a Status (Open / Answered /
+// Closed) and an admin reply. `is_read` stays in sync (Open = unread).
+// Live Chat is untouched. The unread count feeds the top-bar bell.
+const MESSAGE_STATUSES = ['open', 'answered', 'closed'];
 router.get('/messages', requireAdmin, requirePermission('messages.manage'), async (req, res) => {
-  const [messages] = await db.query('SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 100');
-  const [[{ unread }]] = await db.query('SELECT COUNT(*) AS unread FROM contact_messages WHERE is_read = 0');
-  res.render('admin/messages', { messages, unread, siteName: 'Goince' });
+  const statusFilter = MESSAGE_STATUSES.includes(req.query.status) ? req.query.status : 'all';
+  let messages = [];
+  try {
+    if (statusFilter === 'all') {
+      [messages] = await db.query('SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 100');
+    } else {
+      [messages] = await db.query('SELECT * FROM contact_messages WHERE status = ? ORDER BY created_at DESC LIMIT 100', [statusFilter]);
+    }
+  } catch (e) { messages = []; }
+  let unread = 0, statusCounts = { open: 0, answered: 0, closed: 0 };
+  try { const [[u]] = await db.query('SELECT COUNT(*) AS unread FROM contact_messages WHERE is_read = 0'); unread = Number((u && u.unread) || 0); } catch (e) { /* unread stays 0 */ }
+  try {
+    const [rows] = await db.query("SELECT status, COUNT(*) AS c FROM contact_messages GROUP BY status");
+    (rows || []).forEach(r => { if (MESSAGE_STATUSES.includes(r.status)) statusCounts[r.status] = Number(r.c || 0); });
+  } catch (e) { /* status counts stay 0 */ }
+  const total = statusCounts.open + statusCounts.answered + statusCounts.closed;
+  res.render('admin/messages', { messages, unread, statusFilter, statusCounts, total, siteName: 'Goince' });
+});
+// Message detail: full message + reply box + status control.
+router.get('/messages/:id', requireAdmin, requirePermission('messages.manage'), async (req, res) => {
+  const [[message]] = await db.query('SELECT * FROM contact_messages WHERE id = ?', [req.params.id]);
+  if (!message) return res.redirect('/admin/messages');
+  res.render('admin/message-detail', { message, siteName: 'Goince' });
+});
+// Save the admin reply: stores the reply, stamps replied_at, marks the
+// ticket Answered and read. (The reply is a record of what was said by
+// phone/WhatsApp — messages are not emailed from here.)
+router.post('/messages/:id/reply', requireAdmin, requirePermission('messages.manage'), async (req, res) => {
+  const reply = String(req.body.reply || '').trim().slice(0, 5000);
+  if (reply) {
+    await db.query("UPDATE contact_messages SET reply = ?, replied_at = NOW(), status = 'answered', is_read = 1 WHERE id = ?", [reply, req.params.id]);
+  }
+  res.redirect('/admin/messages/' + req.params.id);
+});
+// Change ticket status (Open / Answered / Closed). is_read follows the
+// status: Open = unread, anything else = read.
+router.post('/messages/:id/status', requireAdmin, requirePermission('messages.manage'), async (req, res) => {
+  const status = MESSAGE_STATUSES.includes(req.body.status) ? req.body.status : null;
+  if (status) {
+    await db.query('UPDATE contact_messages SET status = ?, is_read = ? WHERE id = ?', [status, status === 'open' ? 0 : 1, req.params.id]);
+  }
+  res.redirect('/admin/messages/' + req.params.id);
 });
 router.post('/messages/:id/read', requireAdmin, requirePermission('messages.manage'), async (req, res) => {
-  await db.query('UPDATE contact_messages SET is_read = 1 WHERE id = ?', [req.params.id]);
+  await db.query("UPDATE contact_messages SET is_read = 1, status = CASE WHEN status = 'open' THEN 'answered' ELSE status END WHERE id = ?", [req.params.id]);
   res.redirect('/admin/messages');
 });
 router.post('/messages/:id/delete', requireAdmin, requirePermission('messages.manage'), async (req, res) => {
