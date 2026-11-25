@@ -34,7 +34,12 @@
 </form>
 
 <% if (products.length === 0) { %>
-  <p>No products found. Try clearing the search.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">📦</span>
+    <strong>No products found</strong>
+    <p>Try clearing the search or adding a new product.</p>
+    <% if (_can('products.manage')) { %><a href="/admin/products/add" class="btn-primary">+ Add New Product</a><% } %>
+  </div>
 <% } else { %>
 <div class="table-responsive">
 <table class="admin-table">
@@ -56,7 +61,7 @@
     <% products.forEach(p => { %>
       <tr>
         <td><img src="/uploads/<%= p.image %>" class="admin-thumb" onerror="this.src='/uploads/no-image.png'"></td>
-        <td><%= p.name %><% if (p.source_link) { %><br><a href="<%= p.source_link %>" target="_blank" style="font-size:11px; color:var(--text-muted);">source ↗</a><% } %></td>
+        <td class="product-name-cell" title="<%= p.name %>"><%= p.name %><% if (p.source_link) { %><br><a href="<%= p.source_link %>" target="_blank" style="font-size:11px; color:var(--text-muted);">source ↗</a><% } %></td>
         <td><%= p.category_name || '-' %></td>
         <td><%= p.target_audience && p.target_audience !== 'all' ? (p.target_audience.charAt(0).toUpperCase() + p.target_audience.slice(1)) : 'All / General' %></td>
         <td>৳<%= p.price %></td>
@@ -68,25 +73,27 @@
             <span style="color:green; font-size:12px;">✓ Video Ready</span><br>
             <% if (_can('products.manage')) { %><a href="/admin/products/<%= p.id %>/video/download" class="btn-sm" style="margin-top:4px; display:inline-block;">Download</a>
             <form action="/admin/products/<%= p.id %>/video/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this video?');"><%- include('../partials/csrf-field') %>
-              <button type="submit" class="link-btn-danger" style="font-size:12px;">Delete</button>
+              <button type="submit" class="btn-sm btn-sm--danger" style="font-size:12px;">Delete</button>
             </form><% } %>
           <% } else { %>
             <span style="color:var(--text-muted); font-size:12px;">No video</span>
           <% } %>
           <br>
-          <% if (_can('products.manage')) { %><button type="button" class="btn-sm generate-video-btn" data-id="<%= p.id %>" style="margin-top:6px; background:#e94560; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">
+          <% if (_can('products.manage')) { %><button type="button" class="btn-sm btn-sm--primary generate-video-btn" data-id="<%= p.id %>" style="margin-top:6px; font-size:12px;">
             🎬 Generate Video
           </button><% } %>
           <span class="video-status" id="status-<%= p.id %>" style="font-size:11px; display:block; margin-top:4px;"></span>
         </td>
         <td>
           <% if (_can('products.manage')) { %>
-          <a href="/admin/products/edit/<%= p.id %>">Edit</a> |
-          <a href="/admin/products/<%= p.id %>/stock-history">History</a> |
-          <form action="/admin/products/<%= p.id %>/duplicate" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;">Duplicate</button></form> |
-          <form action="/admin/products/delete/<%= p.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
-            <button type="submit" class="link-btn-danger">Delete</button>
-          </form>
+          <div class="admin-actions">
+            <a href="/admin/products/edit/<%= p.id %>" class="btn-sm btn-sm--primary">Edit</a>
+            <a href="/admin/products/<%= p.id %>/stock-history" class="btn-sm">History</a>
+            <form action="/admin/products/<%= p.id %>/duplicate" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm">Duplicate</button></form>
+            <form action="/admin/products/delete/<%= p.id %>" method="POST" style="display:inline" onsubmit="return confirm('Sure to delete?');"><%- include('../partials/csrf-field') %>
+              <button type="submit" class="btn-sm btn-sm--danger">Delete</button>
+            </form>
+          </div>
           <% } else { %><span style="color:var(--text-muted);">View only</span><% } %>
         </td>
       </tr>

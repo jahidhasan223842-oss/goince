@@ -4,7 +4,7 @@
 
 <div class="admin-page-header">
   <h1>Staff &amp; Roles</h1>
-  <p style="color:#666;">Owner can do everything. Manager can manage products, orders, customers and inventory. Staff can only view orders and products. Create your own roles with exactly the access you want.</p>
+  <p style="color:var(--text-muted);">Owner can do everything. Manager can manage products, orders, customers and inventory. Staff can only view orders and products. Create your own roles with exactly the access you want.</p>
 </div>
 
 <% if (message) { %><p class="success-msg"><%= message %></p><% } %>
@@ -15,7 +15,7 @@
 </p>
 
 <h2 style="margin-bottom:12px;">Add Staff Account</h2>
-<form action="/admin/staff/add" method="POST" class="admin-form" style="max-width:520px;"><%- include('../partials/csrf-field') %>
+<form action="/admin/staff/add" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
   <label>Email</label>
   <input type="email" name="email" required placeholder="staff@example.com">
   <label>Password</label>
@@ -46,9 +46,9 @@
         <% const _roleRow = _roles.find(r => a.role_id && String(r.id) === String(a.role_id)); %>
         <% const _roleName = _roleRow ? _roleRow.name : a.role; %>
         <tr>
-          <td><%= a.email %><% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %> <span class="status-badge status-confirmed">You</span><% } %></td>
+          <td><%= a.email %><% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %> <span class="status-badge status-confirmed" style="margin-left:6px;">You</span><% } %></td>
           <td><span class="status-badge <%= _roleName === 'Owner' ? 'status-delivered' : (_roleName === 'Manager' ? 'status-confirmed' : 'status-pending') %>"><%= _roleName %></span></td>
-          <td><%= a.created_at ? new Date(a.created_at).toLocaleDateString() : '-' %></td>
+          <td><%= a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-' %></td>
           <td>
             <% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %>
               <span style="color:var(--text-muted);">—</span>
@@ -65,22 +65,22 @@
                     <option value="staff" <%= a.role === 'staff' ? 'selected' : '' %>>Staff</option>
                   <% } %>
                 </select>
-                <button type="submit" class="btn-primary" style="padding:4px 10px;">Save</button>
+                <button type="submit" class="btn-sm btn-sm--primary">Save</button>
               </form>
             <% } %>
           </td>
           <td>
-            <form action="/admin/staff/<%= a.id %>/reset-password" method="POST" class="inline-form"><%- include('../partials/csrf-field') %>
-              <input type="password" name="new_password" required minlength="6" placeholder="New password" style="width:130px;">
-              <button type="submit" class="btn-primary" style="padding:4px 10px;">Reset</button>
+            <form id="reset-form-<%= a.id %>" action="/admin/staff/<%= a.id %>/reset-password" method="POST" style="display:none;"><%- include('../partials/csrf-field') %>
+              <input type="hidden" name="new_password" value="">
             </form>
+            <button type="button" class="btn-sm" onclick='resetStaffPassword(<%= a.id %>, <%= JSON.stringify(a.email) %>)'>Reset password</button>
           </td>
           <td>
             <% if (typeof meId !== 'undefined' && String(a.id) === String(meId)) { %>
               <span style="color:var(--text-muted);">—</span>
             <% } else { %>
               <form action="/admin/staff/<%= a.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this admin account?');"><%- include('../partials/csrf-field') %>
-                <button type="submit" class="link-btn-danger">Delete</button>
+                <button type="submit" class="btn-sm btn-sm--danger">Delete</button>
               </form>
             <% } %>
           </td>
@@ -89,5 +89,18 @@
     </tbody>
   </table>
 </div>
+
+<script>
+// Password reset lives in a button, not a cramped input inside the table
+// cell: ask for the new password, then submit the hidden form.
+function resetStaffPassword(id, email) {
+  var pw = prompt('Enter a new password for ' + email + ' (at least 6 characters):');
+  if (pw === null) return;
+  if (!pw || pw.length < 6) { alert('Password must be at least 6 characters.'); return; }
+  var f = document.getElementById('reset-form-' + id);
+  f.querySelector('input[name="new_password"]').value = pw;
+  f.submit();
+}
+</script>
 
 <%- include('../partials/admin-footer') %>

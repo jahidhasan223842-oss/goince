@@ -5,28 +5,28 @@
 
 <% if (message) { %><p class="success-msg" style="text-align:left;"><%= message %></p><% } %>
 
-<form action="/admin/settings<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
-  <h3>🖼️ Logo — kothay konta, koto size</h3>
-  <p class="field-hint">Upload a file, or enter an image link (URL) — if you upload a file, that will be used. Saving updates the website and admin panel right away. Main Logo-ta Google search-eo Goince-er logo hishebe dekhano hoy (Google nije decide kore, dekhate koyek din lagte pare).</p>
+<form action="/admin/settings<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form admin-form--wide" enctype="multipart/form-data"><%- include('../partials/csrf-field') %>
+  <h3>🖼️ Logo — where each one appears, and what size to upload</h3>
+  <p class="field-hint">Upload a file, or enter an image link (URL) — an uploaded file takes priority over a link. Saving updates the website and admin panel right away. The Main Logo is also shown as Goince's logo in Google search (Google decides this itself; it can take a few days to appear).</p>
   <div class="table-responsive">
   <table class="admin-table" style="margin-bottom:16px;">
     <thead><tr><th>Where the logo appears</th><th>Display size</th><th>Upload size</th></tr></thead>
     <tbody>
       <tr><td>Main Logo — header, admin sidebar, login page, invoice</td><td>Header 28×28 · Sidebar 32×32 · Login 64×64 · Invoice 52×52</td><td><strong>512×512 PNG</strong> (a transparent background works best; the header is navy, so a light-coloured logo looks best)</td></tr>
-      <tr><td>Favicon — browser tab, bookmark, phone home screen</td><td>Tab-e 16×16 / 32×32</td><td><strong>192×192 PNG</strong></td></tr>
-      <tr><td>Social Share Image — Facebook/WhatsApp-e link share korle je chobi dekhabe</td><td>Facebook 1200×630</td><td><strong>1200×630 JPG/PNG</strong></td></tr>
+      <tr><td>Favicon — browser tab, bookmark, phone home screen</td><td>Browser tab: 16×16 / 32×32</td><td><strong>192×192 PNG</strong></td></tr>
+      <tr><td>Social Share Image — the image shown when a link is shared on Facebook/WhatsApp</td><td>Facebook 1200×630</td><td><strong>1200×630 JPG/PNG</strong></td></tr>
     </tbody>
   </table>
   </div>
-  <label>Main Logo (current: <img src="<%= logoUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
+  <label>Main Logo <% if (logoUrl) { %>(current: <img src="<%= logoUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)<% } else { %>(not set — using the default icon)<% } %></label>
   <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp">
   <label>…or Main Logo link (URL)</label>
   <input type="url" name="logo_url" value="<%= logoUrl %>" placeholder="https://example.com/logo.png">
-  <label>Favicon (current: <img src="<%= faviconUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)</label>
+  <label>Favicon <% if (faviconUrl) { %>(current: <img src="<%= faviconUrl %>" alt="" style="width:28px; height:28px; vertical-align:middle; border-radius:6px;">)<% } else { %>(not set — using the default icon)<% } %></label>
   <input type="file" name="favicon_file" accept="image/png,image/jpeg,image/webp">
   <label>…or Favicon link (URL)</label>
   <input type="url" name="favicon_url" value="<%= faviconUrl %>" placeholder="https://example.com/favicon.png">
-  <label>Social Share Image (current: <img src="<%= ogImageUrl %>" alt="" style="width:56px; height:28px; vertical-align:middle; border-radius:6px; object-fit:cover;">)</label>
+  <label>Social Share Image <% if (ogImageUrl) { %>(current: <img src="<%= ogImageUrl %>" alt="" style="width:56px; height:28px; vertical-align:middle; border-radius:6px; object-fit:cover;">)<% } else { %>(not set — using the default image)<% } %></label>
   <input type="file" name="og_file" accept="image/png,image/jpeg,image/webp">
   <label>…or Social Image link (URL)</label>
   <input type="url" name="og_image_url" value="<%= ogImageUrl %>" placeholder="https://example.com/og-image.jpg">
@@ -63,10 +63,10 @@
   <input type="text" name="announcement_text" value="<%= announcementText %>" placeholder="e.g. Eid Offer — 10% off all products!">
 
   <label>Hero Title (the large heading on the homepage)</label>
-  <input type="text" name="hero_title" value="<%= heroTitle %>" placeholder="Cash on Delivery — sara Bangladesh-e delivery">
+  <input type="text" name="hero_title" value="<%= heroTitle %>" placeholder="Cash on Delivery — delivery across Bangladesh">
 
   <label>Hero Subtitle (the smaller text below the hero title)</label>
-  <input type="text" name="hero_subtitle" value="<%= heroSubtitle %>" placeholder="Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.">
+  <input type="text" name="hero_subtitle" value="<%= heroSubtitle %>" placeholder="Delivery in 1–2 days inside Dhaka, 3–5 days outside Dhaka.">
 
   <label>Hero Banner Product (the product photo shown in the banner — leave blank to show the Best Seller)</label>
   <select name="hero_product_id" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
@@ -160,12 +160,14 @@
   <label>Invoice Template Name (must be approved by Meta)</label>
   <input type="text" name="whatsapp_template_name" value="<%= whatsappTemplateName %>" placeholder="invoice_pdf">
 
-  <button type="submit" class="btn-primary">Save Settings</button>
+  <button type="submit" class="btn-primary" style="padding:14px 32px; font-size:16px; width:100%;">💾 Save Settings</button>
 </form>
 
-<h3 style="margin-top:28px;">🔑 Change Admin Password</h3>
+<div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-top:28px;">
+<h3 style="margin-top:0;">🔑 Change Admin Password</h3>
+<p class="field-hint">Change the password you use to sign in to the admin panel.</p>
 <% if (typeof pwMessage !== 'undefined' && pwMessage) { %><p class="success-msg" style="text-align:left;"><%= pwMessage %></p><% } %>
-<form action="/admin/settings/change-password" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
+<form action="/admin/settings/change-password" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
   <label>Current Password</label>
   <input type="password" name="current_password" required autocomplete="current-password">
   <label>New Password (at least 6 characters)</label>
@@ -174,5 +176,6 @@
   <input type="password" name="confirm_password" required autocomplete="new-password">
   <button type="submit" class="btn-primary">Change Password</button>
 </form>
+</div>
 
 <%- include('../partials/admin-footer') %>

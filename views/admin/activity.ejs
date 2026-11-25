@@ -11,24 +11,32 @@
 <h1>📞 Calls &amp; Activity</h1>
 <p class="field-hint">Orders waiting for a confirmation call, and everything that happened recently — oldest unconfirmed calls first, newest activity first. 20 items per page.</p>
 
-<div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
-  <a href="/admin/activity?tab=phone" class="<%= tab === 'phone' ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;">📞 Phone Confirmation Queue (<%= _phoneTotal %>)</a>
-  <a href="/admin/activity?tab=activity" class="<%= tab === 'activity' ? 'btn-primary' : 'btn-secondary' %>" style="text-decoration:none;">↻ Recent Activity (<%= _activityTotal %>)</a>
-</div>
+<nav class="admin-tabs" aria-label="Calls and activity">
+  <a class="admin-tab <%= tab === 'phone' ? 'is-active' : '' %>" href="/admin/activity?tab=phone">📞 Phone Confirmation Queue (<%= _phoneTotal %>)</a>
+  <a class="admin-tab <%= tab === 'activity' ? 'is-active' : '' %>" href="/admin/activity?tab=activity">↻ Recent Activity (<%= _activityTotal %>)</a>
+</nav>
 
-<p><strong><%= totalCount %></strong> item(s) — showing <%= _from %>–<%= _to %> of <%= totalCount %> — page <%= page %> of <%= totalPages %></p>
+<p><strong><%= totalCount %></strong> <%= Number(totalCount) === 1 ? 'item' : 'items' %> — showing <%= _from %>–<%= _to %> of <%= totalCount %> — page <%= page %> of <%= totalPages %></p>
 
 <% if (tab === 'phone') { %>
   <% if (!_rows.length) { %>
-    <p>All open orders are phone-confirmed.</p>
+    <div class="empty-state">
+      <span class="empty-state-icon">📞</span>
+      <strong>All open orders are phone-confirmed</strong>
+      <p>New unconfirmed orders will appear here for a confirmation call.</p>
+    </div>
   <% } else { %>
-  <div class="table-responsive"><table class="admin-table"><thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th></th></tr></thead><tbody>
+  <div class="table-responsive"><table class="admin-table"><thead><tr><th>Order</th><th>Customer</th><th>Phone</th><th>Total</th><th>Date</th><th>Actions</th></tr></thead><tbody>
     <% _rows.forEach(o => { %><tr><td><strong>#<%= o.id %></strong></td><td><%= o.customer_name %></td><td><a href="tel:<%= o.phone %>"><%= o.phone %></a> <a class="btn-call" href="tel:<%= o.phone %>">📞 Call</a></td><td>৳<%= money(o.total_amount) %></td><td><%= fmtDate(o.created_at) %></td><td><a class="analytics-view-link" href="/admin/orders/<%= o.id %>">View order</a></td></tr><% }) %>
   </tbody></table></div>
   <% } %>
 <% } else { %>
   <% if (!_rows.length) { %>
-    <p>No recent activity yet.</p>
+    <div class="empty-state">
+      <span class="empty-state-icon">↻</span>
+      <strong>No recent activity yet</strong>
+      <p>New orders and status changes will appear here.</p>
+    </div>
   <% } else { %>
   <div class="analytics-activity-list">
     <% _rows.forEach(a => { %>

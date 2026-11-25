@@ -13,7 +13,7 @@
         <tr>
           <td><%= c.customer_name %></td>
           <td><%= c.last_message ? (c.last_message.length > 50 ? c.last_message.slice(0,50) + '...' : c.last_message) : '(no messages)' %></td>
-          <td><%= new Date(c.last_message_at).toLocaleString() %></td>
+          <td><%= new Date(c.last_message_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
           <td><a href="/admin/chats/<%= c.id %>">Open Chat</a></td>
         </tr>
       <% }) %>

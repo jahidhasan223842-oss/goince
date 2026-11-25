@@ -1,5 +1,7 @@
 <%- include('partials/header') %>
 
+<% const _tk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
+
 <h1 class="page-title">Checkout</h1>
 <%- include('partials/checkout-steps', { step: 2 }) %>
 
@@ -10,16 +12,21 @@
       <% cart.forEach(item => { %>
         <li>
           <span class="summary-item-name"><%= item.name %><% if (item.variantLabel) { %> <span class="summary-item-variant">(<%= item.variantLabel %>)</span><% } %> <span class="summary-item-qty">× <%= item.quantity %></span></span>
-          <span class="summary-item-price">৳<%= (item.price * item.quantity).toFixed(2) %></span>
+          <span class="summary-item-price"><%= _tk(item.price * item.quantity) %></span>
         </li>
       <% }) %>
     </ul>
     <div class="summary-totals">
-      <p><span>Subtotal</span><span>৳<span id="subtotal-display"><%= subtotal.toFixed(2) %></span></span></p>
-      <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-৳<%= discount.toFixed(2) %></span></p><% } %>
-      <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %>৳<span id="delivery-display"><%= deliveryCharge.toFixed(2) %></span><% } %></span></p>
+      <p><span>Subtotal</span><span><span id="subtotal-display"><%= _tk(subtotal) %></span></span></p>
+      <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-<%= _tk(discount) %></span></p><% } %>
+      <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %><span id="delivery-display"><%= _tk(deliveryCharge) %></span><% } %></span></p>
     </div>
-    <h3 class="summary-grand-total"><span>Total</span><span>৳<span id="total-display"><%= total.toFixed(2) %></span></span></h3>
+    <h3 class="summary-grand-total"><span>Total</span><span><span id="total-display"><%= _tk(total) %></span></span></h3>
+    <div class="checkout-reassure">
+      <p>✅ Cash on Delivery available</p>
+      <p>🚚 Fast delivery — 1–2 days inside Dhaka, 3–5 days outside</p>
+      <p>🔄 24h return for defective or wrong products</p>
+    </div>
   </div>
 
   <form action="/checkout" method="POST" class="checkout-form"><%- include('partials/csrf-field') %>
@@ -45,8 +52,8 @@
       <p class="field-hint">📦 Order korar age phone-e confirm kora hobe. Zone onujayi delivery charge ar somoy bodle jabe.</p>
       <label>Delivery Area</label>
       <select name="delivery_area" id="delivery_area" onchange="updateTotal()">
-        <% (typeof deliveryZones !== 'undefined' && deliveryZones.length ? deliveryZones : [{slug:'inside_dhaka',name:'Inside Dhaka',charge:deliveryCharges.inside_dhaka,delivery_time:'1-2 din'},{slug:'outside_dhaka',name:'Outside Dhaka',charge:deliveryCharges.outside_dhaka,delivery_time:'3-5 din'}]).forEach(z => { %>
-          <option value="<%= z.slug %>" data-charge="<%= z.charge %>"><%= z.name %> (৳<%= z.charge %><% if (z.delivery_time) { %> · <%= z.delivery_time %><% } %>)</option>
+        <% (typeof deliveryZones !== 'undefined' && deliveryZones.length ? deliveryZones : [{slug:'inside_dhaka',name:'Inside Dhaka',charge:deliveryCharges.inside_dhaka,delivery_time:'1–2 days'},{slug:'outside_dhaka',name:'Outside Dhaka',charge:deliveryCharges.outside_dhaka,delivery_time:'3–5 days'}]).forEach(z => { %>
+          <option value="<%= z.slug %>" data-charge="<%= z.charge %>"><%= z.name %> (<%= _tk(z.charge) %><% if (z.delivery_time) { %> · <%= z.delivery_time %><% } %>)</option>
         <% }) %>
       </select>
     </div>
@@ -88,7 +95,7 @@
       </div>
     </div>
 
-    <button type="submit" class="btn-primary btn-place-order">Place Order — ৳<span id="btn-total-display"><%= total.toFixed(2) %></span></button>
+    <button type="submit" class="btn-primary btn-place-order">Place Order — <span id="btn-total-display"><%= _tk(total) %></span></button>
   </form>
 </div>
 
@@ -97,15 +104,21 @@
   const discount = <%= discount %>;
 
   const freeShipping = <%= (typeof allFreeShipping !== 'undefined' && allFreeShipping) ? 'true' : 'false' %>;
+  // One currency format on the shop: ৳990, no decimals — decimals only
+  // when the value is not whole (e.g. a percentage discount).
+  function fmtTk(v) {
+    var n = Math.round(v * 100) / 100;
+    return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2));
+  }
   function updateTotal() {
     const select = document.getElementById('delivery_area');
     const charge = freeShipping ? 0 : parseFloat(select.options[select.selectedIndex].dataset.charge);
     const total = subtotal - discount + charge;
 
     const deliveryEl = document.getElementById('delivery-display');
-    if (deliveryEl) deliveryEl.textContent = charge.toFixed(2);
-    document.getElementById('total-display').textContent = total.toFixed(2);
-    document.getElementById('btn-total-display').textContent = total.toFixed(2);
+    if (deliveryEl) deliveryEl.textContent = fmtTk(charge);
+    document.getElementById('total-display').textContent = fmtTk(total);
+    document.getElementById('btn-total-display').textContent = fmtTk(total);
   }
 
   function toggleTxnField() {

@@ -40,7 +40,7 @@
       <p><strong>Email:</strong> <%= customer.email %></p>
       <p><strong>Phone:</strong> <%= customer.phone || '-' %></p>
       <p><strong>Address:</strong> <%= customer.address || '-' %></p>
-      <p><strong>Joined:</strong> <%= new Date(customer.created_at).toLocaleDateString() %></p>
+      <p><strong>Joined:</strong> <%= new Date(customer.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></p>
       <p><strong>Account Status:</strong>
         <% if (customer.is_blocked) { %>
           <span class="status-badge status-cancelled">Blocked</span>
@@ -70,7 +70,7 @@
     <p>Avg. Order Value</p>
   </div>
   <div class="stat-card">
-    <h3><%= lastOrderDate ? new Date(lastOrderDate).toLocaleDateString() : '-' %></h3>
+    <h3><%= lastOrderDate ? new Date(lastOrderDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-' %></h3>
     <p>Last Order</p>
   </div>
 </div>

@@ -1,5 +1,7 @@
 <%- include('../partials/admin-header') %>
 
+<% const _tk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
+
 <h1>📊 Reports</h1>
 
 <div class="report-tabs">
@@ -27,7 +29,7 @@
   </div>
   <div class="report-card">
     <p class="report-card-label">Total Revenue</p>
-    <p class="report-card-value">৳<%= Number(summary.totalRevenue).toFixed(2) %></p>
+    <p class="report-card-value"><%= _tk(summary.totalRevenue) %></p>
   </div>
   <div class="report-card">
     <p class="report-card-label">Items Sold</p>
@@ -35,12 +37,12 @@
   </div>
   <div class="report-card">
     <p class="report-card-label">Avg. Order Value</p>
-    <p class="report-card-value">৳<%= Number(summary.avgOrderValue).toFixed(2) %></p>
+    <p class="report-card-value"><%= _tk(summary.avgOrderValue) %></p>
   </div>
   <div class="report-card">
     <p class="report-card-label">💰 Total Profit (Revenue − Cost)</p>
-    <p class="report-card-value" style="color:green;">৳<%= Number(typeof totalProfit !== 'undefined' ? totalProfit : 0).toFixed(2) %></p>
-    <p class="report-card-label">Total cost: ৳<%= Number(typeof totalCost !== 'undefined' ? totalCost : 0).toFixed(2) %> (only orders with a cost price saved)</p>
+    <p class="report-card-value" style="color:green;"><%= _tk(typeof totalProfit !== 'undefined' ? totalProfit : 0) %></p>
+    <p class="report-card-label">Total cost: <%= _tk(typeof totalCost !== 'undefined' ? totalCost : 0) %> (only orders with a cost price saved)</p>
   </div>
   <div class="report-card report-card-muted">
     <p class="report-card-label">Cancelled Orders</p>
@@ -50,7 +52,11 @@
 
 <h2 class="report-section-heading">🏆 Top Selling Products</h2>
 <% if (topProducts.length === 0) { %>
-  <p>No products sold in this period.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">🏆</span>
+    <strong>No products sold in this period</strong>
+    <p>Try a different date range to view sales activity.</p>
+  </div>
 <% } else { %>
   <div class="table-responsive">
     <table class="admin-table">
@@ -62,7 +68,7 @@
           <tr>
             <td><%= p.product_name %></td>
             <td><%= p.unitsSold %></td>
-            <td>৳<%= Number(p.revenue).toFixed(2) %></td>
+            <td><%= _tk(p.revenue) %></td>
           </tr>
         <% }) %>
       </tbody>
@@ -72,7 +78,11 @@
 
 <h2 class="report-section-heading">📊 Sales by Category</h2>
 <% if (typeof categorySales === 'undefined' || categorySales.length === 0) { %>
-  <p>No categories yet.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">🗂️</span>
+    <strong>No categories yet</strong>
+    <p>Add a category to see its sales here.</p>
+  </div>
 <% } else { %>
   <div class="table-responsive">
     <table class="admin-table">
@@ -85,9 +95,9 @@
             <td><a href="/admin/products?category=<%= c.id %>"><%= c.name %></a></td>
             <td><%= c.orders %></td>
             <td><%= c.items %></td>
-            <td>৳<%= Number(c.revenue).toFixed(2) %></td>
-            <td>৳<%= Number(c.cost).toFixed(2) %></td>
-            <td>৳<%= Number(c.profit).toFixed(2) %></td>
+            <td><%= _tk(c.revenue) %></td>
+            <td><%= _tk(c.cost) %></td>
+            <td><%= _tk(c.profit) %></td>
           </tr>
         <% }) %>
       </tbody>
@@ -98,7 +108,11 @@
 
 <h2 class="report-section-heading">🧾 Orders (<%= periodLabel %>)</h2>
 <% if (orders.length === 0) { %>
-  <p>No orders found in this period.</p>
+  <div class="empty-state">
+    <span class="empty-state-icon">🧾</span>
+    <strong>No orders found in this period</strong>
+    <p>Try a different date range.</p>
+  </div>
 <% } else { %>
   <div class="table-responsive">
     <table class="admin-table">
@@ -110,9 +124,9 @@
           <tr>
             <td>#<%= o.id %></td>
             <td><%= o.customer_name %></td>
-            <td>৳<%= Number(o.total_amount).toFixed(2) %></td>
+            <td><%= _tk(o.total_amount) %></td>
             <td><span class="status-badge status-<%= o.status.toLowerCase() %>"><%= o.status %></span></td>
-            <td><%= new Date(o.created_at).toLocaleString() %></td>
+            <td><%= new Date(o.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
           </tr>
         <% }) %>
       </tbody>

@@ -1636,6 +1636,21 @@ router.post('/categories/import', requireAdmin, requirePermission('categories.ma
 // Tables are created by sql/add_orders_pro.sql and by server.js on start;
 // if the table is missing (very old DB), the insert is skipped silently.
 const ORDER_STATUSES = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+
+// Professional polish 2: collapse runs of identical consecutive status
+// changes into one entry (keep the latest). Phone confirm/undo records a
+// history row with old == new, so the timeline repeated "Shipped →
+// Shipped" four times for one order. The rows are newest-first, so the
+// first row of a run is the latest one — keep it, skip the rest.
+function collapseHistory(rows) {
+  const out = [];
+  for (const h of rows || []) {
+    const prev = out[out.length - 1];
+    if (prev && prev.old_status === h.old_status && prev.new_status === h.new_status) continue;
+    out.push(h);
+  }
+  return out;
+}
 async function recordStatusChange(orderId, oldStatus, newStatus, note, changedBy) {
   try {
     await db.query(
@@ -1773,6 +1788,7 @@ router.get('/orders/:id', requireAdmin, requirePermission('orders.view'), async 
   let history = [];
   let notes = [];
   try { [history] = await db.query('SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
+  history = collapseHistory(history);
   try { [notes] = await db.query('SELECT * FROM order_notes WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { /* table not migrated yet */ }
   // Orders Pro 2: this phone's order history — fake-order warning.
   let phoneHistory = { total: 0, cancelled: 0, delivered: 0 };
@@ -2680,6 +2696,9 @@ router.post('/banners/:id/delete', requireAdmin, requirePermission('banners.mana
 // Closed) and an admin reply. `is_read` stays in sync (Open = unread).
 // Live Chat is untouched. The unread count feeds the top-bar bell.
 const MESSAGE_STATUSES = ['open', 'answered', 'closed'];
+// Professional polish 2: /admin/contact-messages was a 404 that dropped
+// out of the admin layout into the shop layout — it is the messages page.
+router.get('/contact-messages', requireAdmin, (req, res) => res.redirect('/admin/messages'));
 router.get('/messages', requireAdmin, requirePermission('messages.manage'), async (req, res) => {
   const statusFilter = MESSAGE_STATUSES.includes(req.query.status) ? req.query.status : 'all';
   let messages = [];
@@ -3044,9 +3063,15 @@ function getReportPeriod(query) {
   let periodLabel = 'All Time';
   let customFrom = query.from || '';
   let customTo = query.to || '';
+  // One date format everywhere in the admin: "25 Nov 2026".
+  const fmtDay = (iso) => {
+    const d = new Date(String(iso || '') + 'T00:00:00');
+    return isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const fmtToday = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Dhaka' });
   if (period === 'daily') {
     dateCondition = 'DATE(created_at) = CURDATE()';
-    periodLabel = "Today (" + new Date().toLocaleDateString() + ")";
+    periodLabel = "Today (" + fmtToday() + ")";
   } else if (period === 'weekly') {
     dateCondition = 'YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)';
     periodLabel = 'This Week';
@@ -3061,10 +3086,10 @@ function getReportPeriod(query) {
     if (dateRegex.test(customFrom) && dateRegex.test(customTo)) {
       dateCondition = 'DATE(created_at) BETWEEN ? AND ?';
       params = [customFrom, customTo];
-      periodLabel = customFrom + ' to ' + customTo;
+      periodLabel = fmtDay(customFrom) + ' to ' + fmtDay(customTo);
     } else {
       dateCondition = 'DATE(created_at) = CURDATE()';
-      periodLabel = "Today (" + new Date().toLocaleDateString() + ") — Please select dates";
+      periodLabel = "Today (" + fmtToday() + ") — Please select dates";
     }
   } else {
     periodLabel = 'All Time';

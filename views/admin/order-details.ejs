@@ -4,15 +4,14 @@
   <h1>Order #<%= order.id %></h1>
   <div>
     <span class="status-badge status-<%= order.status.toLowerCase() %>"><%= order.status %></span>
-    <button onclick="window.print()" class="btn-primary" style="margin-left:10px;">🖨️ Print Invoice</button>
-    <a href="/admin/orders/<%= order.id %>/invoice" target="_blank" class="btn-primary" style="margin-left:6px;">📄 Invoice (Print / PDF)</a>
-    <a href="/admin/orders/<%= order.id %>/packing-slip" target="_blank" class="btn-primary" style="margin-left:6px;">📦 Packing Slip</a>
+    <a href="/admin/orders/<%= order.id %>/invoice" target="_blank" class="btn-primary" style="margin-left:10px; text-decoration:none;">📄 Invoice (Print / PDF)</a>
+    <a href="/admin/orders/<%= order.id %>/packing-slip" target="_blank" class="btn-secondary" style="margin-left:6px; text-decoration:none;">📦 Packing Slip</a>
   </div>
 </div>
 
 <% const _perms = (typeof adminPermissions !== 'undefined' && Array.isArray(adminPermissions)) ? adminPermissions : null; const _can = (perm) => !_perms || _perms.includes(perm); %>
-<% const _paid = Number((typeof paid !== 'undefined' && paid) ? paid : 0); %>
-<% const _due = Number((typeof due !== 'undefined' && due) ? due : Number(order.total_amount)); %>
+<% const _paid = Number((typeof paid !== 'undefined' && paid !== null) ? paid : 0); %>
+<% const _due = Number((typeof due !== 'undefined' && due !== null) ? due : Number(order.total_amount)); %>
 
 <div class="no-print">
   <% if (typeof orderMsg !== 'undefined' && orderMsg) { %><p class="success-msg" style="text-align:left;"><%= orderMsg %></p><% } %>
@@ -26,9 +25,9 @@
     <p style="margin-top:12px;"><span class="status-badge status-cancelled">Stale — pending <%= _staleDays %> days</span> <small>This order has been pending for over 3 days — follow up with the customer.</small></p>
   <% } %>
   <% if (_ph.cancelled >= 3) { %>
-    <p style="margin-top:12px; padding:10px; background:#fdecea; border:1px solid #d62839; border-radius:6px;"><strong>⚠️ Warning: <%= _ph.cancelled %> cancelled orders from this phone before.</strong><br><small>Customer history for this number: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered. Confirm by phone before dispatch.</small></p>
+    <p style="margin-top:12px; padding:10px; background:#fdecea; border:1px solid #d62839; border-radius:6px;"><strong>⚠️ Warning: <%= _ph.cancelled %> cancelled order<%= _ph.cancelled === 1 ? '' : 's' %> from this phone before.</strong><br><small>Customer history for this number: <%= _ph.total %> previous order<%= _ph.total === 1 ? '' : 's' %>, <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered. Confirm by phone before dispatch.</small></p>
   <% } else if (_ph.total > 0) { %>
-    <p class="field-hint">Customer history for this phone: <%= _ph.total %> previous order(s), <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered.</p>
+    <p class="field-hint">Customer history for this phone: <%= _ph.total %> previous order<%= _ph.total === 1 ? '' : 's' %>, <%= _ph.cancelled %> cancelled, <%= _ph.delivered %> delivered.</p>
   <% } %>
 </div>
 
@@ -50,8 +49,8 @@
     </div>
     <div class="invoice-meta">
       <h1>INVOICE</h1>
-      <p><span>Invoice No.</span> <%= (typeof invoiceNo !== 'undefined' && invoiceNo) ? invoiceNo : 'GOINCE-' + String(order.id).padStart(5, '0') %></p>
-      <p><span>Date</span> <%= new Date(order.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></p>
+      <p><span>Invoice No.:</span> <%= (typeof invoiceNo !== 'undefined' && invoiceNo) ? invoiceNo : 'GOINCE-' + String(order.id).padStart(5, '0') %></p>
+      <p><span>Date:</span> <%= new Date(order.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></p>
       <p class="only-print"><span>Status</span> <%= order.status %></p>
     </div>
   </div>
@@ -70,14 +69,14 @@
       </div>
       <div>
         <h3>Order Details</h3>
-        <p><span>Payment Method</span><%= order.payment_method %></p>
+        <p><span>Payment Method</span> <%= order.payment_method %></p>
         <p><span>Payment Status</span>
           <span class="status-badge <%= order.payment_status === 'Paid' ? 'status-delivered' : 'status-pending' %>"><%= order.payment_status %></span>
         </p>
-        <% if (order.transaction_id) { %><p><span>Transaction ID</span><%= order.transaction_id %></p><% } %>
-        <% if (order.coupon_code) { %><p><span>Coupon Used</span><%= order.coupon_code %></p><% } %>
-        <% if (order.courier_name) { %><p><span>Courier</span><%= order.courier_name %></p><% } %>
-        <% if (order.tracking_number) { %><p><span>Tracking No.</span><%= order.tracking_number %></p><% } %>
+        <% if (order.transaction_id) { %><p><span>Transaction ID</span> <%= order.transaction_id %></p><% } %>
+        <% if (order.coupon_code) { %><p><span>Coupon Used</span> <%= order.coupon_code %></p><% } %>
+        <% if (order.courier_name) { %><p><span>Courier</span> <%= order.courier_name %></p><% } %>
+        <% if (order.tracking_number) { %><p><span>Tracking No.</span> <%= order.tracking_number %></p><% } %>
       </div>
     </div>
   </div>
@@ -220,7 +219,7 @@
         <input type="text" name="note" placeholder="Note (e.g. bKash advance)" style="min-width:220px;">
         <button type="submit" class="btn-primary">Record Advance</button>
       </form>
-      <p class="field-hint">Recording an advance updates Paid / Due on this order and on the invoice. If the advance covers the full total, payment becomes Paid; if it covers part of it, payment becomes Partial.</p>
+      <p class="field-hint">Recording an advance updates Paid / Due here and on the invoice. Covering the full total makes the payment Paid; covering part of it makes it Partial.</p>
     </section>
     <% } %>
 
@@ -235,7 +234,7 @@
       <form action="/admin/orders/<%= order.id %>/whatsapp-invoice" method="POST" class="inline-form" style="margin-top:8px;"><%- include('../partials/csrf-field') %>
         <button type="submit" class="btn-primary" onclick="return confirm('Send this invoice PDF to the customer on WhatsApp? This uses the WhatsApp Business API — Meta charges per message.');">💬 Send Invoice on WhatsApp</button>
       </form>
-      <p class="field-hint">Email needs EMAIL_USER / EMAIL_PASS in the .env file. WhatsApp direct send needs the WhatsApp Business API (phone number ID + access token + an approved invoice template) in Settings — Meta charges per message. Until those are set up, the buttons show that message instead of sending. The free wa.me link in the Customer card still works without any setup.</p>
+      <p class="field-hint">Email needs EMAIL_USER and EMAIL_PASS in the .env file. WhatsApp needs the Business API (phone number ID, access token and an approved invoice template) in Settings — Meta charges per message. Until those are set up, the buttons explain what is missing instead of sending. The free wa.me link in the Customer card works without any setup.</p>
       <% const _sends = (typeof invoiceSends !== 'undefined' && invoiceSends) ? invoiceSends : []; %>
       <% if (_sends.length) { %>
         <ul>
@@ -335,7 +334,7 @@
             <li>
               <strong><%= h.old_status ? h.old_status + ' → ' : '' %><%= h.new_status %></strong>
               — <%= new Date(h.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
-              <% if (h.changed_by) { %> by <%= h.changed_by %><% } %>
+              <% if (h.changed_by) { %> by <%= (h.changed_by === order.email) ? 'Admin' : h.changed_by %><% } %>
               <% if (h.note) { %><br><small><%= h.note %></small><% } %>
             </li>
           <% }) %>
@@ -386,7 +385,7 @@
         <button type="submit" class="btn-primary">📩 Send SMS Update</button>
       </form>
       <% } %>
-      <p class="field-hint">SMS provider is not connected yet — the button shows that message instead of sending anything. No SMS is sent and no money is spent.</p>
+      <p class="field-hint">SMS is not connected yet — set up a provider in Settings to send order updates by text. No SMS is sent until then.</p>
     </section>
 
   </div>

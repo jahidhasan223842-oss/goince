@@ -1,10 +1,17 @@
 <%- include('partials/header') %>
 
+<% const _tk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
+
 <h1 class="page-title">Your Cart</h1>
 <%- include('partials/checkout-steps', { step: 1 }) %>
 
 <% if (cart.length === 0) { %>
-  <p>Your cart is empty. <a href="/">Continue shopping</a></p>
+  <div class="empty-state">
+    <span class="empty-state-icon">🛒</span>
+    <strong>Your cart is empty</strong>
+    <p>Browse the shop and add something you like.</p>
+    <a href="/" class="btn-primary">🛍️ Continue shopping</a>
+  </div>
 <% } else { %>
   <p class="delivery-estimate">🚚 Estimated Delivery: <strong><%= estimatedDelivery %></strong></p>
 
@@ -20,13 +27,13 @@
             <img src="/uploads/<%= item.image %>" class="cart-thumb" onerror="this.src='/uploads/no-image.png'">
             <%= item.name %>
             <% if (item.variantLabel) { %>
-              <br><span style="font-size:12px; color:#888;"><%= item.variantLabel %></span>
+              <br><span style="font-size:12px; color:var(--text-muted);"><%= item.variantLabel %></span>
             <% } %>
             <% if (item.overStock) { %>
               <p class="stock-warning">⚠️ Only <%= item.availableStock %> left in stock — quantity adjusted needed</p>
             <% } %>
           </td>
-          <td>৳<%= item.price %></td>
+          <td><%= _tk(item.price) %></td>
           <td>
             <form action="/cart/update/<%= item.cartKey %>" method="POST" class="qty-stepper"><%- include('partials/csrf-field') %>
               <button type="submit" name="quantity" value="<%= Math.max(1, item.quantity - 1) %>" class="qty-btn">−</button>
@@ -34,7 +41,7 @@
               <button type="submit" name="quantity" value="<%= item.quantity + 1 %>" class="qty-btn" <%= item.quantity >= item.availableStock ? 'disabled' : '' %>>+</button>
             </form>
           </td>
-          <td>৳<%= (item.price * item.quantity).toFixed(2) %></td>
+          <td><%= _tk(item.price * item.quantity) %></td>
           <td class="cart-actions">
             <form action="/cart/remove/<%= item.cartKey %>" method="POST"><%- include('partials/csrf-field') %>
               <button type="submit" class="btn-remove">Remove</button>
@@ -65,9 +72,9 @@
   </div>
 
   <div class="cart-summary">
-    <p>Subtotal: ৳<%= subtotal.toFixed(2) %></p>
-    <% if (discount > 0) { %><p>Discount: -৳<%= discount.toFixed(2) %></p><% } %>
-    <h3>Total: ৳<%= total.toFixed(2) %></h3>
+    <p>Subtotal: <%= _tk(subtotal) %></p>
+    <% if (discount > 0) { %><p>Discount: -<%= _tk(discount) %></p><% } %>
+    <h3>Total: <%= _tk(total) %></h3>
     <a href="/" class="back-link">&larr; Continue Shopping</a>
     <a href="/checkout" class="btn-primary">Proceed to Checkout</a>
   </div>

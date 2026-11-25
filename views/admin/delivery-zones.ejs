@@ -3,7 +3,7 @@
 <h1>Delivery Zones</h1>
 <p class="field-hint">At checkout, customers choose one of these zones — each zone has its own delivery charge. You can add a new zone here (e.g. Chittagong, Sylhet, or any other area). Zones that are turned off will not appear at checkout.</p>
 
-<form action="/admin/delivery-zones/add" method="POST" class="admin-form"><%- include('../partials/csrf-field') %>
+<form action="/admin/delivery-zones/add" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
   <label>Zone Name</label>
   <input type="text" name="name" placeholder="e.g. Chittagong" required>
   <label>Delivery Charge (৳)</label>
@@ -24,15 +24,15 @@
           <form id="zone-form-<%= z.id %>" action="/admin/delivery-zones/edit/<%= z.id %>" method="POST"><%- include('../partials/csrf-field') %></form>
           <input type="text" name="name" value="<%= z.name %>" form="zone-form-<%= z.id %>" style="width:130px; padding:6px; border:1px solid #ccc; border-radius:4px;">
         </td>
-        <td><input type="number" step="0.01" min="0" name="charge" value="<%= z.charge %>" form="zone-form-<%= z.id %>" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:4px;"> ৳</td>
-        <td><input type="text" name="delivery_time" value="<%= z.delivery_time || '' %>" form="zone-form-<%= z.id %>" placeholder="1-2 days" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
-        <td><span class="status-badge <%= z.is_active ? 'status-delivered' : 'status-cancelled' %>"><%= z.is_active ? 'Active' : 'Inactive' %></span></td>
+        <td>৳ <input type="number" step="0.01" min="0" name="charge" value="<%= z.charge %>" form="zone-form-<%= z.id %>" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
+        <td><input type="text" name="delivery_time" value="<%= z.delivery_time || '' %>" form="zone-form-<%= z.id %>" placeholder="1–2 days" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
+        <td><span class="status-badge <%= z.is_active ? 'status-delivered' : 'status-inactive' %>"><%= z.is_active ? 'Active' : 'Inactive' %></span></td>
         <td style="white-space:nowrap;">
-          <button type="submit" form="zone-form-<%= z.id %>" class="link-btn-danger" style="color:#2196f3;">Save</button>
-          |
-          <form action="/admin/delivery-zones/toggle/<%= z.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger" style="color:#2196f3;"><%= z.is_active ? 'Deactivate' : 'Activate' %></button></form>
-          |
-          <form action="/admin/delivery-zones/delete/<%= z.id %>" method="POST" style="display:inline" onsubmit="return confirm('Delete this zone?');"><%- include('../partials/csrf-field') %><button type="submit" class="link-btn-danger">Delete</button></form>
+          <div class="admin-actions">
+            <button type="submit" form="zone-form-<%= z.id %>" class="btn-sm btn-sm--primary">Save</button>
+            <form action="/admin/delivery-zones/toggle/<%= z.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm"><%= z.is_active ? 'Deactivate' : 'Activate' %></button></form>
+            <form action="/admin/delivery-zones/delete/<%= z.id %>" method="POST" style="display:inline" onsubmit="return confirm('Delete this zone?');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--danger">Delete</button></form>
+          </div>
         </td>
       </tr>
     <% }) %>

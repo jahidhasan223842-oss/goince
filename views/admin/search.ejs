@@ -46,7 +46,7 @@
               <td><strong><%= c.name %></strong></td>
               <td><%= c.email %></td>
               <td><%= c.phone || '-' %></td>
-              <td><%= new Date(c.created_at).toLocaleDateString() %></td>
+              <td><%= new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
               <td><a href="/admin/customers/<%= c.id %>">View</a></td>
             </tr>
           <% }) %>

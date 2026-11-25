@@ -28,7 +28,7 @@
     <% if (avgRating) { %>
       <p class="avg-rating">⭐ <%= avgRating %> / 5 (<%= reviewCount %> review<%= reviewCount != 1 ? 's' : '' %>)</p>
     <% } else { %>
-      <p class="avg-rating">No reviews yet</p>
+      <p class="avg-rating avg-rating-empty">☆☆☆☆☆ No reviews yet</p>
     <% } %>
 
     <div class="price-row">
@@ -154,7 +154,7 @@
     <% reviews.forEach(r => { %>
       <div class="review-item">
         <p class="review-stars"><%= '⭐'.repeat(r.rating) %></p>
-        <p class="review-author"><strong><%= r.user_name %></strong> — <%= new Date(r.created_at).toLocaleDateString() %></p>
+        <p class="review-author"><strong><%= r.user_name %></strong> — <%= new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></p>
         <% if (r.comment) { %><p class="review-comment"><%= r.comment %></p><% } %>
       </div>
     <% }) %>

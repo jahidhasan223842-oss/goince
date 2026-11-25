@@ -41,8 +41,8 @@ async function getDeliveryZones() {
   } catch (e) {}
   const c = await getDeliveryCharges();
   return [
-    { id: 0, name: 'Inside Dhaka', slug: 'inside_dhaka', charge: c.inside_dhaka, delivery_time: '1-2 din' },
-    { id: 0, name: 'Outside Dhaka', slug: 'outside_dhaka', charge: c.outside_dhaka, delivery_time: '3-5 din' }
+    { id: 0, name: 'Inside Dhaka', slug: 'inside_dhaka', charge: c.inside_dhaka, delivery_time: '1–2 days' },
+    { id: 0, name: 'Outside Dhaka', slug: 'outside_dhaka', charge: c.outside_dhaka, delivery_time: '3–5 days' }
   ];
 }
 
@@ -580,7 +580,7 @@ router.get('/cart', async (req, res) => {
   const minDate = new Date(today); minDate.setDate(today.getDate() + 1);
   const maxDate = new Date(today); maxDate.setDate(today.getDate() + 5);
   const dateOpts = { day: 'numeric', month: 'short' };
-  const estimatedDelivery = `${minDate.toLocaleDateString('en-GB', dateOpts)} - ${maxDate.toLocaleDateString('en-GB', dateOpts)} (Dhaka 1-2 din, baire 3-5 din)`;
+  const estimatedDelivery = `${minDate.toLocaleDateString('en-GB', dateOpts)} - ${maxDate.toLocaleDateString('en-GB', dateOpts)} (1–2 days inside Dhaka, 3–5 days outside Dhaka)`;
 
   let wishlistProductIds = [];
   if (req.session.userId) {

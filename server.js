@@ -10,7 +10,7 @@ const path = require('path');
 
 const { csrfProtection } = require('./lib/csrf');
 const { buildMenuTree, buildMenuById } = require('./lib/categories');
-const { fixHeroCopy, fixProductName } = require('./lib/startup-content-fixes');
+const { fixHeroCopy, fixProductName, fixFooterAbout, fixDeliveryTimeText } = require('./lib/startup-content-fixes');
 const { SYSTEM_ROLE_PERMISSIONS } = require('./lib/permissions');
 
 const shopRoutes = require('./routes/shop');
@@ -37,7 +37,7 @@ const SITE_SETTING_DEFAULTS = {
   shop_address: '',
   facebook_url: '',
   hero_product_id: '',
-  footer_about: 'Bangladesh-er online shop — Cash on Delivery, Dhaka-r vitore 1–2 din, Dhaka-r baire 3–5 dine delivery.',
+  footer_about: 'Online shop in Bangladesh — Cash on Delivery, delivery in 1–2 days inside Dhaka, 3–5 days outside Dhaka.',
   shop_email: '',
   footer_hours: '',
   youtube_url: '',
@@ -417,6 +417,8 @@ const SITE_SETTING_DEFAULTS = {
     const db = require('./config/db');
     await fixHeroCopy(db);
     await fixProductName(db);
+    await fixFooterAbout(db);
+    await fixDeliveryTimeText(db);
   } catch (err) {
     console.error('Startup content fixes skip holo:', err.message);
   }

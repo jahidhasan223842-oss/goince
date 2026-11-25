@@ -166,7 +166,10 @@ check('admin primary buttons are blue in the light theme',
   /\.admin-content \.btn-primary,\s*\.admin-login-box \.btn-primary\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel),
   'admin primary button not blue');
 check('admin content links are blue in the light theme',
-  /\.admin-content a:not\(\.btn-primary\):not\(\.report-tab\):not\(\.analytics-report-link\)\s*\{[^}]*color:\s*var\(--admin-blue\);/.test(cssTopLevel),
+  // The link rule now also excludes .admin-tab (professional polish 2:
+  // without it the active tab's white text was recoloured blue-on-blue
+  // and invisible). The rule still makes admin links blue.
+  /\.admin-content a:not\(\.btn-primary\):not\(\.report-tab\):not\(\.analytics-report-link\):not\(\.admin-tab\)\s*\{[^}]*color:\s*var\(--admin-blue\);/.test(cssTopLevel),
   'admin links not blue');
 check('admin table header is light grey, not gold-tinted',
   /\.admin-table th\s*\{[^}]*background:\s*#f4f6f9;/.test(cssTopLevel),
