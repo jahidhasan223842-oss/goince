@@ -462,7 +462,7 @@ a { text-decoration: none; color: inherit; }
 .only-print { display: none; }
 
 @media print {
-  .admin-sidebar, .admin-topbar, .admin-breadcrumb, .no-print, .site-header, .site-footer, .theme-toggle-btn, .theme-toggle-fixed { display: none !important; }
+  .admin-sidebar, .admin-topbar, .admin-topnav, .admin-breadcrumb, .no-print, .site-header, .site-footer, .theme-toggle-btn, .theme-toggle-fixed { display: none !important; }
   .invoice-cost-col { display: none !important; }
   .admin-content { padding: 0; }
   .only-print { display: block; }
@@ -744,11 +744,17 @@ a { text-decoration: none; color: inherit; }
   align-items: stretch;
 }
 
-/* Sidebar: WHMCS look in the light theme — slate blue-grey (#2c3e50)
-   with white text and a blue active highlight. The dark theme keeps
-   the old navy sidebar (see the [data-theme="dark"] overrides in the
-   WHMCS LIGHT THEME block below the shell rules). */
+/* Sidebar = the MOBILE DRAWER now (fix/whmcs-top-nav): WHMCS has no
+   left sidebar — desktop navigation is the .admin-topnav bar under
+   the top bar, and the content area is full-width. The sidebar markup
+   stays in the DOM only as the off-canvas drawer (≤768px — the mobile
+   block below re-enables display and slides it in); on desktop it is
+   display:none. Its slate look is kept for the drawer; the desktop
+   slate bar is now .admin-topnav (same --admin-slate). The dark theme
+   keeps the old navy drawer (see the [data-theme="dark"] overrides
+   in the WHMCS LIGHT THEME block below the shell rules). */
 .admin-sidebar {
+  display: none;
   width: 252px;
   min-width: 252px;
   padding: 26px 16px;
@@ -1180,16 +1186,17 @@ a { text-decoration: none; color: inherit; }
 /* =========================================================
    WHMCS-STYLE ADMIN SHELL (fix/whmcs-style-admin) — the admin
    panel feels like WHMCS: one top bar (logo, global search,
-   notifications bell, admin menu, theme toggle) + grouped
-   sidebar with collapsible sections and count badges + a
-   breadcrumb on every page. Everything lives in the shared
-   admin-header / admin-footer partials, so a new page gets
+   notifications bell, admin menu, theme toggle) + a horizontal top
+   nav with dropdown buttons (fix/whmcs-top-nav — WHMCS has NO left
+   sidebar; the sidebar survives only as the off-canvas drawer on
+   phones) + a breadcrumb on every page. Everything lives in the
+   shared admin-header / admin-footer partials, so a new page gets
    the shell automatically (see the convention comment at the
    top of views/partials/admin-header.ejs).
-   Layout: .admin-wrapper (row) = sidebar + .admin-main-col
-   (column: topbar + content). The sidebar stays full-height
-   and sticky on desktop; on mobile it is the same off-canvas
-   drawer as before (PR #38/#51) and the topbar stays sticky.
+   Layout: .admin-wrapper (row) = .admin-main-col (column: topbar +
+   topnav + content), full-width — no sidebar column on desktop.
+   On mobile the top nav is hidden and the hamburger opens the
+   drawer (PR #38/#51), and the topbar stays sticky.
 
    TOPBAR BUG (fix/whmcs-light-theme): the header used to carry
    BOTH classes "admin-topbar admin-mobile-topbar" while the CSS
@@ -1416,6 +1423,12 @@ a { text-decoration: none; color: inherit; }
   box-shadow: inset 3px 0 #4f8cff;
 }
 [data-theme="dark"] .admin-sidebar nav .logout-link { border-top-color: #26354b; }
+[data-theme="dark"] .admin-topnav {
+  background: #0a1221;
+  border-bottom: 1px solid #26354b;
+}
+[data-theme="dark"] .admin-topnav-link.is-active,
+[data-theme="dark"] .admin-topnav-btn.is-active { background: #1a3762; }
 [data-theme="dark"] .admin-nav-group-btn { color: #8a8aa0; }
 [data-theme="dark"] .admin-breadcrumb a { color: #8bb4ff; }
 [data-theme="dark"] .admin-content .link-btn { color: #8bb4ff; }
@@ -1490,6 +1503,105 @@ a { text-decoration: none; color: inherit; }
   padding: 1px 7px;
   margin-left: auto;
   flex-shrink: 0;
+}
+
+/* WHMCS TOP NAVIGATION (fix/whmcs-top-nav) — WHMCS has no left
+   sidebar: the admin nav is a horizontal bar with dropdown buttons
+   directly under the white top bar. Dashboard is a direct link;
+   Shop / Sales / Communication / System are dropdown buttons with
+   the same links (and badges) the sidebar used to hold — both are
+   rendered from the same _navGroups array in admin-header.ejs, so
+   they can never drift apart. The content area is full-width now
+   (the sidebar is display:none on desktop; it survives only as the
+   mobile drawer). Dropdown behaviour follows the shop mega menu
+   (PR #24/#25): hover opens on devices with hover, click toggles
+   and latches (.open), focus opens, Esc / outside-click / focus-out
+   closes (see admin-footer.ejs). The menu sits 1px over the button
+   (top: calc(100% - 1px)) so there is no dead gap for a slow mouse.
+   The bar is sticky under the 56px top bar; on phones (≤768px) it
+   is hidden and the drawer replaces it (see the mobile block). */
+.admin-topnav {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  background: var(--admin-slate);
+  padding: 0 clamp(10px, 2vw, 24px);
+  min-height: 44px;
+  position: sticky;
+  top: 56px;
+  z-index: 790;
+  flex-shrink: 0;
+}
+.admin-topnav-link,
+.admin-topnav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: #c7d2de;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.admin-topnav-link.is-active,
+.admin-topnav-btn.is-active {
+  color: #fff;
+  background: var(--admin-blue);
+}
+.admin-topnav-dropdown { position: relative; display: flex; align-items: stretch; flex-shrink: 0; }
+.admin-topnav-chevron { font-size: 11px; transition: transform .2s ease; }
+.admin-topnav-btn[aria-expanded="true"] .admin-topnav-chevron { transform: rotate(180deg); }
+.admin-topnav-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 0;
+  min-width: 250px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 32px var(--shadow-md);
+  padding: 8px;
+  z-index: 950;
+}
+.admin-topnav-menu.open { display: block; }
+.admin-topnav-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+.admin-topnav-menu-link.is-active {
+  background: var(--table-hover);
+  color: var(--text-strong);
+  font-weight: 700;
+}
+.admin-topnav-right { margin-left: auto; }
+.admin-topnav-logout { color: #ff8c98 !important; }
+@media (hover: hover) {
+  .admin-topnav-link:hover,
+  .admin-topnav-btn:hover { color: #fff; background: var(--admin-slate-light); }
+  .admin-topnav-dropdown:hover .admin-topnav-menu,
+  .admin-topnav-dropdown:focus-within .admin-topnav-menu { display: block; }
+  .admin-topnav-menu-link:hover { background: var(--table-hover); color: var(--text-strong); }
+}
+@media (max-width: 1024px) {
+  .admin-topnav { padding: 0 8px; }
+  .admin-topnav-link,
+  .admin-topnav-btn { padding: 0 10px; font-size: 13px; }
 }
 
 /* Client-profile / ticket tabs (customer detail, messages list). */
@@ -2004,9 +2116,12 @@ img, video { max-width: 100%; }
   /* Sidebar: age 252px fixed sidebar + 100vh height niye content-er upore
      puro menu (~1000px) boshe jeto — content dekhte onek scroll kora lagto,
      ar purono 700px rule-ta porer width:252px rule-er kachhe here jeto.
-     Ekhon phone-e sidebar off-canvas: ☰ chaple slide kore ashe. */
+     Ekhon phone-e sidebar off-canvas: ☰ chaple slide kore ashe.
+     Sidebar ekhon sudhu mobile drawer (fix/whmcs-top-nav) — desktop-e
+     display:none, tai ekhane display:flex dite hoy. */
   .admin-wrapper { flex-direction: column; }
   .admin-sidebar {
+    display: flex;
     position: fixed; top: 0; left: 0;
     height: 100vh; height: 100dvh;
     width: 280px; max-width: 85vw; min-width: 0;
@@ -2098,6 +2213,8 @@ img, video { max-width: 100%; }
      (same pattern as the shop search). The admin name/role text hides —
      the avatar button stays. */
   .admin-main-col { width: 100%; }
+  /* Top nav row: phone-e lukano — hamburger drawer-i nav (fix/whmcs-top-nav). */
+  .admin-topnav { display: none; }
   .admin-menu-btn { display: inline-flex; align-items: center; justify-content: center; }
   .admin-topbar-brand span { display: none; }
   .admin-topbar-search {

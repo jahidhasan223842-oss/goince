@@ -22,12 +22,19 @@
 
     // WHMCS-style top-bar dropdowns (fix/whmcs-style-admin): bell + admin
     // menu. Button chaple khole, baire chaple / Esc chaple bondho hoy.
-    // Ekta khola thakle arekta bondho hoye jay.
+    // Ekta khola thakle arekta bondho hoye jay. Top nav dropdowns
+    // (fix/whmcs-top-nav) follow the same close rules.
     function closeAdminDropdowns(exceptBtn) {
       document.querySelectorAll('[data-dropdown-btn]').forEach(function (btn) {
         if (btn === exceptBtn) return;
         btn.setAttribute('aria-expanded', 'false');
         var menu = btn.parentElement && btn.parentElement.querySelector('.admin-dropdown-menu');
+        if (menu) menu.classList.remove('open');
+      });
+      document.querySelectorAll('[data-topnav-btn]').forEach(function (btn) {
+        if (btn === exceptBtn) return;
+        btn.setAttribute('aria-expanded', 'false');
+        var menu = btn.parentElement && btn.parentElement.querySelector('.admin-topnav-menu');
         if (menu) menu.classList.remove('open');
       });
     }
@@ -41,6 +48,30 @@
         menu.classList.toggle('open', willOpen);
         btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
       });
+    });
+    // Top nav dropdowns (fix/whmcs-top-nav): same click latch as the
+    // bell/user menus. Hover/focus opening is pure CSS (:hover +
+    // :focus-within, @media (hover: hover) only — touch-e tap-er por
+    // khola thakbe na). Focus leaving the dropdown closes it, so the
+    // button state follows the keyboard too.
+    document.querySelectorAll('[data-topnav-btn]').forEach(function (btn) {
+      var wrap = btn.parentElement;
+      var menu = wrap && wrap.querySelector('.admin-topnav-menu');
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (!menu) return;
+        var willOpen = !menu.classList.contains('open');
+        closeAdminDropdowns(btn);
+        menu.classList.toggle('open', willOpen);
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      });
+      if (wrap && menu) {
+        wrap.addEventListener('focusout', function (e) {
+          if (wrap.contains(e.relatedTarget)) return;
+          menu.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        });
+      }
     });
     document.addEventListener('click', function () { closeAdminDropdowns(null); });
     document.addEventListener('keydown', function (e) {

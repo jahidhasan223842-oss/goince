@@ -20,6 +20,22 @@ function requireAdmin(req, res, next) {
   res.redirect('/admin/login');
 }
 
+// Stale-admin fix (fix/whmcs-top-nav): admin pages are private, per-admin
+// HTML — they must NEVER be served from a browser cache. Before this,
+// only ONE route set no-store, and it was a JSON endpoint
+// (/vapid-public-key) — no admin HTML response carried it. So a browser
+// could keep a pre-deploy admin page (old header script, old stored
+// 'dark' theme) and show the old dark look after a deploy, even though
+// the CSS was fresh via cache-busting. This router-level middleware runs
+// before every /admin route (login / forgot / reset included, plus
+// redirects, CSV/PDF downloads and JSON polls — all dynamic, private
+// responses), so a cached pre-deploy page can never stick again.
+router.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  next();
+});
+
 // WHMCS-style shell (fix/whmcs-style-admin): every admin GET page shows the
 // same top bar (bell + badges) and sidebar. The counts are computed once per
 // page load into res.locals — the header partial only reads them, it never
