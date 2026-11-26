@@ -18,15 +18,17 @@
 //      theme toggle): compact avatar-with-initial + name + chevron,
 //      avatar-only on narrow screens. No role text in the pill.
 //   3. The dropdown holds, in order: account header (avatar, name,
-//      email, role badge), My Profile, Change Password, Forgot Password,
-//      divider, Logout. It reuses the [data-dropdown-btn] behaviour
-//      (click latches, Esc / outside-click / focus-out closes).
+//      email, role badge), My Profile, divider, Logout. Change Password
+//      and Forgot Password were REMOVED from the menu in
+//      fix/admin-profile-photo — they live only on the profile page now.
+//      It reuses the [data-dropdown-btn] behaviour (click latches, Esc /
+//      outside-click / focus-out closes).
 //   4. GET /admin/profile renders for every signed-in admin (requireAdmin
 //      only — no permission check, so Staff can open their own profile).
 //      It shows name, email, role badge and member-since (admins.created_at
-//      exists); the email is read-only. There is NO display-name field in
-//      the admins table (id, email, password, role, role_id, reset_token,
-//      reset_expires, created_at), so no name editing is offered.
+//      exists); the email is read-only. Since fix/admin-profile-photo the
+//      admins table also has display_name / phone / photo_url columns,
+//      and the page offers name + phone editing and a photo upload.
 //   5. The Change Password form posts to the EXISTING endpoint
 //      POST /admin/settings/change-password (not a duplicated one), with
 //      return_to=/admin/profile so the admin lands back on the profile.
@@ -105,12 +107,14 @@ const count = (text, needle) => text.split(needle).length - 1;
     menu.includes('admin-profile-menu-email') && menu.includes('admin-profile-role-badge'),
     'account header incomplete');
   const myProfile = menu.indexOf('/admin/profile');
-  const changePw = menu.indexOf('/admin/profile#change-password');
-  const forgotPw = menu.indexOf('/admin/forgot-password');
   const logout = menu.indexOf('/admin/logout');
-  check('dropdown lists My Profile, Change Password, Forgot Password, Logout in order',
-    myProfile > -1 && changePw > myProfile && forgotPw > changePw && logout > forgotPw,
-    `indexes: profile=${myProfile} change=${changePw} forgot=${forgotPw} logout=${logout}`);
+  check('dropdown lists My Profile then Logout, in order (password links moved to the profile page)',
+    myProfile > -1 && logout > myProfile,
+    `indexes: profile=${myProfile} logout=${logout}`);
+  check('Change Password and Forgot Password are NOT in the dropdown anymore',
+    menu.indexOf('/admin/profile#change-password') === -1 &&
+    menu.indexOf('/admin/forgot-password') === -1,
+    'password links still in the dropdown');
   check('dropdown has a divider before Logout',
     menu.includes('admin-profile-menu-divider') &&
     menu.indexOf('admin-profile-menu-divider') < logout,

@@ -55,8 +55,13 @@
   <% const _can = (p) => !_perms || _perms.includes(p); %>
   <% const _any = (...ps) => ps.some((p) => _can(p)); %>
   <% const _notif = (typeof adminNotifications !== 'undefined' && adminNotifications) || { pendingOrders: 0, phoneQueue: 0, unreadMessages: 0, pendingReviews: 0, openOrders: 0, total: 0 }; %>
-  <% const _adminName = (typeof adminEmail !== 'undefined' && adminEmail) ? String(adminEmail).split('@')[0] : 'Admin'; %>
   <% const _adminEmail = (typeof adminEmail !== 'undefined' && adminEmail) ? String(adminEmail) : ''; %>
+  <% /* Display name + photo (fix/admin-profile-photo): the display name is
+       set on the profile page and falls back to the email local part
+       exactly as before; the photo comes from the session too — the
+       header never queries the DB. */ %>
+  <% const _adminName = (typeof adminDisplayName !== 'undefined' && adminDisplayName) ? String(adminDisplayName) : (_adminEmail ? _adminEmail.split('@')[0] : 'Admin'); %>
+  <% const _adminPhotoUrl = (typeof adminPhotoUrl !== 'undefined' && adminPhotoUrl && String(adminPhotoUrl).startsWith('/uploads/')) ? String(adminPhotoUrl) : null; %>
   <% const _adminInitial = _adminName ? _adminName.charAt(0).toUpperCase() : 'A'; %>
   <% const _adminRoleLabel = (typeof adminRole !== 'undefined' && adminRole) ? adminRole : 'Owner'; %>
   <% /* Brand + breadcrumb root: link to the first page this admin can
@@ -175,10 +180,10 @@
         </div>
         <button type="button" class="theme-toggle-btn admin-topbar-theme-btn" onclick="toggleGoinceTheme()" title="Dark mode" aria-label="Toggle dark mode">🌙</button>
         <div class="admin-topbar-dropdown admin-profile-dropdown">
-          <button type="button" class="admin-user-btn" id="admin-user-btn" data-dropdown-btn aria-haspopup="true" aria-label="Profile menu" aria-expanded="false"><span class="admin-user-avatar" aria-hidden="true"><%= _adminInitial %></span><span class="admin-user-name"><%= _adminName %></span><span class="admin-user-chevron" aria-hidden="true">▾</span></button>
+          <button type="button" class="admin-user-btn" id="admin-user-btn" data-dropdown-btn aria-haspopup="true" aria-label="Profile menu" aria-expanded="false"><% if (_adminPhotoUrl) { %><span class="admin-user-avatar" aria-hidden="true"><img src="<%= _adminPhotoUrl %>" alt=""></span><% } else { %><span class="admin-user-avatar" aria-hidden="true"><%= _adminInitial %></span><% } %><span class="admin-user-name"><%= _adminName %></span><span class="admin-user-chevron" aria-hidden="true">▾</span></button>
           <div class="admin-dropdown-menu admin-user-menu admin-profile-menu" id="admin-user-menu" role="menu" aria-label="Profile menu">
             <div class="admin-profile-menu-head">
-              <span class="admin-user-avatar admin-profile-menu-avatar" aria-hidden="true"><%= _adminInitial %></span>
+              <% if (_adminPhotoUrl) { %><span class="admin-user-avatar admin-profile-menu-avatar" aria-hidden="true"><img src="<%= _adminPhotoUrl %>" alt=""></span><% } else { %><span class="admin-user-avatar admin-profile-menu-avatar" aria-hidden="true"><%= _adminInitial %></span><% } %>
               <span class="admin-profile-menu-identity">
                 <span class="admin-profile-menu-name"><%= _adminName %></span>
                 <span class="admin-profile-menu-email"><%= _adminEmail %></span>
@@ -186,8 +191,6 @@
               </span>
             </div>
             <a class="admin-profile-menu-link" href="/admin/profile">👤 My Profile</a>
-            <a class="admin-profile-menu-link" href="/admin/profile#change-password">🔑 Change Password</a>
-            <a class="admin-profile-menu-link" href="/admin/forgot-password">✉️ Forgot Password</a>
             <div class="admin-profile-menu-divider" role="separator"></div>
             <a class="admin-profile-menu-link admin-profile-menu-logout" href="/admin/logout">🚪 Logout</a>
           </div>
