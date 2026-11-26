@@ -9,25 +9,35 @@
 //
 // What was built (all in the one-line WHMCS-blue top bar, PR #62):
 //   1. OPEN: every top-bar panel (top-nav menus, bell/profile dropdowns,
-//      search panel) fades + slides down — opacity 0 / translateY(-6px)
-//      -> opacity 1 / translateY(0) in .2s ease-out.
+//      search panel) opens with @keyframes admin-menu-open — fade +
+//      slide + a slight scale (.96 -> 1), .25s, soft-spring
+//      cubic-bezier(.22, 1.25, .36, 1) (fix/dropdown-close-premium;
+//      was .2s ease-out with no scale). The .open class is the ONLY
+//      open state, driven by public/js/admin-dropdowns.js — CSS
+//      :hover / :focus-within NEVER opens a menu any more (the old
+//      dual mechanism let a hovered menu ignore Esc, click-toggle
+//      and one-at-a-time closes; see test-dropdown-close-premium.js).
 //   2. STAGGER: items inside an opening menu cascade in one after
 //      another — @keyframes admin-menu-item-in (opacity + 4px rise),
-//      25ms per item (nth-of-type), capped at 175ms, so even the
-//      7-link Shop menu finishes fast.
+//      .2s per item, 30ms per item (nth-of-type), capped at 210ms, so
+//      even the 7-link Shop menu finishes fast. Tied to .open, so it
+//      runs on every menu (top-nav, bell, profile).
 //   3. CLICK: :active dips the item (lift -3px -> -1px) + scale(.98) +
 //      a brightness dip — pure CSS, instant, never delays navigation.
-//   4. CLOSE: the reverse — fade + slide up in .15s. The menus are
-//      hidden with VISIBILITY, never display:none: the hidden state
-//      carries `visibility 0s linear .15s`, so removing .open (Esc,
-//      outside-click, focusout, hovering another group) plays the
-//      fade/slide-up and visibility flips to hidden only AFTER the
-//      transition — no JS timeout or transitionend listener is needed,
-//      and a menu can never stay invisible-but-clickable. Re-opening
-//      mid-fade just reverses the transition.
+//   4. CLOSE: the reverse — fade + slide up in .15s, NO scale. The
+//      menus are hidden with VISIBILITY, never display:none: the
+//      hidden state carries `visibility 0s linear .15s`, so removing
+//      .open (Esc, outside-click, focusout, hovering another group)
+//      plays the fade/slide-up and visibility flips to hidden only
+//      AFTER the transition — no JS timeout or transitionend listener
+//      is needed for the close animation, and a menu can never stay
+//      invisible-but-clickable. Re-opening mid-fade just reverses the
+//      transition. (The 150ms mouseleave grace in admin-dropdowns.js
+//      is a HOVER-INTENT delay, not a close-animation timeout.)
 //   5. SAFETY: prefers-reduced-motion disables all of it (instant
-//      open/close, no stagger, no press). transform + opacity ONLY —
-//      no layout animation. Keyboard behaviour unchanged.
+//      open/close, no stagger, no press, no panel spring). transform
+//      + opacity ONLY — no layout animation. Keyboard behaviour
+//      unchanged (focusin opens, focusout closes, Esc closes).
 //   6. The entrance animation uses fill mode `backwards` (NOT both /
 //      forwards) — during the delay the item shows the from-keyframe,
 //      and once the entrance ends NO fill applies, so the hover lift
@@ -49,6 +59,7 @@ const ejs = require('ejs');
 const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'style.css'), 'utf8');
 const headerEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'admin-header.ejs'), 'utf8');
 const footerEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'admin-footer.ejs'), 'utf8');
+const dropdownJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'admin-dropdowns.js'), 'utf8');
 const shopHeaderEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'header.ejs'), 'utf8');
 const renderFile = util.promisify(ejs.renderFile);
 const headerPath = path.join(__dirname, '..', 'views', 'partials', 'admin-header.ejs');
@@ -124,9 +135,10 @@ function rulesWith(source, selector) {
     /\.admin-topnav-menu\.open\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;[^}]*transform:\s*translateY\(0\);/.test(cssTopLevel)
     && !rulesWith(cssNoComments, '.admin-topnav-menu.open').some((r) => /display:/.test(r)),
     '.open rule wrong');
-  check('top-nav menu hover/focus opens with the same fade + slide (not display:block)',
-    /\.admin-topnav-dropdown:hover \.admin-topnav-menu,[\s\S]*?\.admin-topnav-dropdown:focus-within \.admin-topnav-menu\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;[^}]*transform:\s*translateY\(0\);/.test(hoverBlocks),
-    'hover/focus open rule wrong');
+  // fix/dropdown-close-premium: the old "hover/focus opens in CSS"
+  // check is gone — see the "no CSS :hover / :focus-within rule"
+  // check below. CSS never opens a menu any more; the JS .open
+  // class is the single source of truth.
 
   // Bell / profile dropdowns: same hidden/open pair.
   check('bell/profile dropdown hides with visibility + opacity + -6px slide (not display:none)',
@@ -137,6 +149,16 @@ function rulesWith(source, selector) {
     /\.admin-dropdown-menu\.open\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;[^}]*transform:\s*translateY\(0\);/.test(cssTopLevel)
     && !rulesWith(cssNoComments, '.admin-dropdown-menu.open').some((r) => /display:/.test(r)),
     'dropdown .open rule wrong');
+  // fix/dropdown-close-premium: CSS :hover / :focus-within NEVER opens
+  // a menu any more — the JS .open class is the single source of
+  // truth, because a CSS-hovered menu ignored every JS close while
+  // the pointer stayed over it (menus stuck open, found live).
+  check('no CSS :hover / :focus-within rule opens the top-nav menu (JS owns the state)',
+    !/\.admin-topnav-dropdown:hover \.admin-topnav-menu/.test(cssNoComments)
+    && !/\.admin-topnav-dropdown:focus-within \.admin-topnav-menu/.test(cssNoComments)
+    && /wrap\.addEventListener\('mouseenter'/.test(dropdownJs)
+    && /wrap\.addEventListener\('focusin'/.test(dropdownJs),
+    'a CSS hover/focus open rule still exists, or the JS handlers are missing');
 
   // Search panel: same hidden/open pair (desktop panel + mobile row).
   check('search panel hides with visibility + opacity + -6px slide (not display:none)',
@@ -147,38 +169,48 @@ function rulesWith(source, selector) {
     /\.admin-topbar-search\.open\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;[^}]*transform:\s*translateY\(0\);/.test(cssTopLevel),
     'search .open rule wrong');
 
-  // Open timing: .2s ease-out on the open state.
-  check('open transition is .2s ease-out (opacity + transform) on all three panels',
-    /\.admin-topnav-menu\.open\s*\{[^}]*transition:\s*opacity \.2s ease, transform \.2s ease, visibility 0s;/.test(cssTopLevel)
-    && /\.admin-dropdown-menu\.open\s*\{[^}]*transition:\s*opacity \.2s ease, transform \.2s ease, visibility 0s;/.test(cssTopLevel)
-    && /\.admin-topbar-search\.open\s*\{[^}]*transition:\s*opacity \.2s ease, transform \.2s ease, visibility 0s;/.test(cssTopLevel),
+  // Open timing: .25s soft-spring (fix/dropdown-close-premium) on the
+  // open state — the panel spring keyframe + the matching transition.
+  const spring = 'cubic-bezier\\(\\.22, 1\\.25, \\.36, 1\\)';
+  check('open transition is .25s with the spring bezier (opacity + transform + shadow) on all three panels',
+    new RegExp('\\.admin-topnav-menu\\.open\\s*\\{[^}]*transition:\\s*opacity \\.25s ' + spring + ', transform \\.25s ' + spring + ', box-shadow \\.25s ' + spring + ', visibility 0s;').test(cssTopLevel)
+    && new RegExp('\\.admin-dropdown-menu\\.open\\s*\\{[^}]*transition:\\s*opacity \\.25s ' + spring + ', transform \\.25s ' + spring + ', box-shadow \\.25s ' + spring + ', visibility 0s;').test(cssTopLevel)
+    && new RegExp('\\.admin-topbar-search\\.open\\s*\\{[^}]*transition:\\s*opacity \\.25s ' + spring + ', transform \\.25s ' + spring + ', box-shadow \\.25s ' + spring + ', visibility 0s;').test(cssTopLevel),
     'open transition wrong');
+  check('open state runs the spring keyframe (fade + slide + scale .96 -> 1) on all three panels',
+    /\.admin-topnav-menu\.open\s*\{[^}]*animation:\s*admin-menu-open \.25s cubic-bezier\(\.22, 1\.25, \.36, 1\) backwards;/.test(cssTopLevel)
+    && /\.admin-dropdown-menu\.open\s*\{[^}]*animation:\s*admin-menu-open \.25s cubic-bezier\(\.22, 1\.25, \.36, 1\) backwards;/.test(cssTopLevel)
+    && /\.admin-topbar-search\.open\s*\{[^}]*animation:\s*admin-menu-open \.25s cubic-bezier\(\.22, 1\.25, \.36, 1\) backwards;/.test(cssTopLevel),
+    'spring open animation missing');
 
   // ---- 2. CLOSE animation: hide-after-transition, no JS timeout ----
   check('close transition is .15s with the visibility flip delayed until after it',
-    /\.admin-topnav-menu\s*\{[^}]*transition:\s*opacity \.15s ease, transform \.15s ease, visibility 0s linear \.15s;/.test(cssTopLevel)
-    && /\.admin-dropdown-menu\s*\{[^}]*transition:\s*opacity \.15s ease, transform \.15s ease, visibility 0s linear \.15s;/.test(cssTopLevel)
-    && /\.admin-topbar-search\s*\{[^}]*transition:\s*opacity \.15s ease, transform \.15s ease, visibility 0s linear \.15s;/.test(cssTopLevel),
+    /\.admin-topnav-menu\s*\{[^}]*transition:\s*opacity \.15s ease, transform \.15s ease, box-shadow \.15s ease, visibility 0s linear \.15s;/.test(cssTopLevel)
+    && /\.admin-dropdown-menu\s*\{[^}]*transition:\s*opacity \.15s ease, transform \.15s ease, box-shadow \.15s ease, visibility 0s linear \.15s;/.test(cssTopLevel)
+    && /\.admin-topbar-search\s*\{[^}]*transition:\s*opacity \.15s ease, transform \.15s ease, box-shadow \.15s ease, visibility 0s linear \.15s;/.test(cssTopLevel),
     'close transition wrong');
-  check('JS close paths still just remove .open (the CSS plays the close) — no timeout/transitionend needed',
-    /function closeAdminDropdowns[\s\S]*?menu\.classList\.remove\('open'\)/.test(footerEjs)
-    && /function closeAdminSearch[\s\S]*?form\.classList\.remove\('open'\)/.test(footerEjs)
-    && !/setTimeout\(\s*function[\s\S]{0,200}classList\.remove\('open'\)/.test(footerEjs)
-    && /CLOSE ANIMATION \(fix\/dropdown-animations\)/.test(footerEjs),
+  check('JS close paths still just remove .open (the CSS plays the close) — no timeout/transitionend for the close animation',
+    /function closeMenu\(btn\)[\s\S]*?menu\.classList\.remove\('open'\)/.test(dropdownJs)
+    && /function closeAdminSearch\(\)[\s\S]*?form\.classList\.remove\('open'\)/.test(dropdownJs)
+    && /CLOSE ANIMATION \(fix\/dropdown-animations/.test(dropdownJs),
     'close paths changed or undocumented');
+  check('the only setTimeout in the dropdown JS is the 150ms mouseleave grace (hover intent, not a close-animation timeout)',
+    (dropdownJs.match(/setTimeout\(/g) || []).length === 1
+    && /wrap\._adminCloseTimer = setTimeout\(function \(\) \{\s*wrap\._adminCloseTimer = null;\s*closeMenu\(btn\);\s*\}, HOVER_CLOSE_DELAY_MS\);/.test(dropdownJs),
+    'an unexpected setTimeout exists');
 
   // ---- 3. STAGGER: keyframes + per-item delays, capped under 200ms ----
   check('item entrance keyframes fade + rise 4px to full opacity',
     /@keyframes admin-menu-item-in\s*\{\s*from\s*\{\s*opacity:\s*0;\s*transform:\s*translateY\(4px\);\s*\}\s*to\s*\{\s*opacity:\s*1;\s*transform:\s*translateY\(0\);\s*\}\s*\}/.test(css),
     'keyframes missing or wrong');
-  check('stagger animation applies to top-nav links (open/hover/focus) and dropdown links',
-    /\.admin-topnav-menu\.open \.admin-topnav-menu-link,[\s\S]*?\.admin-topnav-dropdown:hover \.admin-topnav-menu-link,[\s\S]*?\.admin-topnav-dropdown:focus-within \.admin-topnav-menu-link,[\s\S]*?\.admin-dropdown-menu\.open a\s*\{\s*animation:\s*admin-menu-item-in \.18s ease-out backwards;/.test(css),
+  check('stagger animation applies to top-nav links and dropdown links via .open only (.2s)',
+    /\.admin-topnav-menu\.open \.admin-topnav-menu-link,\s*\.admin-dropdown-menu\.open a\s*\{\s*animation:\s*admin-menu-item-in \.2s ease-out backwards;/.test(css),
     'stagger animation rule missing');
   const delays = [...css.matchAll(/animation-delay:\s*(\d+)ms;/g)].map((m) => Number(m[1]));
-  check('stagger delays increase in 25ms steps and the last is under 200ms',
+  check('stagger delays increase in 30ms steps and the last is under 250ms',
     delays.length === 7
-    && delays.every((d, i) => d === (i + 1) * 25)
-    && Math.max(...delays) === 175,
+    && delays.every((d, i) => d === (i + 1) * 30)
+    && Math.max(...delays) === 210,
     `delays=${JSON.stringify(delays)}`);
   check('stagger covers up to the 8th item (the longest menu has 7 links)',
     /\.admin-topnav-menu-link:nth-of-type\(8\)/.test(css)
@@ -202,6 +234,9 @@ function rulesWith(source, selector) {
     /\.admin-topnav-menu-link,[\s\S]*?\.admin-dropdown-menu a\s*\{\s*animation:\s*none;\s*\}/.test(reducedMotionBlocks)
     && /\.admin-topnav-menu-link:active,[\s\S]*?\.admin-dropdown-menu a:active\s*\{\s*transform:\s*none;\s*filter:\s*none;\s*\}/.test(reducedMotionBlocks),
     'reduced-motion animation/press rules missing');
+  check('prefers-reduced-motion: panel spring disabled too (animation none on .open)',
+    /\.admin-topnav-menu\.open,[\s\S]*?\.admin-topbar-search\.open\s*\{\s*animation:\s*none;\s*\}/.test(reducedMotionBlocks),
+    'reduced-motion panel animation rule missing');
 
   // ---- 6. HOVER LIFT still works and is not overridden by the entrance ----
   check('hover lift on menu items is unchanged (lavender + -3px + shadow)',
@@ -211,7 +246,7 @@ function rulesWith(source, selector) {
   check('entrance uses fill mode backwards (not both/forwards) so it never overrides the hover lift',
     // cssNoComments: the convention comment itself says "NOT both /
     // forwards", so the words must not be searched in the raw CSS.
-    /animation:\s*admin-menu-item-in \.18s ease-out backwards;/.test(cssNoComments)
+    /animation:\s*admin-menu-item-in \.2s ease-out backwards;/.test(cssNoComments)
     && !/admin-menu-item-in[^;]*\b(both|forwards)\b/.test(cssNoComments),
     'entrance fill mode wrong');
   check('entrance animates opacity + transform only (no layout property)',

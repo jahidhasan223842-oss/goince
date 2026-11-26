@@ -5,8 +5,14 @@
 // (1) TOP NAV — Dashboard direct link + Shop / Sales / Communication /
 //     System dropdown buttons, same links + badges as the old sidebar,
 //     same permission filtering, active page highlighted, dropdowns open
-//     on hover (hover-capable devices), click latches, focus opens,
-//     Esc / outside-click / focus-out closes, no dead gap (1px overlap).
+//     on hover (hover-capable devices) and focus, click latches,
+//     Esc / outside-click / focus-out / mouseleave closes, no dead gap
+//     (1px overlap). Since fix/dropdown-close-premium the open state
+//     is the JS .open class only — CSS :hover / :focus-within NEVER
+//     opens a menu (a CSS-hovered menu ignored every JS close while
+//     the pointer stayed over it; menus stuck open, found live).
+//     The hover/focus behaviour is identical from the outside; only
+//     the mechanism moved into public/js/admin-dropdowns.js.
 // (2) NO SIDEBAR ON DESKTOP — .admin-sidebar is display:none at top
 //     level; it survives only as the mobile drawer (display:flex in the
 //     768px block, off-canvas, hamburger opens it). Content is full-width.
@@ -35,6 +41,7 @@ const Module = require('module');
 const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'style.css'), 'utf8');
 const headerEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'admin-header.ejs'), 'utf8');
 const footerEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'admin-footer.ejs'), 'utf8');
+const dropdownJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'admin-dropdowns.js'), 'utf8');
 const adminRoutesSrc = fs.readFileSync(path.join(__dirname, '..', 'routes', 'admin.js'), 'utf8');
 const shopHeaderEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'header.ejs'), 'utf8');
 const renderFile = util.promisify(ejs.renderFile);
@@ -136,10 +143,18 @@ check('click-latched menu shows (.open)',
   // not display:block — same visible result, now with the fade/slide.
   /\.admin-topnav-menu\.open\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;/.test(cssTopLevel),
   '.open rule missing');
-check('hover/focus opens the menu, gated by (hover: hover) like the mega menu',
-  /\.admin-topnav-dropdown:hover \.admin-topnav-menu/.test(hoverBlocks) &&
-  /\.admin-topnav-dropdown:focus-within \.admin-topnav-menu/.test(hoverBlocks),
-  'hover/focus open missing or ungated');
+check('hover/focus opens the menu via JS only — no CSS :hover / :focus-within open rule (JS owns the state)',
+  // fix/dropdown-close-premium: the old CSS hover-open let a hovered
+  // menu ignore Esc, click-toggle and one-at-a-time closes. Hover is
+  // still gated on hover capability (matchMedia in the module, same
+  // rule the old @media (hover: hover) expressed) and focus still
+  // opens the menu — both now add .open in admin-dropdowns.js.
+  !/\.admin-topnav-dropdown:hover \.admin-topnav-menu/.test(cssNoComments) &&
+  !/\.admin-topnav-dropdown:focus-within \.admin-topnav-menu/.test(cssNoComments) &&
+  /wrap\.addEventListener\('mouseenter'/.test(dropdownJs) &&
+  /wrap\.addEventListener\('focusin'/.test(dropdownJs) &&
+  /matchMedia\('\(hover: hover\)'\)/.test(dropdownJs),
+  'CSS hover/focus open still exists, or the JS handlers are missing');
 check('active top nav button/link is darker blue (visible on the blue bar)',
   // fix/whmcs-one-line-topbar: the old var(--admin-blue) active state is
   // invisible on the blue bar, so it is var(--admin-blue-dark) now.
@@ -204,9 +219,11 @@ check('View Site appears twice in the header source (globe icon on the bar + tex
   (headerEjs.match(/🌐 View Site/g) || []).length === 1 &&
   headerEjs.includes('aria-label="View Site"'),
   'View Site not in both places');
-check('footer wires the top nav dropdowns (click latch, focus-out close, shared Esc/outside-click)',
-  footerEjs.includes('[data-topnav-btn]') && footerEjs.includes('focusout') &&
-  footerEjs.includes("querySelector('.admin-topnav-menu')"),
+check('dropdown module wires the top nav dropdowns (click latch, focus-out close, shared Esc/outside-click)',
+  // fix/dropdown-close-premium: the dropdown wiring moved from the
+  // footer inline script into public/js/admin-dropdowns.js.
+  dropdownJs.includes('[data-topnav-btn]') && dropdownJs.includes('focusout') &&
+  dropdownJs.includes("querySelector('.admin-topnav-menu')"),
   'topnav JS missing');
 check('footer still wires the drawer (hamburger) and the group collapse',
   footerEjs.includes("getElementById('admin-menu-btn')") &&
