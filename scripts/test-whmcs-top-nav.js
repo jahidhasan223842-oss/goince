@@ -125,11 +125,16 @@ check('top nav bar lives INSIDE the one-line blue top bar now (flex, transparent
   !/\.admin-topnav\s*\{[^}]*top:\s*56px;/.test(cssTopLevel),
   'topnav rule missing or wrong');
 check('dropdown menu is hidden by default and sits 1px over the button (no dead gap)',
-  /\.admin-topnav-menu\s*\{[^}]*display:\s*none;/.test(cssTopLevel) &&
+  // fix/dropdown-animations: hidden is visibility-based now (never
+  // display:none) so the open/close can fade + slide; the 1px overlap
+  // that kills the dead gap is unchanged.
+  /\.admin-topnav-menu\s*\{[^}]*visibility:\s*hidden;[^}]*opacity:\s*0;/.test(cssTopLevel) &&
   /\.admin-topnav-menu\s*\{[^}]*top:\s*calc\(100% - 1px\);/.test(cssTopLevel),
   'dropdown menu rule missing');
 check('click-latched menu shows (.open)',
-  /\.admin-topnav-menu\.open\s*\{\s*display:\s*block;/.test(cssTopLevel),
+  // fix/dropdown-animations: .open shows with visibility + opacity,
+  // not display:block — same visible result, now with the fade/slide.
+  /\.admin-topnav-menu\.open\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;/.test(cssTopLevel),
   '.open rule missing');
 check('hover/focus opens the menu, gated by (hover: hover) like the mega menu',
   /\.admin-topnav-dropdown:hover \.admin-topnav-menu/.test(hoverBlocks) &&
