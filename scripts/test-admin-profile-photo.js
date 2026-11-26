@@ -113,8 +113,12 @@ const baseLocals = {
     `found ${count(headerEjs, '/admin/logout')} occurrences`);
 
   // 3 — Photo upload + crop UI on the profile page.
-  check('profile page has the photo upload form (multipart, photo field)',
-    profileEjs.includes('action="/admin/profile/photo"') &&
+  // (fix/profile-photo-upload: the action now carries ?_csrf= — the plain
+  // action was the CSRF 403 that broke the upload, see
+  // test-profile-photo-upload-fix.js for the full proof.)
+  check('profile page has the photo upload form (multipart, photo field, ?_csrf= action)',
+    profileEjs.includes('action="/admin/profile/photo<%-') &&
+    profileEjs.includes("?_csrf=' + csrfToken") &&
     profileEjs.includes('enctype="multipart/form-data"') &&
     profileEjs.includes('name="photo"'),
     'photo form/field missing');

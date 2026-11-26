@@ -15,6 +15,7 @@
 <% if (typeof pwMessage !== 'undefined' && pwMessage) { %><p class="<%= (typeof pwOk !== 'undefined' && pwOk) ? 'success-msg' : 'error-msg' %>" style="text-align:left;"><%= pwMessage %></p><% } %>
 <% if (typeof profileMessage !== 'undefined' && profileMessage) { %><p class="<%= (typeof profileOk !== 'undefined' && profileOk) ? 'success-msg' : 'error-msg' %>" style="text-align:left;"><%= profileMessage %></p><% } %>
 
+<div class="admin-profile-page">
 <div class="admin-profile-card">
   <div class="admin-profile-overview">
     <% if (_photo) { %><span class="admin-user-avatar admin-profile-avatar" aria-hidden="true"><img src="<%= _photo %>" alt=""></span><% } else { %><span class="admin-user-avatar admin-profile-avatar" aria-hidden="true"><%= _initial %></span><% } %>
@@ -41,7 +42,7 @@
       <% } %>
     </div>
   </div>
-  <form action="/admin/profile/photo" method="POST" enctype="multipart/form-data" class="admin-form admin-form--wide" id="admin-photo-form"><%- include('../partials/csrf-field') %>
+  <form action="/admin/profile/photo<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" enctype="multipart/form-data" class="admin-form admin-form--wide" id="admin-photo-form"><%- include('../partials/csrf-field') %>
     <input type="file" id="admin-photo-file" name="photo" accept="image/jpeg,image/png,image/webp" required>
     <label class="admin-photo-choose" for="admin-photo-file">Choose photo</label>
     <p class="error-msg" id="admin-photo-error" hidden style="text-align:left;"></p>
@@ -103,6 +104,7 @@
   <% } %>
   <a href="/admin/forgot-password" class="btn-secondary" style="text-decoration:none;">Request a reset link</a>
 </div>
+</div>
 
 <script>
   // Profile photo cropper (fix/admin-profile-photo): vanilla JS, no library.
@@ -150,7 +152,7 @@
       box.style.top = state.by + 'px';
       box.style.width = state.bs + 'px';
       box.style.height = state.bs + 'px';
-      var p = 72;
+      var p = 64;
       var scale = p / state.bs;
       preview.style.backgroundImage = 'url(' + state.url + ')';
       preview.style.backgroundSize = (state.iw * scale) + 'px ' + (state.ih * scale) + 'px';
