@@ -587,23 +587,29 @@ a { text-decoration: none; color: inherit; }
 .whatsapp-float { position: fixed; bottom: 20px; right: 20px; z-index: 999; width: 60px; height: 60px; border-radius: 50%; background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(37,211,102,0.45); transition: transform 0.2s; }
 .whatsapp-float:hover { transform: scale(1.08); }
 
-/* Scroll-aware hide (≤1024px): page-er ekdom upore thakle (scroll ≤ 300px)
-   button lukano thake, jate hero/product-er chobi dheke na fele; 300px-er
-   beshi scroll korle fade-in hoy (footer.ejs-er JS
-   .whatsapp-float--scroll / .is-visible class toggle kore). Mobile-e
-   (≤768px) button-er size/position-er rule nicher mobile block-e ache;
-   769–1024px (tablet) button desktop size-i thake, shudhu upore lukay.
-   Desktop (>1024px) button sob somoy dekha jay. */
-@media (max-width: 1024px) {
-  .whatsapp-float.whatsapp-float--scroll {
-    opacity: 0; visibility: hidden; pointer-events: none;
-    transform: translateY(8px);
-    transition: opacity .25s ease, visibility .25s ease, transform .25s ease;
-  }
-  .whatsapp-float.whatsapp-float--scroll.is-visible {
-    opacity: 1; visibility: visible; pointer-events: auto;
-    transform: none;
-  }
+/* Scroll-aware hide (footer.ejs-er JS .whatsapp-float--scroll /
+   .is-visible class toggle kore). Sob width-ei chole:
+   - ≤1024px: page-er ekdom upore (scroll ≤ 300px) thakle button
+     lukano thake, jate hero/product-er chobi dheke na fele;
+     300px-er beshi scroll korle fade-in hoy.
+   - sob width: button-ta kono guarded control (homepage Sort,
+     cart "Proceed to Checkout", product-card-er "Add to Cart" /
+     "Choose Option" button, product page-er Add to Cart) dheke
+     felle lukano thake — scroll korle control-ta sore gelei abar
+     fade-in hoy. JS na cholle class-e ashe na, tai button ager
+     motoi sob somoy visible thake. Mobile-e (≤768px) button-er
+     size/position-er rule nicher mobile block-e ache; 769–1024px
+     (tablet) button desktop size-i thake, shudhu upore lukay.
+   prefers-reduced-motion: transition none (nicher reduced-motion
+   block-e), tai fade chole na. */
+.whatsapp-float.whatsapp-float--scroll {
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity .25s ease, visibility .25s ease, transform .25s ease;
+}
+.whatsapp-float.whatsapp-float--scroll.is-visible {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: none;
 }
 
 /* Advanced admin analytics dashboard — preserves existing admin components. */
@@ -2249,13 +2255,31 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 }
 
 /* ---------- Header mega menu (Categories) ---------- */
-.site-header { position: relative; }
+/* Sticky shop header (fix/shop-menu-bar): logo, search, Home,
+   Categories, Cart, Login/Sign Up, theme toggle — niche scroll
+   korleo upore atke thake, navigation/search hate kachhe thake.
+   position: relative chhilo (mega panel-er containing block);
+   sticky-o positioned element, tai panel-er containing block
+   bodlay na. Mobile-eo (≤768px) ekoi header stick kore —
+   hamburger/logo/search icon/cart row + khola search row soho.
+   Announcement bar header-er upore thake, scroll-e upore chole
+   jay; header top: 0-te atke thake. Drawer (z-index 900) ar
+   overlay (880) header-er (500) upore thake — drawer khulle
+   header-er uporei ase. Search suggestions header-er vitore
+   (z-index 100, header-er stacking context-er vitore) — tai page
+   content-er uporei thake. html/body overflow-x: clip — clip
+   scroll container banay na, tai sticky chole. */
+.site-header { position: sticky; top: 0; z-index: 500; }
+/* Stuck hole halka chhaya — bar-ta content-er upore vasche bojha
+   jay. .is-stuck class mega-menu.js-e scroll-e toggle kore
+   (scrollY > 0). Uporer dike thakle chhaya nei. */
+.site-header.is-stuck { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); }
 .mega-menu-wrap { position: relative; display: inline-flex; align-items: center; }
 .mega-menu-btn { background: none; border: none; color: #fff; margin-left: 20px; font: inherit; font-weight: 500; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 4px; }
 .mega-menu-btn:hover { color: var(--accent); }
 .mega-caret { font-size: 11px; transition: transform 0.15s; }
 .mega-menu-btn[aria-expanded="true"] .mega-caret { transform: rotate(180deg); }
-.mega-menu-panel { display: none; position: absolute; top: calc(100% + 10px); left: 0; width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 18px 20px 12px; z-index: 400; }
+.mega-menu-panel { display: none; position: absolute; top: calc(100% + 10px); left: 0; width: max-content; max-width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 18px 20px 12px; z-index: 400; }
 .mega-menu-panel.open { display: block; }
 /* Mouse thakle hover-ei khulbe (touch device-e hover rule cholbe na, okhane click/tap-e khole) */
 @media (hover: hover) and (min-width: 769px) {
@@ -2276,8 +2300,17 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .mega-menu-wrap { position: static; }
   .mega-menu-panel { left: 50%; transform: translateX(-50%); }
 }
-.mega-menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 24px; }
-.mega-col { min-width: 0; padding: 6px 0; }
+/* Panel content-er map moto choto (fix/shop-menu-bar): grid + 1fr
+   column stretch korto bole 860px chaoda panel-e 2-ta category
+   thakleo ordhek panel khali thakto (niche ar dan dike faka).
+   Ekhon flex + wrap: protita top category ekta column
+   (200–280px), panel-er chaoda column-gulor jogfol (max 860px);
+   beshi category hole wrap kore porer row-e jay. max-width
+   min(860px, 100vw - 32px) + majhkhane bosano (left:50% +
+   translateX(-50%), uporer media query) thakay kono desktop
+   width-ei dan dike katbe na. */
+.mega-menu-grid { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.mega-col { flex: 1 1 220px; min-width: 200px; max-width: 280px; padding: 6px 0; }
 .mega-col-head { display: flex; align-items: center; gap: 4px; }
 .mega-col-title { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-strong); font-size: 15px; padding: 4px 0; margin: 0 !important; }
 /* .main-nav a { color: #fff }-er specificity (class+element) .mega-col-title
@@ -2441,8 +2474,8 @@ img, video { max-width: 100%; }
      safe-area clear kore), ar ektu choto kora holo, jate side-e "tana"
      na lage. Desktop-e ager motoi (bottom: 20px, 60px).
      Scroll-aware lukano-r rule (upore thakle lukano, scroll korle
-     fade-in) ekhon @media (max-width: 1024px) block-e ache — tablet-eo
-     (769–1024px) button hero dheke fele bole. */
+     fade-in, guarded control dheke felle lukano) ekhon sob width-e
+     chole — uporer .whatsapp-float--scroll block-e ache. */
   .whatsapp-float {
     bottom: 88px;
     bottom: calc(88px + env(safe-area-inset-bottom, 0px));
@@ -2774,8 +2807,10 @@ img, video { max-width: 100%; }
     position: sticky; top: 0; background: var(--surface); z-index: 1;
   }
   .shop-drawer-logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; color: var(--accent); }
+  /* Drawer close: 44px tap target (age 40px chhilo — angule chapte
+     choto hoto; shop-er onno shob header/drawer button 44px). */
   .shop-drawer-close {
-    width: 40px; height: 40px; flex-shrink: 0;
+    width: 44px; height: 44px; flex-shrink: 0;
     background: none; border: none; font-size: 20px; line-height: 1;
     color: var(--text); cursor: pointer; border-radius: 8px;
   }

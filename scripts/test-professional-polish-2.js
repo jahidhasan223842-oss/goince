@@ -256,8 +256,12 @@ const banglaLetters = /[\u0985-\u09E5]/;
   check('activity phone table has a named Actions column (no empty <th>)', activityWithRows.includes('<th>Actions</th>') && !activityWithRows.includes('<th></th>'));
 
   console.log('WhatsApp float cannot cover the cart checkout button');
-  check('footer hides the float over the cart checkout area', footerEjs.includes('.cart-summary .btn-primary') && footerEjs.includes('170'));
-  check('footer hides the float over the homepage sort control', footerEjs.includes("getElementById('sort')"));
+  // (fix/shop-menu-bar: the old bottom-band heuristic (innerHeight -
+  // 170) is gone — the float now hides on a REAL rect intersection
+  // with the guarded controls, and the guard list holds the Sort
+  // control as a selector instead of a getElementById call.)
+  check('footer hides the float over the cart checkout area', footerEjs.includes('.cart-summary .btn-primary') && footerEjs.includes('overlapsFloat'));
+  check('footer hides the float over the homepage sort control', footerEjs.includes("'#sort,"));
 
   console.log('Invoices — one clear filter set, no wrapping');
   const invoicesHtml = await renderFile(adminView('invoices'), Object.assign({}, base, {

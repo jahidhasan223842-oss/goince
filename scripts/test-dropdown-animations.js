@@ -249,9 +249,28 @@ function rulesWith(source, selector) {
     /animation:\s*admin-menu-item-in \.2s ease-out backwards;/.test(cssNoComments)
     && !/admin-menu-item-in[^;]*\b(both|forwards)\b/.test(cssNoComments),
     'entrance fill mode wrong');
+  // The keyframes block itself (balanced braces) must animate opacity +
+  // transform only. (Was: a crude css.split('@media (max-width:
+  // 1024px)')[0] scope — the sticky shop header (fix/shop-menu-bar)
+  // legitimately has `top: 0` after the keyframes, so the scope had
+  // to become the keyframes block itself. Same property tested, more
+  // precisely.)
+  const kfStart = css.indexOf('@keyframes admin-menu-item-in');
+  let kfBlock = '';
+  if (kfStart !== -1) {
+    const kfOpen = css.indexOf('{', kfStart);
+    let kd = 0;
+    let kj = kfOpen;
+    for (; kj < css.length; kj++) {
+      if (css[kj] === '{') kd++;
+      if (css[kj] === '}') { kd--; if (kd === 0) break; }
+    }
+    kfBlock = css.slice(kfStart, kj + 1);
+  }
   check('entrance animates opacity + transform only (no layout property)',
-    /@keyframes admin-menu-item-in\s*\{[^}]*transform:[^}]*\}/.test(css)
-    && !/@keyframes admin-menu-item-in[\s\S]*?\b(width|height|margin|padding|top|left)\b/.test(css.split('@media (max-width: 1024px)')[0]),
+    /from\s*\{[^}]*opacity:[^}]*transform:/.test(kfBlock)
+    && /to\s*\{[^}]*opacity:[^}]*transform:/.test(kfBlock)
+    && !/\b(width|height|margin|padding|top|left)\s*:/.test(kfBlock),
     'keyframes animate a layout property');
 
   // ---- 7. SHOP UNTOUCHED: no animation leaked into the shop header/mega menu ----
