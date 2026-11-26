@@ -1356,14 +1356,19 @@ a { text-decoration: none; color: inherit; }
 
 /* My Profile page (fix/admin-profile-section): account overview card,
    Change Password card and Forgot Password card — stacked cards, full
-   width; the buttons are already 44px tap targets on phones. */
-.admin-profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-top: 20px; }
-.admin-profile-card h2 { margin-top: 0; }
+   width; the buttons are already 44px tap targets on phones.
+   Compact sizing (fix/profile-photo-upload): the cards are capped at the
+   admin's standard 760px form width instead of stretching full-width,
+   card titles are the standard 17px panel-heading size, and the crop
+   stage/preview are smaller — the page looked oversized before. */
+.admin-profile-page { max-width: 760px; }
+.admin-profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-top: 16px; }
+.admin-profile-card h2 { margin-top: 0; font-size: 17px; }
 .admin-profile-card .admin-form { padding: 0; }
 .admin-profile-overview { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .admin-profile-avatar { width: 56px; height: 56px; font-size: 24px; }
 .admin-profile-details { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.admin-profile-name { margin: 0; font-size: 20px; color: var(--text-strong); }
+.admin-profile-name { margin: 0; font-size: 18px; color: var(--text-strong); }
 .admin-profile-field { display: flex; gap: 12px; align-items: baseline; font-size: 14px; }
 .admin-profile-label { width: 96px; flex-shrink: 0; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 
@@ -1377,14 +1382,14 @@ a { text-decoration: none; color: inherit; }
 .admin-photo-choose { display: inline-block; min-height: 44px; line-height: 24px; padding: 10px 16px; background: var(--admin-blue); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
 #admin-photo-file:focus-visible + .admin-photo-choose { outline: 2px solid var(--admin-blue); outline-offset: 2px; }
 .admin-photo-crop-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin: 16px 0; }
-.admin-photo-crop-stage { position: relative; width: 320px; max-width: 100%; aspect-ratio: 1; overflow: hidden; background: #101c2e; border-radius: 10px; flex-shrink: 0; }
+.admin-photo-crop-stage { position: relative; width: 280px; max-width: 100%; aspect-ratio: 1; overflow: hidden; background: #101c2e; border-radius: 10px; flex-shrink: 0; }
 .admin-photo-crop-stage img { position: absolute; user-select: none; -webkit-user-drag: none; }
 .admin-photo-crop-box { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); cursor: grab; touch-action: none; }
 .admin-photo-crop-box:active { cursor: grabbing; }
 .admin-photo-crop-box:focus-visible { outline: 2px solid var(--admin-blue); outline-offset: 2px; }
 .admin-photo-crop-handle { position: absolute; right: -8px; bottom: -8px; width: 20px; height: 20px; background: #fff; border: 2px solid var(--admin-blue); border-radius: 50%; cursor: nwse-resize; touch-action: none; }
 .admin-photo-crop-side { display: flex; flex-direction: column; gap: 8px; }
-.admin-photo-crop-preview { width: 72px; height: 72px; border-radius: 50%; background-color: #101c2e; background-repeat: no-repeat; border: 1px solid var(--border); }
+.admin-photo-crop-preview { width: 64px; height: 64px; border-radius: 50%; background-color: #101c2e; background-repeat: no-repeat; border: 1px solid var(--border); }
 .admin-photo-crop-side input[type="range"] { width: 160px; max-width: 100%; min-height: 44px; }
 .admin-topbar .theme-toggle-btn {
   width: 44px;
