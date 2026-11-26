@@ -3,6 +3,7 @@
   </div>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/theme.js') : '/js/theme.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/admin-push.js') : '/js/admin-push.js' %>"></script>
+  <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/admin-dropdowns.js') : '/js/admin-dropdowns.js' %>"></script>
   <script>
     // Admin theme and responsive navigation (kept in shared partial for every admin page).
     function toggleGoinceTheme() {
@@ -20,111 +21,11 @@
       if (link.pathname === window.location.pathname) link.setAttribute('aria-current', 'page');
     });
 
-    // WHMCS-style top-bar dropdowns (fix/whmcs-style-admin): bell + profile
-    // menu. Button chaple khole, baire chaple / Esc chaple / focus
-    // beriye gele bondho hoy. Ekta khola thakle arekta bondho hoye jay.
-    // Top nav dropdowns (fix/whmcs-top-nav) follow the same close rules.
-    // CLOSE ANIMATION (fix/dropdown-animations): removing .open does
-    // NOT hide the menu instantly — the CSS keeps it visible while it
-    // fades + slides up (opacity/transform .15s) and flips visibility
-    // to hidden only after the transition (visibility 0s linear .15s),
-    // so every close path here (click, Esc, outside-click, focusout,
-    // hovering another group) animates the close and the menu can
-    // never stay invisible-but-clickable. No timeout or transitionend
-    // listener is needed; re-opening mid-fade just reverses it.
-    function closeAdminDropdowns(exceptBtn) {
-      document.querySelectorAll('[data-dropdown-btn]').forEach(function (btn) {
-        if (btn === exceptBtn) return;
-        btn.setAttribute('aria-expanded', 'false');
-        var menu = btn.parentElement && btn.parentElement.querySelector('.admin-dropdown-menu');
-        if (menu) menu.classList.remove('open');
-      });
-      document.querySelectorAll('[data-topnav-btn]').forEach(function (btn) {
-        if (btn === exceptBtn) return;
-        btn.setAttribute('aria-expanded', 'false');
-        var menu = btn.parentElement && btn.parentElement.querySelector('.admin-topnav-menu');
-        if (menu) menu.classList.remove('open');
-      });
-    }
-    document.querySelectorAll('[data-dropdown-btn]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var menu = btn.parentElement && btn.parentElement.querySelector('.admin-dropdown-menu');
-        if (!menu) return;
-        var willOpen = !menu.classList.contains('open');
-        closeAdminDropdowns(btn);
-        menu.classList.toggle('open', willOpen);
-        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-      });
-      // Focus leaving the dropdown (bell / profile menu) closes it, so
-      // the button state follows the keyboard too — same as the top nav.
-      var wrap = btn.parentElement;
-      if (wrap) {
-        wrap.addEventListener('focusout', function (e) {
-          if (wrap.contains(e.relatedTarget)) return;
-          var menu = wrap.querySelector('.admin-dropdown-menu');
-          if (menu) menu.classList.remove('open');
-          btn.setAttribute('aria-expanded', 'false');
-        });
-      }
-    });
-    // Top nav dropdowns (fix/whmcs-top-nav): same click latch as the
-    // bell/user menus. Hover/focus opening is pure CSS (:hover +
-    // :focus-within, @media (hover: hover) only — touch-e tap-er por
-    // khola thakbe na). Focus leaving the dropdown closes it, so the
-    // button state follows the keyboard too.
-    document.querySelectorAll('[data-topnav-btn]').forEach(function (btn) {
-      var wrap = btn.parentElement;
-      var menu = wrap && wrap.querySelector('.admin-topnav-menu');
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (!menu) return;
-        var willOpen = !menu.classList.contains('open');
-        closeAdminDropdowns(btn);
-        menu.classList.toggle('open', willOpen);
-        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-      });
-      if (wrap && menu) {
-        wrap.addEventListener('focusout', function (e) {
-          if (wrap.contains(e.relatedTarget)) return;
-          menu.classList.remove('open');
-          btn.setAttribute('aria-expanded', 'false');
-        });
-      }
-    });
-    // Top nav dropdowns: hovering one group must close a menu latched open
-    // on another group (fix/admin-theme-hover-profile) — otherwise the
-    // CSS :hover menu and a latched .open menu sit open at once (Shop
-    // behind Sales). Click latching above already closes the others; the
-    // hover path had no such close, so mouseenter does it here.
-    document.querySelectorAll('.admin-topnav-dropdown').forEach(function (wrap) {
-      wrap.addEventListener('mouseenter', function () {
-        var btn = wrap.querySelector('[data-topnav-btn]');
-        closeAdminDropdowns(btn);
-      });
-    });
-    document.addEventListener('click', function (e) {
-      closeAdminDropdowns(null);
-      // A click outside the search panel closes it; clicks inside the
-      // panel (typing in the box) or on the 🔍 icon leave it open.
-      if (e.target.closest && (e.target.closest('#admin-topbar-search') || e.target.closest('#admin-topbar-search-btn'))) return;
-      closeAdminSearch();
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { closeAdminDropdowns(null); closeAdminSearch(); }
-    });
-
-    // One-line top bar search (fix/whmcs-one-line-topbar): the 🔍 icon
-    // opens the search as a panel under the icon (desktop) or a row under
-    // the bar (mobile). Same close rules as the menus above — and the
-    // same close animation (fix/dropdown-animations): removing .open
-    // fades + slides the panel up via the CSS visibility transition.
-    function closeAdminSearch() {
-      var form = document.getElementById('admin-topbar-search');
-      var btn = document.getElementById('admin-topbar-search-btn');
-      if (form) form.classList.remove('open');
-      if (btn) btn.setAttribute('aria-expanded', 'false');
-    }
+    // Top-bar dropdowns + search panel (fix/dropdown-close-premium):
+    // all open/close state lives in public/js/admin-dropdowns.js
+    // (loaded above) — .open is the single source of truth, so a
+    // menu can never be stuck open by a CSS :hover the JS cannot
+    // close. Nothing dropdown-related stays in this inline script.
 
     // Sidebar groups collapse (fix/whmcs-style-admin): group header chaple
     // oi group-er link gulo lukay/khole; obostha localStorage-e thake, tai
@@ -151,27 +52,6 @@
         try { localStorage.setItem('goince-admin-nav', JSON.stringify(collapsed)); } catch (e) {}
       });
     });
-
-    // Top-bar search toggle (fix/whmcs-one-line-topbar): 🔍 chaple search
-    // panel khole (desktop-e icon-er niche, phone-e bar-er niche row),
-    // abar chaple bondho hoy. stopPropagation na dile document click
-    // handler sathe sathe bondho kore dito; kholar somoy khola menu-o
-    // bondho hoy (bell/profile/top-nav-er motoi).
-    var adminSearchBtn = document.getElementById('admin-topbar-search-btn');
-    var adminSearchForm = document.getElementById('admin-topbar-search');
-    if (adminSearchBtn && adminSearchForm) {
-      adminSearchBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        closeAdminDropdowns(null);
-        var willOpen = !adminSearchForm.classList.contains('open');
-        adminSearchForm.classList.toggle('open', willOpen);
-        adminSearchBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-        if (willOpen) {
-          var input = adminSearchForm.querySelector('input[name="q"]');
-          if (input) input.focus();
-        }
-      });
-    }
 
     // Mobile sidebar (hamburger): choto screen-e sidebar off-canvas thake,
     // ☰ button-e khole; link / overlay / Esc-e bondho hoy. Desktop-e kichu bodlay na.

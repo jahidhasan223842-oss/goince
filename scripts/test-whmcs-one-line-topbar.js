@@ -79,6 +79,7 @@ function check(name, ok, detail) {
 const css = read(path.join(__dirname, '..', 'public', 'css', 'style.css'));
 const headerEjs = read(path.join(__dirname, '..', 'views', 'partials', 'admin-header.ejs'));
 const footerEjs = read(path.join(__dirname, '..', 'views', 'partials', 'admin-footer.ejs'));
+const dropdownJs = read(path.join(__dirname, '..', 'public', 'js', 'admin-dropdowns.js'));
 const profileEjs = read(path.join(__dirname, '..', 'views', 'admin', 'profile.ejs'));
 const adminJs = read(path.join(__dirname, '..', 'routes', 'admin.js'));
 const csrfJs = read(path.join(__dirname, '..', 'lib', 'csrf.js'));
@@ -336,21 +337,27 @@ check('icon buttons on the bar have a hover wash (light + dark)',
   && /\[data-theme="dark"\] \.admin-topbar-search-btn:hover,[\s\S]*?\[data-theme="dark"\] \.admin-user-btn:hover\s*\{\s*background:\s*#2c4a73;/.test(css),
   'icon-button hover wash missing');
 
-// --------------------------------------- 4 — footer JS: search panel
-console.log('Footer JS — search panel opens/closes like the menus');
+// --------------------------------------- 4 — dropdown JS: search panel
+// fix/dropdown-close-premium: the search toggle + document click +
+// Esc handlers moved from the footer inline script into
+// public/js/admin-dropdowns.js (the single source of truth for all
+// top-bar open/close state). Behaviour is unchanged, except Esc now
+// also returns focus to the button that opened the panel.
+console.log('Dropdown JS — search panel opens/closes like the menus');
 check('search toggle stops propagation and closes open menus when opening',
-  /adminSearchBtn\.addEventListener\('click', function \(e\) \{\s*e\.stopPropagation\(\);\s*closeAdminDropdowns\(null\);/.test(footerEjs),
+  /adminSearchBtn\.addEventListener\('click', function \(e\) \{\s*e\.stopPropagation\(\);\s*closeAdminDropdowns\(null\);/.test(dropdownJs),
   'search toggle does not stopPropagation / close menus');
 check('a closeAdminSearch helper exists and the document click closes the panel outside it',
-  footerEjs.includes('function closeAdminSearch()')
-  && /document\.addEventListener\('click', function \(e\) \{\s*closeAdminDropdowns\(null\);[\s\S]*?closeAdminSearch\(\);/.test(footerEjs),
+  dropdownJs.includes('function closeAdminSearch()')
+  && /doc\.addEventListener\('click', function \(e\) \{\s*closeAdminDropdowns\(null\);[\s\S]*?closeAdminSearch\(\);/.test(dropdownJs),
   'outside-click does not close the search panel');
-check('Esc closes the search panel too',
-  /if \(e\.key === 'Escape'\) \{\s*closeAdminDropdowns\(null\); closeAdminSearch\(\); \}/.test(footerEjs),
+check('Esc closes the search panel too (and returns focus to its opener)',
+  /doc\.addEventListener\('keydown', function \(e\) \{\s*if \(e\.key !== 'Escape'\) return;\s*var hadOpen = anyMenuOpen\(\);\s*closeAdminDropdowns\(null\);\s*closeAdminSearch\(\);/.test(dropdownJs)
+  && /lastOpenerBtn\.focus\(\)/.test(dropdownJs),
   'Esc does not close the search panel');
 check('search toggle still focuses the input when opening',
-  footerEjs.includes("adminSearchForm.querySelector('input[name=\"q\"]')")
-  && footerEjs.includes('if (input) input.focus();'),
+  dropdownJs.includes("adminSearchForm.querySelector('input[name=\"q\"]')")
+  && dropdownJs.includes('if (input) input.focus();'),
   'search focus lost');
 
 // --------------------------------------- 5 — end-to-end: real login + profile routes

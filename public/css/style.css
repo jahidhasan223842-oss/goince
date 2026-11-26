@@ -1284,31 +1284,54 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
    (desktop) or a full-width row under the bar (mobile, see below).
    The form is hidden until .open; the submit button inside stays blue. */
 /* =========================================================
-   DROPDOWN MOTION (fix/dropdown-animations) — one motion
-   language for the three top-bar panels (search form here,
-   .admin-dropdown-menu below, .admin-topnav-menu further down):
+   DROPDOWN MOTION (fix/dropdown-animations, reworked in
+   fix/dropdown-close-premium) — one motion language for the
+   three top-bar panels (search form here, .admin-dropdown-menu
+   below, .admin-topnav-menu further down):
+   - ONE source of truth: the .open class, driven ONLY by
+     public/js/admin-dropdowns.js. CSS :hover / :focus-within
+     NEVER opens a menu — the old dual mechanism let a
+     CSS-hovered menu ignore Esc, click-toggle and one-at-a-time
+     closes while the pointer stayed over it, and there was no
+     mouseleave handler at all, so menus stayed stuck open (found
+     live 2026-11-26). Hover, focus, click, Esc and outside-click
+     all go through the JS now.
    - Show/hide is VISIBILITY-based, never display:none: hidden =
      visibility:hidden + opacity:0 + translateY(-6px) +
-     pointer-events:none. Opening (.open / :hover / :focus-within)
-     fades + slides down in .2s (visibility flips instantly);
-     closing plays the reverse in .15s and visibility flips to
-     hidden only AFTER the transition (visibility 0s linear .15s)
-     — so a closing menu fades out instead of vanishing, never
-     stays invisible-but-clickable, and no JS timeout or
-     transitionend listener is needed; re-opening mid-fade just
-     reverses the transition. visibility:hidden also takes the
-     panel out of the tab order.
+     pointer-events:none. Opening plays @keyframes admin-menu-open
+     (fade + slide + a slight scale .96 -> 1, .25s, soft-spring
+     cubic-bezier(.22, 1.25, .36, 1) — one gentle overshoot that
+     settles, no oscillation) with transform-origin at the top
+     edge, and the shadow deepens as the panel settles. Closing
+     plays the reverse in .15s — fade + slide up ONLY, no scale —
+     and visibility flips to hidden only AFTER the transition
+     (visibility 0s linear .15s), so a closing menu fades out
+     instead of vanishing, never stays invisible-but-clickable,
+     and no JS timeout or transitionend listener is needed;
+     re-opening mid-fade just reverses it. visibility:hidden also
+     takes the panel out of the tab order.
    - Items cascade in: @keyframes admin-menu-item-in (opacity +
-     translateY 4px -> 0), 25ms per item (nth-of-type, capped at
-     175ms). Fill mode is `backwards` (NOT both) so the entrance
-     never overrides the hover lift (-3px) once it ends.
+     translateY 4px -> 0, .2s), 30ms per item (nth-of-type, capped
+     at 210ms). Fill mode is `backwards` (NOT both) so the entrance
+     never overrides the hover lift (-3px) once it ends. The
+     stagger runs on every menu (top-nav, bell, profile) because
+     it is tied to .open, not to :hover.
    - Press: :active dips the item (lift -3px -> -1px) + scale(.98)
      + a brightness dip — pure CSS, instant, never delays nav.
    - prefers-reduced-motion disables all of it (instant open/close).
-   - transform + opacity ONLY — no layout animation, no jank.
+   - transform + opacity ONLY (box-shadow joins only for the
+     settle) — no layout animation, no jank.
    New menus: give the panel the hidden/open pair below and put
    its links under the stagger selectors after the top-nav rules.
    ========================================================= */
+/* Panel entrance (fix/dropdown-close-premium): the spring open —
+   fade + slide + a slight scale, one gentle overshoot that
+   settles. The close is NOT keyframed: it is the plain .15s
+   transition on the hidden state (fade + slide up, no scale). */
+@keyframes admin-menu-open {
+  from { opacity: 0; transform: translateY(-6px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .admin-topbar-search {
   display: flex;
   position: absolute;
@@ -1324,6 +1347,7 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
   z-index: 950;
+  transform-origin: top right;
   /* DROPDOWN MOTION: hidden state (see convention above) — the
      close transition; visibility flips to hidden .15s after .open
      is removed, once the fade/slide-up has played. */
@@ -1331,14 +1355,16 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
+  transition: opacity .15s ease, transform .15s ease, box-shadow .15s ease, visibility 0s linear .15s;
 }
 .admin-topbar-search.open {
   visibility: visible;
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-  transition: opacity .2s ease, transform .2s ease, visibility 0s;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, .32);
+  animation: admin-menu-open .25s cubic-bezier(.22, 1.25, .36, 1) backwards;
+  transition: opacity .25s cubic-bezier(.22, 1.25, .36, 1), transform .25s cubic-bezier(.22, 1.25, .36, 1), box-shadow .25s cubic-bezier(.22, 1.25, .36, 1), visibility 0s;
 }
 .admin-topbar-search input[type="search"] {
   flex: 1;
@@ -1565,6 +1591,7 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
   padding: 8px;
   z-index: 950;
+  transform-origin: top right;
   /* DROPDOWN MOTION (fix/dropdown-animations): hidden state — see the
      convention above .admin-topbar-search. Never display:none, so the
      close fade/slide-up can play and visibility flips only after it. */
@@ -1572,14 +1599,16 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
+  transition: opacity .15s ease, transform .15s ease, box-shadow .15s ease, visibility 0s linear .15s;
 }
 .admin-dropdown-menu.open {
   visibility: visible;
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-  transition: opacity .2s ease, transform .2s ease, visibility 0s;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, .32);
+  animation: admin-menu-open .25s cubic-bezier(.22, 1.25, .36, 1) backwards;
+  transition: opacity .25s cubic-bezier(.22, 1.25, .36, 1), transform .25s cubic-bezier(.22, 1.25, .36, 1), box-shadow .25s cubic-bezier(.22, 1.25, .36, 1), visibility 0s;
 }
 .admin-dropdown-heading {
   font-size: 12px;
@@ -1842,6 +1871,7 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   box-shadow: 0 12px 32px var(--shadow-md);
   padding: 8px;
   z-index: 950;
+  transform-origin: top left;
   /* DROPDOWN MOTION (fix/dropdown-animations): hidden state — see the
      convention above .admin-topbar-search. Never display:none, so the
      close fade/slide-up can play and visibility flips only after it. */
@@ -1849,14 +1879,16 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
+  transition: opacity .15s ease, transform .15s ease, box-shadow .15s ease, visibility 0s linear .15s;
 }
 .admin-topnav-menu.open {
   visibility: visible;
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-  transition: opacity .2s ease, transform .2s ease, visibility 0s;
+  box-shadow: 0 20px 48px var(--shadow-md);
+  animation: admin-menu-open .25s cubic-bezier(.22, 1.25, .36, 1) backwards;
+  transition: opacity .25s cubic-bezier(.22, 1.25, .36, 1), transform .25s cubic-bezier(.22, 1.25, .36, 1), box-shadow .25s cubic-bezier(.22, 1.25, .36, 1), visibility 0s;
 }
 .admin-topnav-menu-link {
   display: flex;
@@ -1880,16 +1912,14 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 @media (hover: hover) {
   .admin-topnav-link:hover,
   .admin-topnav-btn:hover { color: #fff; background: rgba(255, 255, 255, .14); }
-  .admin-topnav-dropdown:hover .admin-topnav-menu,
-  .admin-topnav-dropdown:focus-within .admin-topnav-menu {
-    /* DROPDOWN MOTION: same open state as .open above — hover/focus
-       opens with the same fade + slide-down. */
-    visibility: visible;
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-    transition: opacity .2s ease, transform .2s ease, visibility 0s;
-  }
+  /* DROPDOWN MOTION (fix/dropdown-close-premium): there is NO
+     :hover / :focus-within open rule here any more — on purpose.
+     The old rule let a hovered menu ignore every JS close (Esc,
+     click-toggle, one-at-a-time) while the pointer stayed over it,
+     and no mouseleave handler existed, so menus stayed stuck open
+     (found live 2026-11-26). Hover/focus opening now goes through
+     public/js/admin-dropdowns.js, which adds .open — the only open
+     state. The button/link hover washes below are unchanged. */
   /* Top-nav menu hover: same lavender + lift as the bell/profile menus
      (fix/admin-theme-hover-profile) — NOT the row/card hover colour.
      Lift is -3px (fix/whmcs-one-line-topbar, was -1px) so the item
@@ -1897,54 +1927,41 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .admin-topnav-menu-link:hover { background: var(--dropdown-hover); color: var(--text-strong); transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0, 0, 0, .18); }
 }
 /* Dropdown motion — entrance stagger + press feedback
-   (fix/dropdown-animations). The panel fade/slide lives on the menu
-   rules above; these rules animate the ITEMS inside an opening menu.
-   Stagger: each item fades + rises 4px, 25ms after the previous one
-   (nth-of-type, capped at 175ms so even the 7-link Shop menu finishes
-   fast). Fill mode is `backwards` — during the delay the item shows
-   the from-keyframe, and once the entrance ends NO fill applies, so
-   the hover lift (translateY(-3px)) works exactly as before; the
-   entrance never fights it. The animation only applies while the
-   menu is open/hovered, so it replays on every open and never on a
-   menu that is already open. */
+   (fix/dropdown-animations, timing reworked in
+   fix/dropdown-close-premium). The panel fade/slide/scale lives on
+   the menu rules above; these rules animate the ITEMS inside an
+   opening menu. Stagger: each item fades + rises 4px, 30ms after
+   the previous one (nth-of-type, capped at 210ms so even the 7-link
+   Shop menu finishes fast). Fill mode is `backwards` — during the
+   delay the item shows the from-keyframe, and once the entrance ends
+   NO fill applies, so the hover lift (translateY(-3px)) works
+   exactly as before; the entrance never fights it. The animation is
+   tied to .open only (never :hover / :focus-within — CSS no longer
+   opens a menu), so it runs on EVERY menu — top-nav, bell and
+   profile — and replays on every open, never on a menu that is
+   already open. */
 @keyframes admin-menu-item-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .admin-topnav-menu.open .admin-topnav-menu-link,
-.admin-topnav-dropdown:hover .admin-topnav-menu-link,
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link,
 .admin-dropdown-menu.open a {
-  animation: admin-menu-item-in .18s ease-out backwards;
+  animation: admin-menu-item-in .2s ease-out backwards;
 }
 .admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(2),
-.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(2),
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(2),
-.admin-dropdown-menu.open a:nth-of-type(2) { animation-delay: 25ms; }
+.admin-dropdown-menu.open a:nth-of-type(2) { animation-delay: 30ms; }
 .admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(3),
-.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(3),
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(3),
-.admin-dropdown-menu.open a:nth-of-type(3) { animation-delay: 50ms; }
+.admin-dropdown-menu.open a:nth-of-type(3) { animation-delay: 60ms; }
 .admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(4),
-.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(4),
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(4),
-.admin-dropdown-menu.open a:nth-of-type(4) { animation-delay: 75ms; }
+.admin-dropdown-menu.open a:nth-of-type(4) { animation-delay: 90ms; }
 .admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(5),
-.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(5),
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(5),
-.admin-dropdown-menu.open a:nth-of-type(5) { animation-delay: 100ms; }
+.admin-dropdown-menu.open a:nth-of-type(5) { animation-delay: 120ms; }
 .admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(6),
-.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(6),
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(6),
-.admin-dropdown-menu.open a:nth-of-type(6) { animation-delay: 125ms; }
+.admin-dropdown-menu.open a:nth-of-type(6) { animation-delay: 150ms; }
 .admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(7),
-.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(7),
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(7),
-.admin-dropdown-menu.open a:nth-of-type(7) { animation-delay: 150ms; }
+.admin-dropdown-menu.open a:nth-of-type(7) { animation-delay: 180ms; }
 .admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(8),
-.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(8),
-.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(8),
-.admin-dropdown-menu.open a:nth-of-type(8) { animation-delay: 175ms; }
+.admin-dropdown-menu.open a:nth-of-type(8) { animation-delay: 210ms; }
 /* Press feedback (fix/dropdown-animations): a clicked/tapped menu item
    dips slightly (lift -3px -> -1px) + scales to .98 + dims a touch —
    pure CSS :active, instant, never delays navigation. Placed AFTER
@@ -2353,10 +2370,14 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   /* DROPDOWN MOTION (fix/dropdown-animations): menus open/close
      instantly — no fade, slide, stagger or press effect. transition:
      none also removes the visibility delay, so a closing menu hides
-     at once instead of fading; animation: none kills the stagger. */
+     at once instead of fading; animation: none kills the stagger
+     AND the panel spring (fix/dropdown-close-premium). */
   .admin-topnav-menu,
   .admin-dropdown-menu,
   .admin-topbar-search { transition: none; }
+  .admin-topnav-menu.open,
+  .admin-dropdown-menu.open,
+  .admin-topbar-search.open { animation: none; }
   .admin-topnav-menu-link,
   .admin-dropdown-menu a { animation: none; }
   .admin-topnav-menu-link:active,

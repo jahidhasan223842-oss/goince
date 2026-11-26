@@ -63,6 +63,7 @@ function check(name, ok, detail) {
 const css = read(path.join(__dirname, '..', 'public', 'css', 'style.css'));
 const headerEjs = read(path.join(__dirname, '..', 'views', 'partials', 'admin-header.ejs'));
 const footerEjs = read(path.join(__dirname, '..', 'views', 'partials', 'admin-footer.ejs'));
+const dropdownJs = read(path.join(__dirname, '..', 'public', 'js', 'admin-dropdowns.js'));
 const profileEjs = read(path.join(__dirname, '..', 'views', 'admin', 'profile.ejs'));
 const settingsEjs = read(path.join(__dirname, '..', 'views', 'admin', 'settings.ejs'));
 const adminJs = read(path.join(__dirname, '..', 'routes', 'admin.js'));
@@ -120,8 +121,10 @@ const count = (text, needle) => text.split(needle).length - 1;
     menu.indexOf('admin-profile-menu-divider') < logout,
     'divider missing or not before Logout');
   check('top-bar dropdowns close on focus-out (same as the top nav)',
-    footerEjs.includes("wrap.addEventListener('focusout'"),
-    'focusout handler missing from the footer script');
+    // fix/dropdown-close-premium: the focusout handler moved from the
+    // footer inline script into public/js/admin-dropdowns.js.
+    dropdownJs.includes("wrap.addEventListener('focusout'"),
+    'focusout handler missing from the dropdown module');
 
   // 4 — GET /admin/profile route: requireAdmin only, no permission gate.
   check('GET /admin/profile exists and is guarded by requireAdmin only',

@@ -79,6 +79,7 @@ const css = read(path.join(__dirname, '..', 'public', 'css', 'style.css'));
 const profileEjs = read(path.join(__dirname, '..', 'views', 'admin', 'profile.ejs'));
 const invoicesEjs = read(path.join(__dirname, '..', 'views', 'admin', 'invoices.ejs'));
 const footerEjs = read(path.join(__dirname, '..', 'views', 'partials', 'admin-footer.ejs'));
+const dropdownJs = read(path.join(__dirname, '..', 'public', 'js', 'admin-dropdowns.js'));
 const adminJs = read(path.join(__dirname, '..', 'routes', 'admin.js'));
 const emailJs = read(path.join(__dirname, '..', 'config', 'email.js'));
 const { validateEmailChange } = require('../lib/admin-profile');
@@ -202,11 +203,17 @@ check('table rows still lift via their cells (a <tr> cannot be transformed)',
   'row cell lift missing');
 
 // --------------------------------------- 7 — one nav dropdown at a time
-check('hovering a top-nav group closes the other latched menus (mouseenter handler)',
-  /document\.querySelectorAll\('\.admin-topnav-dropdown'\)\.forEach\(function \(wrap\) \{\s*wrap\.addEventListener\('mouseenter', function \(\) \{\s*var btn = wrap\.querySelector\('\[data-topnav-btn\]'\);\s*closeAdminDropdowns\(btn\);/.test(footerEjs),
-  'mouseenter close-others handler missing');
+// fix/dropdown-close-premium: the mouseenter handler moved into
+// public/js/admin-dropdowns.js and now OPENS the hovered group (via
+// openMenu, which closes the others) — same one-at-a-time result,
+// and the close now works for hover-opened menus too (the old handler
+// only removed .open, which a CSS-hovered menu ignored).
+check('hovering a top-nav group opens it and closes the other menus (mouseenter handler)',
+  /wrap\.addEventListener\('mouseenter', function \(\) \{\s*openMenu\(btn, false\);\s*\}\);/.test(dropdownJs)
+  && /function openMenu\(btn, latched\) \{\s*var menu = menuForBtn\(btn\);\s*if \(!menu\) return;\s*cancelPendingClose\(btn\);\s*closeAdminDropdowns\(btn\);/.test(dropdownJs),
+  'mouseenter open/close-others handler missing');
 check('click latching still closes the other menus (existing behaviour kept)',
-  footerEjs.includes('closeAdminDropdowns(btn)') && footerEjs.includes("menu.classList.toggle('open', willOpen)"),
+  dropdownJs.includes('closeAdminDropdowns(btn)') && dropdownJs.includes('openMenu(btn, true)'),
   'click latch behaviour changed');
 
 // --------------------------------------- 8 — email change (pure validation)
