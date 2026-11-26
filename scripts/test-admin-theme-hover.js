@@ -88,10 +88,14 @@ const { csrfProtection } = require('../lib/csrf');
 check('light-mode admin surfaces are soft off-white, not pure white (override rule exists)',
   /html:not\(\[data-theme="dark"\]\) body\.admin-body,\s*html:not\(\[data-theme="dark"\]\) body\.admin-login-body\s*\{\s*--surface:\s*#f7f9fb;/.test(css),
   'soft-surface override rule missing');
-check('top bar uses var(--surface) now, not a hardcoded #ffffff',
-  /\.admin-topbar\s*\{[^}]*background:\s*var\(--surface\);/.test(css)
+check('top bar is WHMCS blue now, not the soft surface (one-line bar)',
+  // fix/whmcs-one-line-topbar: the whole bar is var(--admin-blue) with
+  // white text — the soft #f7f9fb surface still applies to CARDS and
+  // secondary buttons (checked above/below), just not to the bar.
+  /\.admin-topbar\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(css)
+  && !/\.admin-topbar\s*\{[^}]*background:\s*var\(--surface\);/.test(css)
   && !/\.admin-topbar\s*\{[^}]*background:\s*#ffffff;/.test(css),
-  'topbar still hardcoded #ffffff');
+  'topbar is not WHMCS blue');
 check('admin secondary buttons use the soft surface, not pure white',
   /\.admin-content \.btn-secondary\s*\{[^}]*background:\s*var\(--surface\);/.test(css),
   'btn-secondary still #fff');
@@ -109,10 +113,13 @@ check('search button is the same blue in dark mode as in light mode (no gold)',
 check('dark search button no longer uses the gold accent',
   !/\[data-theme="dark"\] \.admin-topbar-search button\s*\{[^}]*var\(--accent\)/.test(css),
   'dark search button still gold');
-check('top nav bar is still the same slate in both modes',
-  /\.admin-topnav\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(css)
-  && /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*#0a1221;/.test(css),
-  'topnav changed between modes');
+check('top nav is transparent inside the bar in both modes (bar is blue light / navy dark)',
+  // fix/whmcs-one-line-topbar: the nav moved INTO the bar, so there is no
+  // separate slate row any more — the bar carries the colour.
+  /\.admin-topnav\s*\{[^}]*background:\s*transparent;/.test(css)
+  && /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*transparent;/.test(css)
+  && /\[data-theme="dark"\] \.admin-topbar\s*\{[^}]*background:\s*#0a1221;/.test(css),
+  'topnav still has its own background');
 check('gold stays only as the small logo mark (no gold primary/search buttons in dark)',
   !/\[data-theme="dark"\] \.admin-topbar-search button\s*\{[^}]*var\(--accent\)/.test(css)
   && /\[data-theme="dark"\] \.admin-topbar-brand\s*\{\s*color:\s*#f0a500/.test(css),
@@ -161,14 +168,16 @@ check('forgot-password link is an inline-block button, not a stretched bar',
 
 // --------------------------------------- 5 — dropdown hover: distinct + lift
 check('dropdown hover colour token exists in both themes and differs from the row/card hover',
-  /--dropdown-hover:\s*#e9e7f6/.test(css) && /--dropdown-hover:\s*#37304f/.test(css)
+  // fix/whmcs-one-line-topbar: the lavender is deepened so the hover is
+  // unmistakable (was #e9e7f6 / #37304f).
+  /--dropdown-hover:\s*#ddd5f8/.test(css) && /--dropdown-hover:\s*#463c6b/.test(css)
   && /--table-hover:\s*#e3f0f8/.test(css) && /--table-hover:\s*#22344e/.test(css),
   '--dropdown-hover missing or equal to --table-hover');
 check('profile/bell dropdown items hover with the lavender colour + lift + shadow',
-  /\.admin-dropdown-menu a:hover\s*\{[^}]*background:\s*var\(--dropdown-hover\);[^}]*transform:\s*translateY\(-1px\);[^}]*box-shadow:/.test(css),
+  /\.admin-dropdown-menu a:hover\s*\{[^}]*background:\s*var\(--dropdown-hover\);[^}]*transform:\s*translateY\(-3px\);[^}]*box-shadow:/.test(css),
   'dropdown item hover has no lift or wrong colour');
 check('top-nav dropdown items hover with the same lavender colour + lift + shadow',
-  /\.admin-topnav-menu-link:hover\s*\{[^}]*background:\s*var\(--dropdown-hover\);[^}]*transform:\s*translateY\(-1px\);[^}]*box-shadow:/.test(css),
+  /\.admin-topnav-menu-link:hover\s*\{[^}]*background:\s*var\(--dropdown-hover\);[^}]*transform:\s*translateY\(-3px\);[^}]*box-shadow:/.test(css),
   'top-nav item hover has no lift or wrong colour');
 check('dropdown items transition (the lift animates, not snaps)',
   /\.admin-dropdown-menu a\s*\{[^}]*transition:[^}]*transform/.test(css)

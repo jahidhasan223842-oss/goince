@@ -129,9 +129,11 @@ check('mobile (<=768px) block keeps the topbar visible at 52px',
   /\.admin-topbar\s*\{[^}]*height:\s*52px;/.test(mobileAdmin) &&
   !/\.admin-topbar\s*\{[^}]*display:\s*none/.test(mobileAdmin),
   'mobile topbar rule missing or hidden');
-check('mobile search toggle button stays desktop-hidden (only the bar shows)',
-  /\.admin-topbar-search-btn\s*\{\s*display:\s*none;/.test(cssTopLevel),
-  'search toggle button rule missing');
+check('search icon button is visible on desktop now (it IS the search entry point)',
+  // fix/whmcs-one-line-topbar: the big search box is gone — the 🔍 icon
+  // opens the search panel, so the button is no longer desktop-hidden.
+  /\.admin-topbar-search-btn\s*\{\s*display:\s*inline-flex;/.test(cssTopLevel),
+  'search icon button rule missing');
 check('print still hides the topbar (expected — print docs only)',
   printBlock.includes('.admin-topbar'), 'print block changed unexpectedly');
 check('CSS braces balanced',
@@ -146,21 +148,26 @@ check('admin palette vars defined (--admin-blue / --admin-slate / --admin-bg)',
 check('row hover tint is light blue now, not gold',
   /--table-hover:\s*#e3f0f8/.test(css) && !/--table-hover:\s*#fce9b8/.test(css),
   'hover tint still gold');
-check('top bar is soft off-white with dark text in the light theme (not stark pure white)',
-  /\.admin-topbar\s*\{[^}]*background:\s*var\(--surface\);/.test(cssTopLevel) &&
-  /\.admin-topbar\s*\{[^}]*color:\s*var\(--admin-slate\);/.test(cssTopLevel),
-  'topbar not soft off-white/slate');
-check('top nav bar is slate in the light theme (the sidebar moved there)',
-  /\.admin-topnav\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(cssTopLevel),
-  'topnav not slate');
+check('top bar is WHMCS blue with white text in the light theme (one-line bar)',
+  // fix/whmcs-one-line-topbar: the bar is blue now; the soft off-white
+  // surface still applies to CARDS (see the soft-surface suite), not
+  // to the bar.
+  /\.admin-topbar\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel) &&
+  /\.admin-topbar\s*\{[^}]*color:\s*#fff;/.test(cssTopLevel),
+  'topbar not WHMCS blue/white');
+check('top nav has no separate background in the light theme (it lives on the blue bar)',
+  /\.admin-topnav\s*\{[^}]*background:\s*transparent;/.test(cssTopLevel),
+  'topnav still has its own background');
 check('mobile drawer keeps the slate background',
   /\.admin-sidebar\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(cssTopLevel),
   'drawer not slate');
 check('drawer brand is white, not gold',
   /\.admin-sidebar h2\s*\{[^}]*color:\s*#ffffff;/.test(cssTopLevel),
   'drawer brand still gold');
-check('topbar brand is dark slate, not gold',
-  /\.admin-topbar-brand\s*\{[^}]*color:\s*var\(--admin-slate\)/.test(cssTopLevel),
+check('topbar brand is white, not gold',
+  // fix/whmcs-one-line-topbar: white brand text on the blue bar (gold
+  // stays only as the small logo mark in dark mode).
+  /\.admin-topbar-brand\s*\{[^}]*color:\s*#fff !important/.test(cssTopLevel),
   'topbar brand still gold');
 check('admin primary buttons are blue in the light theme',
   /\.admin-content \.btn-primary,\s*\.admin-login-box \.btn-primary\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel),
@@ -194,8 +201,8 @@ check('dark theme keeps the navy top bar',
 check('dark theme keeps the navy drawer',
   /\[data-theme="dark"\] \.admin-sidebar\s*\{[^}]*background:\s*#0a1221;/.test(css),
   'dark drawer override missing');
-check('dark theme keeps the navy top nav',
-  /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*#0a1221;/.test(css),
+check('dark theme keeps the navy top nav area (the bar is navy; the nav itself is transparent)',
+  /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*transparent;/.test(css),
   'dark topnav override missing');
 check('dark theme keeps the gold admin primary button',
   /\[data-theme="dark"\] \.admin-content \.btn-primary/.test(css) &&

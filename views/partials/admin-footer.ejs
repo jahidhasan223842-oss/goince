@@ -95,10 +95,26 @@
         closeAdminDropdowns(btn);
       });
     });
-    document.addEventListener('click', function () { closeAdminDropdowns(null); });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeAdminDropdowns(null);
+    document.addEventListener('click', function (e) {
+      closeAdminDropdowns(null);
+      // A click outside the search panel closes it; clicks inside the
+      // panel (typing in the box) or on the 🔍 icon leave it open.
+      if (e.target.closest && (e.target.closest('#admin-topbar-search') || e.target.closest('#admin-topbar-search-btn'))) return;
+      closeAdminSearch();
     });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { closeAdminDropdowns(null); closeAdminSearch(); }
+    });
+
+    // One-line top bar search (fix/whmcs-one-line-topbar): the 🔍 icon
+    // opens the search as a panel under the icon (desktop) or a row under
+    // the bar (mobile). Same close rules as the menus above.
+    function closeAdminSearch() {
+      var form = document.getElementById('admin-topbar-search');
+      var btn = document.getElementById('admin-topbar-search-btn');
+      if (form) form.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
 
     // Sidebar groups collapse (fix/whmcs-style-admin): group header chaple
     // oi group-er link gulo lukay/khole; obostha localStorage-e thake, tai
@@ -126,12 +142,17 @@
       });
     });
 
-    // Mobile top-bar search (fix/whmcs-style-admin): phone-e 🔍 chaple
-    // search row khole, abar chaple bondho hoy. Desktop-e button lukano.
+    // Top-bar search toggle (fix/whmcs-one-line-topbar): 🔍 chaple search
+    // panel khole (desktop-e icon-er niche, phone-e bar-er niche row),
+    // abar chaple bondho hoy. stopPropagation na dile document click
+    // handler sathe sathe bondho kore dito; kholar somoy khola menu-o
+    // bondho hoy (bell/profile/top-nav-er motoi).
     var adminSearchBtn = document.getElementById('admin-topbar-search-btn');
     var adminSearchForm = document.getElementById('admin-topbar-search');
     if (adminSearchBtn && adminSearchForm) {
-      adminSearchBtn.addEventListener('click', function () {
+      adminSearchBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        closeAdminDropdowns(null);
         var willOpen = !adminSearchForm.classList.contains('open');
         adminSearchForm.classList.toggle('open', willOpen);
         adminSearchBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');

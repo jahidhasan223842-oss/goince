@@ -270,17 +270,31 @@ router.post('/login', async (req, res) => {
 
   if (loginOk) {
     delete loginAttempts[ip]; // reset attempt count after a successful login
+    // Fallback login (fix/whmcs-one-line-topbar): the owner can sign in
+    // with the address in .env (e.g. their Gmail) while the real admin
+    // row lives under a different address. Use the primary admin row for
+    // the session identity (id / email / display name / photo) so the top
+    // bar shows the stored display name no matter which address was
+    // typed — otherwise the pill falls back to the typed email's local
+    // part and the name "keeps changing back to Gmail" on every re-login.
+    let profileRow = adminRow;
+    if (!profileRow) {
+      try {
+        const [firstRows] = await db.query('SELECT * FROM admins ORDER BY id ASC LIMIT 1');
+        profileRow = (firstRows && firstRows[0]) || null;
+      } catch (e) { profileRow = null; }
+    }
     req.session.isAdmin = true;
-    req.session.adminId = adminRow ? adminRow.id : null;
-    req.session.adminEmail = adminRow ? adminRow.email : email;
+    req.session.adminId = profileRow ? profileRow.id : null;
+    req.session.adminEmail = profileRow ? profileRow.email : email;
     // Profile display name + photo (fix/admin-profile-photo): the top bar
     // shows them on every admin page from the session — the header never
     // queries the DB. Missing columns (old DB) just read as null.
-    req.session.adminDisplayName = adminRow ? (adminRow.display_name || null) : null;
-    req.session.adminPhotoUrl = adminRow ? (adminRow.photo_url || null) : null;
+    req.session.adminDisplayName = profileRow ? (profileRow.display_name || null) : null;
+    req.session.adminPhotoUrl = profileRow ? (profileRow.photo_url || null) : null;
     // Effective role + permissions: custom role (roles table) if the admin
     // has one, else the legacy `role` string. Owner always gets everything.
-    const resolved = await resolveAdminPermissions(db, adminRow);
+    const resolved = await resolveAdminPermissions(db, profileRow || adminRow);
     req.session.adminRole = resolved.roleName;
     req.session.adminRoleId = resolved.roleId;
     req.session.adminPermissions = resolved.permissions;
@@ -2544,6 +2558,12 @@ router.get('/profile', requireAdmin, async (req, res) => {
   // display_name column; when empty, the name is the email local part —
   // exactly as the top-bar pill showed it before.
   const name = (adminRow && adminRow.display_name) ? String(adminRow.display_name) : (String(email).split('@')[0] || 'Admin');
+  // Raw stored name (fix/whmcs-one-line-topbar): the form must pre-fill
+  // with the value actually stored in the DB — NOT the effective name
+  // above. Pre-filling the fallback (email local part) baked it into
+  // display_name on every save, so the name could never be cleared back
+  // to the email fallback.
+  const rawDisplayName = (adminRow && adminRow.display_name) ? String(adminRow.display_name) : '';
   const photoUrl = (adminRow && adminRow.photo_url && String(adminRow.photo_url).startsWith('/uploads/')) ? String(adminRow.photo_url) : null;
   const phone = (adminRow && adminRow.phone) ? String(adminRow.phone) : '';
   const roleLabel = req.session.adminRole || (adminRow && adminRow.role) || 'owner';
@@ -2553,6 +2573,7 @@ router.get('/profile', requireAdmin, async (req, res) => {
   }
   res.render('admin/profile', {
     adminName: name,
+    adminDisplayNameRaw: rawDisplayName,
     adminEmail: email,
     adminRoleLabel: roleLabel,
     memberSince,

@@ -232,8 +232,11 @@ const baseLocals = {
     !fs.existsSync(path.join(__dirname, '..', 'sql', 'add_admin_profile_columns.sql')),
     'a manual SQL file exists for the columns');
   check('login stores display name + photo in the session; logout clears them',
-    adminJs.includes('req.session.adminDisplayName = adminRow') &&
-    adminJs.includes('req.session.adminPhotoUrl = adminRow') &&
+    // fix/whmcs-one-line-topbar: the session identity comes from
+    // profileRow (the DB row, or the primary row on a .env-fallback
+    // login) — the behaviour is the same, only the source row changed.
+    adminJs.includes('req.session.adminDisplayName = profileRow ? (profileRow.display_name || null) : null') &&
+    adminJs.includes('req.session.adminPhotoUrl = profileRow ? (profileRow.photo_url || null) : null') &&
     adminJs.includes('req.session.adminDisplayName = null') &&
     adminJs.includes('req.session.adminPhotoUrl = null'),
     'session fields missing');

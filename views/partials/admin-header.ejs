@@ -1,11 +1,12 @@
 <% /*
   WHMCS-style admin shell (fix/whmcs-style-admin, top nav in
-  fix/whmcs-top-nav). WHMCS has NO left sidebar — the admin nav is a
-  horizontal bar with dropdown buttons directly under the top bar
-  (logo, global search, notifications bell, admin menu, theme toggle),
+  fix/whmcs-top-nav, one-line bar in fix/whmcs-one-line-topbar). WHMCS
+  has NO left sidebar — the admin nav is a row of dropdown buttons ON
+  the one-line blue top bar (logo, nav menus, search icon,
+  notifications bell, View Site globe, theme toggle, profile pill),
   and the same links live in the off-canvas drawer on phones.
   Every admin page includes this partial, so every page gets the same
-  shell: top bar + top nav + breadcrumb. The header NEVER queries the
+  shell: one-line top bar + breadcrumb. The header NEVER queries the
   DB — counts come from res.locals (routes/admin.js notification
   middleware); every new local is guarded with typeof so direct EJS
   renders in tests keep working.
@@ -101,11 +102,12 @@
   <% let _crumb = { group: null, title: 'Admin' }; %>
   <% for (const _def of _crumbDefs) { if (_path === _def[0] || _path.indexOf(_def[0] + '/') === 0) { _crumb = { group: _def[1], title: _def[2] }; break; } } %>
   <% /* Top nav + drawer share ONE link list (fix/whmcs-top-nav): WHMCS
-       has no left sidebar — the nav is a horizontal bar with dropdown
-       buttons under the top bar, and the same links render a second
-       time inside the mobile drawer (off-canvas, ≤768px). One array
-       keeps both in sync; each link keeps its permission guard, and
-       `badge` names the res.locals.adminNotifications count to show. */ %>
+       has no left sidebar — the nav is a row of dropdown buttons ON the
+       one-line blue top bar (fix/whmcs-one-line-topbar), and the same
+       links render a second time inside the mobile drawer (off-canvas,
+       ≤768px). One array keeps both in sync; each link keeps its
+       permission guard, and `badge` names the
+       res.locals.adminNotifications count to show. */ %>
   <% const _navGroups = [
     { key: 'shop', label: 'Shop', perms: ['products.view', 'products.manage', 'products.variants', 'categories.manage', 'banners.manage', 'stock-alerts.manage', 'inventory.manage'], links: [
       { href: '/admin/products', label: '📦 Products', perm: 'products.view' },
@@ -156,60 +158,69 @@
     </aside>
     <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
     <div class="admin-main-col">
+      <!-- One-line WHMCS-style top bar (fix/whmcs-one-line-topbar): logo +
+           nav menus + search icon + bell + View Site globe + theme toggle
+           + profile pill all sit on ONE blue bar, like the real WHMCS.
+           The nav lives inside the bar (no separate row below it); the
+           right-hand group is pushed to the far right edge. -->
       <header class="admin-topbar">
         <button type="button" class="admin-menu-btn" id="admin-menu-btn" aria-expanded="false" aria-controls="admin-sidebar" aria-label="Menu">☰</button>
         <a class="admin-topbar-brand" href="<%= _landing %>"><img src="<%= (typeof siteSettings !== 'undefined' && siteSettings.logo_url) ? siteSettings.logo_url : '/icons/icon-192.png' %>" alt="" class="admin-logo-mark"> <span><%= siteName %> Admin</span></a>
-        <form class="admin-topbar-search" id="admin-topbar-search" method="GET" action="/admin/search" role="search">
-          <input type="search" name="q" placeholder="Search orders, customers, products…" aria-label="Search orders, customers and products" value="<%= (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '' %>">
-          <button type="submit" aria-label="Search">🔍</button>
-        </form>
-        <button type="button" class="admin-topbar-search-btn" id="admin-topbar-search-btn" aria-label="Search" aria-expanded="false">🔍</button>
-        <div class="admin-topbar-dropdown">
-          <button type="button" class="admin-bell-btn" id="admin-bell-btn" data-dropdown-btn aria-label="Notifications" aria-expanded="false">🔔<% if (Number(_notif.total || 0) > 0) { %> <span class="admin-bell-badge"><%= Number(_notif.total) %></span><% } %></button>
-          <div class="admin-dropdown-menu admin-bell-menu" id="admin-bell-menu" role="menu" aria-label="Notifications">
-            <p class="admin-dropdown-heading">Needs attention</p>
-            <% if (Number(_notif.total || 0) === 0) { %>
-              <p class="admin-dropdown-empty">Nothing needs attention right now.</p>
-            <% } else { %>
-              <% if (_can('orders.view') && Number(_notif.pendingOrders || 0) > 0) { %><a href="/admin/orders?status=Pending">🛒 <strong><%= Number(_notif.pendingOrders) %> pending order(s)</strong><span>View pending orders →</span></a><% } %>
-              <% if (_can('activity.view') && Number(_notif.phoneQueue || 0) > 0) { %><a href="/admin/activity">📞 <strong><%= Number(_notif.phoneQueue) %> order(s) waiting for a phone call</strong><span>Open Calls &amp; Activity →</span></a><% } %>
-              <% if (_can('messages.manage') && Number(_notif.unreadMessages || 0) > 0) { %><a href="/admin/messages">✉️ <strong><%= Number(_notif.unreadMessages) %> unread message(s)</strong><span>Read messages →</span></a><% } %>
-              <% if (_can('reviews.manage') && Number(_notif.pendingReviews || 0) > 0) { %><a href="/admin/reviews">⭐ <strong><%= Number(_notif.pendingReviews) %> review(s) waiting for approval</strong><span>Review them →</span></a><% } %>
-            <% } %>
-          </div>
-        </div>
-        <button type="button" class="theme-toggle-btn admin-topbar-theme-btn" onclick="toggleGoinceTheme()" title="Dark mode" aria-label="Toggle dark mode">🌙</button>
-        <div class="admin-topbar-dropdown admin-profile-dropdown">
-          <button type="button" class="admin-user-btn" id="admin-user-btn" data-dropdown-btn aria-haspopup="true" aria-label="Profile menu" aria-expanded="false"><% if (_adminPhotoUrl) { %><span class="admin-user-avatar" aria-hidden="true"><img src="<%= _adminPhotoUrl %>" alt=""></span><% } else { %><span class="admin-user-avatar" aria-hidden="true"><%= _adminInitial %></span><% } %><span class="admin-user-name"><%= _adminName %></span><span class="admin-user-chevron" aria-hidden="true">▾</span></button>
-          <div class="admin-dropdown-menu admin-user-menu admin-profile-menu" id="admin-user-menu" role="menu" aria-label="Profile menu">
-            <div class="admin-profile-menu-head">
-              <% if (_adminPhotoUrl) { %><span class="admin-user-avatar admin-profile-menu-avatar" aria-hidden="true"><img src="<%= _adminPhotoUrl %>" alt=""></span><% } else { %><span class="admin-user-avatar admin-profile-menu-avatar" aria-hidden="true"><%= _adminInitial %></span><% } %>
-              <span class="admin-profile-menu-identity">
-                <span class="admin-profile-menu-name"><%= _adminName %></span>
-                <span class="admin-profile-menu-email"><%= _adminEmail %></span>
-                <span class="admin-profile-role-badge"><%= _adminRoleLabel %></span>
-              </span>
+        <nav class="admin-topnav" aria-label="Admin navigation">
+          <% if (_can('dashboard.view')) { %><a href="/admin/dashboard" class="admin-topnav-link<%= _isNavActive('/admin/dashboard') ? ' is-active' : '' %>"<%- _isNavActive('/admin/dashboard') ? ' aria-current="page"' : '' %>>🏠 Dashboard</a><% } %>
+          <% for (const _g of _navGroups) { if (!_any(..._g.perms)) continue; %>
+          <div class="admin-topnav-dropdown">
+            <button type="button" class="admin-topnav-btn<%= _crumb.group === _g.label ? ' is-active' : '' %>" data-topnav-btn aria-haspopup="true" aria-expanded="false"><%= _g.label %> <span class="admin-topnav-chevron" aria-hidden="true">▾</span></button>
+            <div class="admin-topnav-menu" role="menu" aria-label="<%= _g.label %>">
+              <% for (const _l of _g.links) { if (!_can(_l.perm)) continue; %>
+              <a href="<%= _l.href %>" class="admin-topnav-menu-link<%= _isNavActive(_l.href) ? ' is-active' : '' %>"<%- _isNavActive(_l.href) ? ' aria-current="page"' : '' %>><%= _l.label %><% if (_l.badge && Number(_notif[_l.badge] || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif[_l.badge]) %></span><% } %></a>
+              <% } %>
             </div>
-            <a class="admin-profile-menu-link" href="/admin/profile">👤 My Profile</a>
-            <div class="admin-profile-menu-divider" role="separator"></div>
-            <a class="admin-profile-menu-link admin-profile-menu-logout" href="/admin/logout">🚪 Logout</a>
+          </div>
+          <% } %>
+        </nav>
+        <div class="admin-topbar-right">
+          <div class="admin-topbar-dropdown">
+            <button type="button" class="admin-topbar-search-btn" id="admin-topbar-search-btn" aria-label="Search" aria-expanded="false">🔍</button>
+            <form class="admin-topbar-search" id="admin-topbar-search" method="GET" action="/admin/search" role="search">
+              <input type="search" name="q" placeholder="Search orders, customers, products…" aria-label="Search orders, customers and products" value="<%= (typeof searchQuery !== 'undefined' && searchQuery) ? searchQuery : '' %>">
+              <button type="submit" aria-label="Search">🔍</button>
+            </form>
+          </div>
+          <div class="admin-topbar-dropdown">
+            <button type="button" class="admin-bell-btn" id="admin-bell-btn" data-dropdown-btn aria-label="Notifications" aria-expanded="false">🔔<% if (Number(_notif.total || 0) > 0) { %> <span class="admin-bell-badge"><%= Number(_notif.total) %></span><% } %></button>
+            <div class="admin-dropdown-menu admin-bell-menu" id="admin-bell-menu" role="menu" aria-label="Notifications">
+              <p class="admin-dropdown-heading">Needs attention</p>
+              <% if (Number(_notif.total || 0) === 0) { %>
+                <p class="admin-dropdown-empty">Nothing needs attention right now.</p>
+              <% } else { %>
+                <% if (_can('orders.view') && Number(_notif.pendingOrders || 0) > 0) { %><a href="/admin/orders?status=Pending">🛒 <strong><%= Number(_notif.pendingOrders) %> pending order(s)</strong><span>View pending orders →</span></a><% } %>
+                <% if (_can('activity.view') && Number(_notif.phoneQueue || 0) > 0) { %><a href="/admin/activity">📞 <strong><%= Number(_notif.phoneQueue) %> order(s) waiting for a phone call</strong><span>Open Calls &amp; Activity →</span></a><% } %>
+                <% if (_can('messages.manage') && Number(_notif.unreadMessages || 0) > 0) { %><a href="/admin/messages">✉️ <strong><%= Number(_notif.unreadMessages) %> unread message(s)</strong><span>Read messages →</span></a><% } %>
+                <% if (_can('reviews.manage') && Number(_notif.pendingReviews || 0) > 0) { %><a href="/admin/reviews">⭐ <strong><%= Number(_notif.pendingReviews) %> review(s) waiting for approval</strong><span>Review them →</span></a><% } %>
+              <% } %>
+            </div>
+          </div>
+          <a href="/" target="_blank" class="admin-topbar-icon-link" aria-label="View Site" title="View Site">🌐</a>
+          <button type="button" class="theme-toggle-btn admin-topbar-theme-btn" onclick="toggleGoinceTheme()" title="Dark mode" aria-label="Toggle dark mode">🌙</button>
+          <div class="admin-topbar-dropdown admin-profile-dropdown">
+            <button type="button" class="admin-user-btn" id="admin-user-btn" data-dropdown-btn aria-haspopup="true" aria-label="Profile menu" aria-expanded="false"><% if (_adminPhotoUrl) { %><span class="admin-user-avatar" aria-hidden="true"><img src="<%= _adminPhotoUrl %>" alt=""></span><% } else { %><span class="admin-user-avatar" aria-hidden="true"><%= _adminInitial %></span><% } %><span class="admin-user-name"><%= _adminName %></span><span class="admin-user-chevron" aria-hidden="true">▾</span></button>
+            <div class="admin-dropdown-menu admin-user-menu admin-profile-menu" id="admin-user-menu" role="menu" aria-label="Profile menu">
+              <div class="admin-profile-menu-head">
+                <% if (_adminPhotoUrl) { %><span class="admin-user-avatar admin-profile-menu-avatar" aria-hidden="true"><img src="<%= _adminPhotoUrl %>" alt=""></span><% } else { %><span class="admin-user-avatar admin-profile-menu-avatar" aria-hidden="true"><%= _adminInitial %></span><% } %>
+                <span class="admin-profile-menu-identity">
+                  <span class="admin-profile-menu-name"><%= _adminName %></span>
+                  <span class="admin-profile-menu-email"><%= _adminEmail %></span>
+                  <span class="admin-profile-role-badge"><%= _adminRoleLabel %></span>
+                </span>
+              </div>
+              <a class="admin-profile-menu-link" href="/admin/profile">👤 My Profile</a>
+              <div class="admin-profile-menu-divider" role="separator"></div>
+              <a class="admin-profile-menu-link admin-profile-menu-logout" href="/admin/logout">🚪 Logout</a>
+            </div>
           </div>
         </div>
       </header>
-      <nav class="admin-topnav" aria-label="Admin navigation">
-        <% if (_can('dashboard.view')) { %><a href="/admin/dashboard" class="admin-topnav-link<%= _isNavActive('/admin/dashboard') ? ' is-active' : '' %>"<%- _isNavActive('/admin/dashboard') ? ' aria-current="page"' : '' %>>🏠 Dashboard</a><% } %>
-        <% for (const _g of _navGroups) { if (!_any(..._g.perms)) continue; %>
-        <div class="admin-topnav-dropdown">
-          <button type="button" class="admin-topnav-btn<%= _crumb.group === _g.label ? ' is-active' : '' %>" data-topnav-btn aria-haspopup="true" aria-expanded="false"><%= _g.label %> <span class="admin-topnav-chevron" aria-hidden="true">▾</span></button>
-          <div class="admin-topnav-menu" role="menu" aria-label="<%= _g.label %>">
-            <% for (const _l of _g.links) { if (!_can(_l.perm)) continue; %>
-            <a href="<%= _l.href %>" class="admin-topnav-menu-link<%= _isNavActive(_l.href) ? ' is-active' : '' %>"<%- _isNavActive(_l.href) ? ' aria-current="page"' : '' %>><%= _l.label %><% if (_l.badge && Number(_notif[_l.badge] || 0) > 0) { %> <span class="admin-nav-badge"><%= Number(_notif[_l.badge]) %></span><% } %></a>
-            <% } %>
-          </div>
-        </div>
-        <% } %>
-        <a href="/" target="_blank" class="admin-topnav-link admin-topnav-right">🌐 View Site</a>
-      </nav>
       <main class="admin-content">
         <nav class="admin-breadcrumb" aria-label="Breadcrumb">
           <a href="<%= _landing %>"><%= _rootLabel %></a>

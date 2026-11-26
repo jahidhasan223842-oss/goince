@@ -115,11 +115,14 @@ console.log('CSS — no sidebar on desktop, top nav bar instead');
 check('top-level .admin-sidebar rule hides it on desktop (display:none)',
   /\.admin-sidebar\s*\{[^}]*display:\s*none;/.test(cssTopLevel),
   'sidebar still visible on desktop');
-check('top nav bar exists at top level (flex, slate, sticky under the 56px top bar)',
+check('top nav bar lives INSIDE the one-line blue top bar now (flex, transparent, not a separate sticky row)',
+  // fix/whmcs-one-line-topbar: the nav moved into the header — it is a
+  // flex row on the blue bar, not a slate row sticky under a 56px bar.
   /\.admin-topnav\s*\{[^}]*display:\s*flex;/.test(cssTopLevel) &&
-  /\.admin-topnav\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(cssTopLevel) &&
-  /\.admin-topnav\s*\{[^}]*position:\s*sticky;/.test(cssTopLevel) &&
-  /\.admin-topnav\s*\{[^}]*top:\s*56px;/.test(cssTopLevel),
+  /\.admin-topnav\s*\{[^}]*background:\s*transparent;/.test(cssTopLevel) &&
+  /\.admin-topnav\s*\{[^}]*position:\s*static;/.test(cssTopLevel) &&
+  !/\.admin-topnav\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(cssTopLevel) &&
+  !/\.admin-topnav\s*\{[^}]*top:\s*56px;/.test(cssTopLevel),
   'topnav rule missing or wrong');
 check('dropdown menu is hidden by default and sits 1px over the button (no dead gap)',
   /\.admin-topnav-menu\s*\{[^}]*display:\s*none;/.test(cssTopLevel) &&
@@ -132,15 +135,20 @@ check('hover/focus opens the menu, gated by (hover: hover) like the mega menu',
   /\.admin-topnav-dropdown:hover \.admin-topnav-menu/.test(hoverBlocks) &&
   /\.admin-topnav-dropdown:focus-within \.admin-topnav-menu/.test(hoverBlocks),
   'hover/focus open missing or ungated');
-check('active top nav button/link is blue',
-  /\.admin-topnav-link\.is-active,\s*\.admin-topnav-btn\.is-active\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel),
+check('active top nav button/link is darker blue (visible on the blue bar)',
+  // fix/whmcs-one-line-topbar: the old var(--admin-blue) active state is
+  // invisible on the blue bar, so it is var(--admin-blue-dark) now.
+  /\.admin-topnav-link\.is-active,\s*\.admin-topnav-btn\.is-active\s*\{[^}]*background:\s*var\(--admin-blue-dark\);/.test(cssTopLevel),
   'active topnav state missing');
 check('top nav menu links are white cards with a lavender hover + lift (dropdown colour, not the row colour)',
   /\.admin-topnav-menu\s*\{[^}]*background:\s*var\(--surface\);/.test(cssTopLevel) &&
-  /\.admin-topnav-menu-link:hover\s*\{[^}]*background:\s*var\(--dropdown-hover\);[^}]*transform:\s*translateY\(-1px\)/.test(hoverBlocks),
+  /\.admin-topnav-menu-link:hover\s*\{[^}]*background:\s*var\(--dropdown-hover\);[^}]*transform:\s*translateY\(-3px\)/.test(hoverBlocks),
   'menu link styling missing');
-check('dark theme keeps a navy top nav with a dark-blue active state',
-  /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*#0a1221;/.test(css) &&
+check('dark theme keeps a navy top bar with a dark-blue active state (nav itself is transparent now)',
+  // fix/whmcs-one-line-topbar: the nav sits inside the dark bar, so the
+  // dark navy lives on .admin-topbar, not on .admin-topnav.
+  /\[data-theme="dark"\] \.admin-topbar\s*\{[^}]*background:\s*#0a1221;/.test(css) &&
+  /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*transparent;/.test(css) &&
   /\[data-theme="dark"\] \.admin-topnav-btn\.is-active\s*\{[^}]*background:\s*#1a3762;/.test(css),
   'dark topnav override missing');
 check('mobile (<=768px) block hides the top nav row',
@@ -158,7 +166,7 @@ check('CSS braces balanced',
   'unbalanced braces');
 
 console.log('EJS source — one shared link list, top nav + drawer');
-check('header renders a top nav row with the four dropdown groups',
+check('header renders the top nav inside the one-line bar with the four dropdown groups',
   headerEjs.includes('class="admin-topnav"') &&
   headerEjs.includes('data-topnav-btn') &&
   headerEjs.includes("label: 'Shop'") && headerEjs.includes("label: 'Sales'") &&
@@ -185,8 +193,11 @@ check('drawer keeps the hamburger target ids (admin-sidebar + overlay)',
   headerEjs.includes('id="admin-sidebar"') && headerEjs.includes('id="admin-sidebar-overlay"') &&
   headerEjs.includes('id="admin-menu-btn"'),
   'drawer ids missing');
-check('View Site appears twice in the header source (top nav + drawer)',
-  (headerEjs.match(/🌐 View Site/g) || []).length === 2,
+check('View Site appears twice in the header source (globe icon on the bar + text link in the drawer)',
+  // fix/whmcs-one-line-topbar: the bar has a 🌐 icon link (aria-label),
+  // the drawer keeps the full "🌐 View Site" text link.
+  (headerEjs.match(/🌐 View Site/g) || []).length === 1 &&
+  headerEjs.includes('aria-label="View Site"'),
   'View Site not in both places');
 check('footer wires the top nav dropdowns (click latch, focus-out close, shared Esc/outside-click)',
   footerEjs.includes('[data-topnav-btn]') && footerEjs.includes('focusout') &&
@@ -211,9 +222,11 @@ check('the old single no-store (vapid key JSON endpoint) is untouched',
   'vapid route changed unexpectedly');
 
 console.log('WHMCS light theme + shop untouched');
-check('top bar is still soft off-white with dark text in the light theme (not stark white)',
-  /\.admin-topbar\s*\{[^}]*background:\s*var\(--surface\);/.test(cssTopLevel),
-  'topbar not soft off-white');
+check('top bar is WHMCS blue with white text in the light theme (one-line bar)',
+  // fix/whmcs-one-line-topbar: the bar is blue now; the soft off-white
+  // surface still applies to cards, not to the bar.
+  /\.admin-topbar\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel),
+  'topbar not WHMCS blue');
 check('top nav badges are still blue',
   /\.admin-nav-badge\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel),
   'nav badge not blue');
@@ -314,9 +327,11 @@ function navSlice(html, marker) {
     'a dropdown group is missing from the top nav');
   // (fix/admin-profile-section): the standalone Logout links in the top
   // nav and the drawer are gone — Logout lives only in the profile
-  // dropdown menu in the top bar. View Site stays in both places.
-  check('View Site is in both the top nav and the drawer; Logout is only in the profile menu',
-    topnav.includes('🌐 View Site') && !topnav.includes('/admin/logout') &&
+  // dropdown menu in the top bar. View Site stays in both places:
+  // a globe icon on the one-line bar (fix/whmcs-one-line-topbar) and
+  // the full text link in the drawer.
+  check('View Site is on the top bar (globe icon) and in the drawer; Logout is only in the profile menu',
+    dash.includes('admin-topbar-icon-link') && dash.includes('aria-label="View Site"') && !topnav.includes('/admin/logout') &&
     drawer.includes('🌐 View Site') && !drawer.includes('/admin/logout') &&
     dash.includes('admin-profile-menu-link admin-profile-menu-logout'),
     'View Site missing from a nav, or a standalone Logout remains');
