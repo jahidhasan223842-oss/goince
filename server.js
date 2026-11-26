@@ -357,6 +357,25 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- Admin profile fields (fix/admin-profile-photo) ----------
+// Additive columns only, safe defaults — a missing table/column only logs,
+// the server never crashes on it.
+//   admins.photo_url — profile photo path (/uploads/admin-photo-….webp).
+//   admins.display_name — shown name (falls back to the email local part).
+//   admins.phone — optional Bangladeshi mobile number.
+(async () => {
+  try {
+    const db = require('./config/db');
+    const [cols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admins'");
+    const have = new Set((cols || []).map(c => c.COLUMN_NAME));
+    if (!have.has('photo_url')) await db.query('ALTER TABLE admins ADD COLUMN photo_url VARCHAR(255) DEFAULT NULL');
+    if (!have.has('display_name')) await db.query('ALTER TABLE admins ADD COLUMN display_name VARCHAR(60) DEFAULT NULL');
+    if (!have.has('phone')) await db.query('ALTER TABLE admins ADD COLUMN phone VARCHAR(20) DEFAULT NULL');
+  } catch (err) {
+    console.error('Admin profile columns skip holo:', err.message);
+  }
+})();
+
 // ---------- WHMCS-style admin (fix/whmcs-style-admin): customer notes + ticket status ----------
 // Additive columns only, safe defaults — a missing table/column only logs,
 // the server never crashes on it.
@@ -526,6 +545,10 @@ app.use(async (req, res, next) => {
     ? req.session.adminPermissions
     : ((SYSTEM_ROLE_PERMISSIONS[(req.session.adminRole || 'owner').toLowerCase()] || SYSTEM_ROLE_PERMISSIONS.staff).slice());
   res.locals.adminEmail = req.session.adminEmail || null;
+  // Profile display name + photo (fix/admin-profile-photo): set at login,
+  // refreshed when the profile is saved — the header never queries the DB.
+  res.locals.adminDisplayName = req.session.adminDisplayName || null;
+  res.locals.adminPhotoUrl = req.session.adminPhotoUrl || null;
   res.locals.cartCount = (req.session.cart || []).reduce((sum, item) => sum + item.quantity, 0);
 
   // Shop phone + site settings Database theke real-time e neya, jate Admin Panel

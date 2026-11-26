@@ -14,6 +14,7 @@ const { isConfigured: isPushConfigured } = require('../config/push');
 const { ROLES, requirePermission, hasPermission, resolveAdminPermissions } = require('../lib/roles');
 const { PERMISSION_GROUPS, filterGrantable, parsePermissions } = require('../lib/permissions');
 const { buildCategoryTree, flattenTree } = require('../lib/categories');
+const { validateProfileDetails, cropProfilePhoto } = require('../lib/admin-profile');
 
 function requireAdmin(req, res, next) {
   if (req.session.isAdmin) return next();
@@ -272,6 +273,11 @@ router.post('/login', async (req, res) => {
     req.session.isAdmin = true;
     req.session.adminId = adminRow ? adminRow.id : null;
     req.session.adminEmail = adminRow ? adminRow.email : email;
+    // Profile display name + photo (fix/admin-profile-photo): the top bar
+    // shows them on every admin page from the session — the header never
+    // queries the DB. Missing columns (old DB) just read as null.
+    req.session.adminDisplayName = adminRow ? (adminRow.display_name || null) : null;
+    req.session.adminPhotoUrl = adminRow ? (adminRow.photo_url || null) : null;
     // Effective role + permissions: custom role (roles table) if the admin
     // has one, else the legacy `role` string. Owner always gets everything.
     const resolved = await resolveAdminPermissions(db, adminRow);
@@ -316,6 +322,8 @@ router.get('/logout', (req, res) => {
   req.session.isAdmin = false;
   req.session.adminId = null;
   req.session.adminEmail = null;
+  req.session.adminDisplayName = null;
+  req.session.adminPhotoUrl = null;
   req.session.adminRole = null;
   req.session.adminRoleId = null;
   req.session.adminPermissions = null;
@@ -2532,7 +2540,12 @@ router.get('/profile', requireAdmin, async (req, res) => {
     }
   } catch (e) { adminRow = null; }
   const email = (adminRow && adminRow.email) || req.session.adminEmail || '';
-  const name = String(email).split('@')[0] || 'Admin';
+  // Display name (fix/admin-profile-photo): the admins table now has a
+  // display_name column; when empty, the name is the email local part —
+  // exactly as the top-bar pill showed it before.
+  const name = (adminRow && adminRow.display_name) ? String(adminRow.display_name) : (String(email).split('@')[0] || 'Admin');
+  const photoUrl = (adminRow && adminRow.photo_url && String(adminRow.photo_url).startsWith('/uploads/')) ? String(adminRow.photo_url) : null;
+  const phone = (adminRow && adminRow.phone) ? String(adminRow.phone) : '';
   const roleLabel = req.session.adminRole || (adminRow && adminRow.role) || 'owner';
   let memberSince = null;
   if (adminRow && adminRow.created_at) {
@@ -2543,6 +2556,17 @@ router.get('/profile', requireAdmin, async (req, res) => {
     adminEmail: email,
     adminRoleLabel: roleLabel,
     memberSince,
+    photoUrl,
+    phone,
+    profileOk: req.query.saved === 'details' || req.query.saved === 'photo' || req.query.saved === 'removed',
+    profileMessage: req.query.saved === 'details' ? 'Profile details saved.' :
+      req.query.saved === 'photo' ? 'Profile photo saved.' :
+      req.query.saved === 'removed' ? 'Profile photo removed.' :
+      req.query.err === 'name' ? 'Display name must be 1–60 characters.' :
+      req.query.err === 'phone' ? 'Enter a valid Bangladeshi mobile number (01XXXXXXXXX) or leave it blank.' :
+      req.query.err === 'photo' ? 'Choose a photo file (jpg, png or webp, up to 5 MB).' :
+      req.query.err === 'crop' ? 'The photo could not be cropped — try another photo.' :
+      req.query.err === 'noaccount' ? 'No admin account found in the database — use Forgot Password instead.' : null,
     pwOk: req.query.pw === 'ok',
     pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
       req.query.pw === 'wrong' ? 'Current password is wrong — password was not changed.' :
@@ -2552,6 +2576,83 @@ router.get('/profile', requireAdmin, async (req, res) => {
     emailConfigured: isEmailConfigured(),
     siteName: 'Goince'
   });
+});
+
+// ---------- MY PROFILE: DETAILS + PHOTO (fix/admin-profile-photo) ----------
+// Same row lookup as GET /profile above (session id first, else the first
+// admin row) — shared by the details + photo save routes below.
+async function loadProfileAdminRow(req) {
+  let adminRow = null;
+  try {
+    if (req.session.adminId) {
+      const [[row]] = await db.query('SELECT * FROM admins WHERE id = ?', [req.session.adminId]);
+      adminRow = row || null;
+    }
+    if (!adminRow) {
+      const [rows] = await db.query('SELECT * FROM admins ORDER BY id ASC LIMIT 1');
+      adminRow = rows[0] || null;
+    }
+  } catch (e) { adminRow = null; }
+  return adminRow;
+}
+
+// Display name + phone: validated in lib/admin-profile.js (name 1–60
+// characters, phone optional but must be a valid Bangladeshi mobile
+// number). The email stays read-only — it is the sign-in address.
+router.post('/profile/details', requireAdmin, async (req, res) => {
+  const result = validateProfileDetails({ displayName: req.body.display_name, phone: req.body.phone });
+  if (!result.ok) return res.redirect('/admin/profile?err=' + result.errors[0]);
+  const adminRow = await loadProfileAdminRow(req);
+  if (!adminRow) return res.redirect('/admin/profile?err=noaccount');
+  await db.query('UPDATE admins SET display_name = ?, phone = ? WHERE id = ?', [result.displayName, result.phone, adminRow.id]);
+  req.session.adminDisplayName = result.displayName;
+  return res.redirect('/admin/profile?saved=details');
+});
+
+// Profile photo: one image (jpg/png/webp, up to 5 MB — the shared upload
+// filter), cropped to a 256x256 WebP square with the browser-sent crop
+// fractions (lib/admin-profile.js clamps them to the image bounds; no
+// crop sent = centred square). The old photo file is deleted on replace.
+router.post('/profile/photo', requireAdmin, (req, res) => {
+  upload.single('photo')(req, res, async (err) => {
+    const fs = require('fs');
+    const path = require('path');
+    if (err || !req.file) return res.redirect('/admin/profile?err=photo');
+    try {
+      const adminRow = await loadProfileAdminRow(req);
+      if (!adminRow) { try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ } return res.redirect('/admin/profile?err=noaccount'); }
+      const data = await fs.promises.readFile(req.file.path);
+      const cropped = await cropProfilePhoto(data, { x: req.body.crop_x, y: req.body.crop_y, size: req.body.crop_size });
+      const filename = 'admin-photo-' + adminRow.id + '-' + Date.now() + '.webp';
+      await fs.promises.writeFile(path.join(__dirname, '..', 'public', 'uploads', filename), cropped.buffer);
+      try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+      const oldUrl = adminRow.photo_url;
+      await db.query('UPDATE admins SET photo_url = ? WHERE id = ?', ['/uploads/' + filename, adminRow.id]);
+      req.session.adminPhotoUrl = '/uploads/' + filename;
+      if (oldUrl && String(oldUrl).startsWith('/uploads/admin-photo-')) {
+        try { fs.unlinkSync(path.join(__dirname, '..', 'public', oldUrl)); } catch (e) { /* already gone */ }
+      }
+      return res.redirect('/admin/profile?saved=photo');
+    } catch (e) {
+      try { if (req.file && req.file.path) fs.unlinkSync(req.file.path); } catch (e2) { /* ignore */ }
+      return res.redirect('/admin/profile?err=crop');
+    }
+  });
+});
+
+// Remove the profile photo — back to the initial-letter avatar.
+router.post('/profile/photo/remove', requireAdmin, async (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const adminRow = await loadProfileAdminRow(req);
+  if (!adminRow) return res.redirect('/admin/profile?err=noaccount');
+  const oldUrl = adminRow.photo_url;
+  await db.query('UPDATE admins SET photo_url = NULL WHERE id = ?', [adminRow.id]);
+  req.session.adminPhotoUrl = null;
+  if (oldUrl && String(oldUrl).startsWith('/uploads/admin-photo-')) {
+    try { fs.unlinkSync(path.join(__dirname, '..', 'public', oldUrl)); } catch (e) { /* already gone */ }
+  }
+  return res.redirect('/admin/profile?saved=removed');
 });
 
 // ---------- CHANGE ADMIN PASSWORD (Settings theke, nijer password nije bodlano) ----------

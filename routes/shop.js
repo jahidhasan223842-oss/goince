@@ -68,15 +68,8 @@ async function getGatewayConfig() {
 const GATEWAY_LABELS = { sslcommerz: 'SSLCommerz', shurjopay: 'ShurjoPay', bkash: 'bKash PGW' };
 
 // Bangladeshi mobile number: 01XXXXXXXXX ba +8801XXXXXXXXX — 013-019 diye shuru hote hobe
-function normalizeBdPhone(raw) {
-  let p = String(raw || '').replace(/[^0-9+]/g, '');
-  if (p.startsWith('+880')) p = '0' + p.slice(4);
-  else if (p.startsWith('880')) p = '0' + p.slice(3);
-  return p;
-}
-function isValidBdPhone(raw) {
-  return /^01[3-9][0-9]{8}$/.test(normalizeBdPhone(raw));
-}
+// (shared lib/bd-phone.js — shop checkout ar admin profile ek-i niyom-e jachai kore)
+const { normalizeBdPhone, isValidBdPhone } = require('../lib/bd-phone');
 
 // Only Published products that are not scheduled for the future are visible
 // to customers (Draft products stay hidden)
