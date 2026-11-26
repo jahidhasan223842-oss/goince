@@ -714,8 +714,9 @@ a { text-decoration: none; color: inherit; }
   /* Dropdown-item hover (fix/admin-theme-hover-profile): a soft lavender
      tint, DELIBERATELY different from the pale-blue row/card hover above
      — donal asked that a dropdown option never look the same colour as
-     a table row or card on hover. */
-  --dropdown-hover: #e9e7f6;
+     a table row or card on hover. Deepened in fix/whmcs-one-line-topbar
+     (was #e9e7f6) so the hover colour is unmistakable. */
+  --dropdown-hover: #ddd5f8;
   /* WHMCS admin palette (light theme). */
   --admin-blue: #1a7bb9;
   --admin-blue-dark: #146a9e;
@@ -742,8 +743,10 @@ a { text-decoration: none; color: inherit; }
   --table-stripe: #1a2947;
   --table-hover: #22344e;
   /* Dropdown-item hover, dark: muted violet-slate — different from the
-     deep blue-grey row/card hover above, same idea as the light theme. */
-  --dropdown-hover: #37304f;
+     deep blue-grey row/card hover above, same idea as the light theme.
+     Deepened in fix/whmcs-one-line-topbar (was #37304f) so the hover
+     colour is unmistakable in dark mode too. */
+  --dropdown-hover: #463c6b;
 }
 
 /* Soft light theme (fix/admin-theme-hover-profile): pure-white cards and
@@ -1212,18 +1215,20 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 
 /* =========================================================
    WHMCS-STYLE ADMIN SHELL (fix/whmcs-style-admin) — the admin
-   panel feels like WHMCS: one top bar (logo, global search,
-   notifications bell, admin menu, theme toggle) + a horizontal top
-   nav with dropdown buttons (fix/whmcs-top-nav — WHMCS has NO left
-   sidebar; the sidebar survives only as the off-canvas drawer on
+   panel feels like WHMCS: ONE blue top bar (fix/whmcs-one-line-topbar
+   — logo + nav dropdown buttons + search icon + bell + View Site globe
+   + theme toggle + profile pill, all on one line; WHMCS has NO left
+   sidebar, the sidebar survives only as the off-canvas drawer on
    phones) + a breadcrumb on every page. Everything lives in the
    shared admin-header / admin-footer partials, so a new page gets
    the shell automatically (see the convention comment at the
    top of views/partials/admin-header.ejs).
-   Layout: .admin-wrapper (row) = .admin-main-col (column: topbar +
-   topnav + content), full-width — no sidebar column on desktop.
+   Layout: .admin-wrapper (row) = .admin-main-col (column: one-line
+   topbar + content), full-width — no sidebar column on desktop.
    On mobile the top nav is hidden and the hamburger opens the
-   drawer (PR #38/#51), and the topbar stays sticky.
+   drawer (PR #38/#51), and the topbar stays sticky. At ≤1024px the
+   bar wraps and the nav takes a second row inside the same blue bar,
+   so every group stays reachable on narrower windows.
 
    TOPBAR BUG (fix/whmcs-light-theme): the header used to carry
    BOTH classes "admin-topbar admin-mobile-topbar" while the CSS
@@ -1248,14 +1253,18 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--surface);
-  color: var(--admin-slate);
+  /* One-line WHMCS-style bar (fix/whmcs-one-line-topbar): the whole bar
+     is WHMCS blue with white text/icons — logo, nav menus, search icon,
+     bell, View Site globe, theme toggle and profile all on ONE line, like
+     the real WHMCS. (Was a soft off-white bar with dark text.) */
+  background: var(--admin-blue);
+  color: #fff;
   padding: 0 16px;
   min-height: 56px;
   position: sticky;
   top: 0;
   z-index: 800;
-  border-bottom: 1px solid #dde3ea;
+  border-bottom: 1px solid var(--admin-blue-dark);
   flex-shrink: 0;
 }
 .admin-menu-btn { display: none; }
@@ -1263,20 +1272,34 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--admin-slate) !important;
+  color: #fff !important;
   font-weight: 700;
   font-size: 17px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .admin-topbar-brand .admin-logo-mark { width: 28px; height: 28px; }
+/* One-line bar search (fix/whmcs-one-line-topbar): NO big search box on
+   the bar — the 🔍 icon opens this form as a panel under the icon
+   (desktop) or a full-width row under the bar (mobile, see below).
+   The form is hidden until .open; the submit button inside stays blue. */
 .admin-topbar-search {
-  display: flex;
-  flex: 1;
-  max-width: 460px;
-  margin-left: 8px;
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  margin: 0;
+  padding: 10px;
   gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
+  z-index: 950;
 }
+.admin-topbar-search.open { display: flex; }
 .admin-topbar-search input[type="search"] {
   flex: 1;
   min-width: 0;
@@ -1300,21 +1323,66 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   font-size: 16px;
   cursor: pointer;
 }
-.admin-topbar-search-btn { display: none; }
-/* The search box caps at 460px and nothing else in the top bar grows, so
-   on a wide screen the free space used to sit AFTER the profile pill —
-   the pill stopped short of the right edge (donal's screenshot). The
-   first dropdown's auto margin absorbs all of it, so bell + theme +
-   profile sit flush against the bar's right edge. The second auto
-   margin (profile dropdown) computes to zero — no free space is left. */
+/* Search icon on the blue bar (fix/whmcs-one-line-topbar): visible on
+   desktop now — it IS the search entry point, not a mobile-only button. */
+.admin-topbar-search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: 9px;
+  font-size: 18px;
+  cursor: pointer;
+}
+/* The right-hand group (fix/whmcs-one-line-topbar): search icon, bell,
+   View Site globe, theme toggle, profile pill — one group pushed to the
+   far right edge, so the profile pill sits flush against it. The old
+   per-dropdown auto margin below is now a no-op inside this group. */
+.admin-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+/* View Site as a small globe icon on the blue bar (fix/whmcs-one-line-topbar):
+   same 44px icon button as the search/bell/theme buttons. The full
+   "🌐 View Site" link still lives in the mobile drawer. */
+.admin-topbar-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: 9px;
+  font-size: 18px;
+  text-decoration: none;
+  cursor: pointer;
+}
+/* The search box used to cap at 460px and nothing else in the top bar
+   grew, so on a wide screen the free space sat AFTER the profile pill
+   — the pill stopped short of the right edge (donal's screenshot).
+   .admin-topbar-right's auto margin absorbs all of it now, so bell +
+   theme + profile sit flush against the bar's right edge. The dropdown
+   auto margin below is kept (tests + the profile pill rely on it) but
+   computes to zero inside the group — no free space is left. */
 .admin-topbar-dropdown { position: relative; flex-shrink: 0; margin-left: auto; }
 .admin-bell-btn {
   position: relative;
   width: 44px;
   height: 44px;
-  background: #f4f6f9;
-  color: var(--admin-slate);
-  border: 1px solid #cfd8e3;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .4);
   border-radius: 9px;
   font-size: 18px;
   cursor: pointer;
@@ -1340,9 +1408,9 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   gap: 8px;
   min-height: 44px;
   padding: 6px 12px;
-  background: #f4f6f9;
-  color: var(--admin-slate);
-  border: 1px solid #cfd8e3;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .4);
   border-radius: 9px;
   cursor: pointer;
 }
@@ -1360,8 +1428,12 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   overflow: hidden;
 }
 .admin-user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+/* On the blue bar the initial-letter avatar is a white circle with a
+   blue letter (fix/whmcs-one-line-topbar) so it reads on the blue; the
+   dark rule below keeps the navy circle in dark mode. */
+.admin-topbar .admin-user-btn .admin-user-avatar { background: #fff; color: var(--admin-blue); }
 .admin-user-name { font-weight: 700; font-size: 14px; }
-.admin-user-chevron { font-size: 11px; color: #7a8a9c; }
+.admin-user-chevron { font-size: 11px; color: rgba(255, 255, 255, .8); }
 
 /* Profile pill + menu (fix/admin-profile-section, trimmed in
    fix/admin-profile-photo): the pill is the LAST item in the top bar
@@ -1433,9 +1505,9 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   width: 44px;
   height: 44px;
   flex-shrink: 0;
-  background: #f4f6f9;
-  color: var(--admin-slate);
-  border: 1px solid #cfd8e3;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .4);
   border-radius: 9px;
   font-size: 17px;
 }
@@ -1481,7 +1553,15 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
      --dropdown-hover + a visible lift — deliberately a DIFFERENT colour
      from the pale-blue / deep-blue-grey row and card hover, so a menu
      option never looks like a table row. */
-  .admin-dropdown-menu a:hover { background: var(--dropdown-hover); color: var(--text) !important; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .14); }
+  .admin-dropdown-menu a:hover { background: var(--dropdown-hover); color: var(--text) !important; transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0, 0, 0, .18); }
+  /* Icon buttons on the blue bar (fix/whmcs-one-line-topbar): a soft
+     white wash on hover — the search/bell/globe/theme/profile buttons
+     had no hover feedback at all before. Dark override below. */
+  .admin-topbar-search-btn:hover,
+  .admin-bell-btn:hover,
+  .admin-topbar-icon-link:hover,
+  .admin-topbar .theme-toggle-btn:hover,
+  .admin-user-btn:hover { background: rgba(255, 255, 255, .14); color: #fff; }
 }
 
 /* WHMCS LIGHT THEME — dark overrides (fix/whmcs-light-theme): the dark
@@ -1510,12 +1590,25 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 }
 [data-theme="dark"] .admin-bell-btn,
 [data-theme="dark"] .admin-user-btn,
+[data-theme="dark"] .admin-topbar-icon-link,
 [data-theme="dark"] .admin-topbar .theme-toggle-btn {
   background: #1d2f4d;
   border-color: #26354b;
   color: #fff;
 }
 [data-theme="dark"] .admin-user-avatar { background: #2c4a73; }
+/* The bar avatar is a white circle in light mode (above) — back to the
+   navy circle in dark mode (fix/whmcs-one-line-topbar). */
+[data-theme="dark"] .admin-topbar .admin-user-btn .admin-user-avatar { background: #2c4a73; color: #fff; }
+@media (hover: hover) {
+  /* Icon buttons on the dark bar: same wash idea as light mode, but a
+     solid navy step so it reads on the dark bar. */
+  [data-theme="dark"] .admin-topbar-search-btn:hover,
+  [data-theme="dark"] .admin-bell-btn:hover,
+  [data-theme="dark"] .admin-topbar-icon-link:hover,
+  [data-theme="dark"] .admin-topbar .theme-toggle-btn:hover,
+  [data-theme="dark"] .admin-user-btn:hover { background: #2c4a73; color: #fff; }
+}
 [data-theme="dark"] .admin-user-chevron { color: #aebdd2; }
 [data-theme="dark"] .admin-profile-menu-head { border-bottom-color: #26354b; }
 [data-theme="dark"] .admin-profile-menu-divider { border-top-color: #26354b; }
@@ -1536,8 +1629,11 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   box-shadow: inset 3px 0 #4f8cff;
 }
 [data-theme="dark"] .admin-topnav {
-  background: #0a1221;
-  border-bottom: 1px solid #26354b;
+  /* The nav is INSIDE the blue/dark top bar now (fix/whmcs-one-line-topbar)
+     — no separate background or bottom border; the dark bar (#0a1221)
+     shows through. */
+  background: transparent;
+  border-bottom: none;
 }
 [data-theme="dark"] .admin-topnav-link.is-active,
 [data-theme="dark"] .admin-topnav-btn.is-active { background: #1a3762; }
@@ -1632,17 +1728,23 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
    (top: calc(100% - 1px)) so there is no dead gap for a slow mouse.
    The bar is sticky under the 56px top bar; on phones (≤768px) it
    is hidden and the drawer replaces it (see the mobile block). */
+/* One-line bar nav (fix/whmcs-one-line-topbar): the nav is a row of
+   dropdown buttons ON the blue top bar — not a separate slate row under
+   it. It flexes to fill the space between the brand and the right-hand
+   group, and it must NOT clip (no overflow here): the dropdown menus
+   hang below the bar, and any overflow would cut them off. At ≤1024px
+   the bar wraps and the nav takes a full second row (see below), so
+   every group stays reachable on narrower windows. */
 .admin-topnav {
   display: flex;
   align-items: stretch;
   gap: 2px;
-  background: var(--admin-slate);
-  padding: 0 clamp(10px, 2vw, 24px);
+  background: transparent;
+  padding: 0;
   min-height: 44px;
-  position: sticky;
-  top: 56px;
-  z-index: 790;
-  flex-shrink: 0;
+  position: static;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .admin-topnav-link,
 .admin-topnav-btn {
@@ -1654,7 +1756,7 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   background: none;
   border: none;
   border-radius: 0;
-  color: #c7d2de;
+  color: #fff;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -1665,7 +1767,9 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 .admin-topnav-link.is-active,
 .admin-topnav-btn.is-active {
   color: #fff;
-  background: var(--admin-blue);
+  /* Darker blue than the bar (fix/whmcs-one-line-topbar): the old
+     var(--admin-blue) active state is invisible on the blue bar. */
+  background: var(--admin-blue-dark);
 }
 .admin-topnav-dropdown { position: relative; display: flex; align-items: stretch; flex-shrink: 0; }
 .admin-topnav-chevron { font-size: 11px; transition: transform .2s ease; }
@@ -1702,18 +1806,29 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   color: var(--text-strong);
   font-weight: 700;
 }
-.admin-topnav-right { margin-left: auto; }
+/* (fix/whmcs-one-line-topbar: the old .admin-topnav-right View Site link
+   moved to the .admin-topbar-icon-link globe in the right-hand group;
+   this rule is deleted, not left dead.) */
 @media (hover: hover) {
   .admin-topnav-link:hover,
-  .admin-topnav-btn:hover { color: #fff; background: var(--admin-slate-light); }
+  .admin-topnav-btn:hover { color: #fff; background: rgba(255, 255, 255, .14); }
   .admin-topnav-dropdown:hover .admin-topnav-menu,
   .admin-topnav-dropdown:focus-within .admin-topnav-menu { display: block; }
   /* Top-nav menu hover: same lavender + lift as the bell/profile menus
-     (fix/admin-theme-hover-profile) — NOT the row/card hover colour. */
-  .admin-topnav-menu-link:hover { background: var(--dropdown-hover); color: var(--text-strong); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .14); }
+     (fix/admin-theme-hover-profile) — NOT the row/card hover colour.
+     Lift is -3px (fix/whmcs-one-line-topbar, was -1px) so the item
+     visibly floats up, as donal asked. */
+  .admin-topnav-menu-link:hover { background: var(--dropdown-hover); color: var(--text-strong); transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0, 0, 0, .18); }
 }
 @media (max-width: 1024px) {
-  .admin-topnav { padding: 0 8px; }
+  /* Narrow window (fix/whmcs-one-line-topbar): the bar wraps — the nav
+     takes a full second row inside the same blue bar, so every group
+     stays reachable instead of being clipped or pushed off. The View
+     Site globe hides here (it also lives in the drawer). */
+  .admin-topbar { flex-wrap: wrap; row-gap: 0; }
+  .admin-topnav { flex: 1 1 100%; order: 10; padding: 0 8px; border-top: 1px solid rgba(255, 255, 255, .25); }
+  [data-theme="dark"] .admin-topnav { border-top-color: #26354b; }
+  .admin-topbar-icon-link { display: none; }
   .admin-topnav-link,
   .admin-topnav-btn { padding: 0 10px; font-size: 13px; }
 }
@@ -2325,10 +2440,10 @@ img, video { max-width: 100%; }
   .admin-topbar .admin-profile-dropdown { margin-left: auto; }
 
   /* WHMCS-style top bar on mobile (fix/whmcs-style-admin): hamburger +
-     logo + 🔍 + bell + user + theme, all 44px. The search box is hidden
-     until 🔍 is tapped, then it opens as a full-width row under the bar
-     (same pattern as the shop search). The admin name/role text hides —
-     the avatar button stays. */
+     logo + 🔍 + bell + 🌐 + theme + user, all 44px, on the same blue bar
+     as desktop. The search box is hidden until 🔍 is tapped, then it
+     opens as a full-width row under the bar (same pattern as the shop
+     search). The admin name/role text hides — the avatar button stays. */
   .admin-main-col { width: 100%; }
   /* Top nav row: phone-e lukano — hamburger drawer-i nav (fix/whmcs-top-nav). */
   .admin-topnav { display: none; }
@@ -2343,26 +2458,19 @@ img, video { max-width: 100%; }
     max-width: none;
     margin: 0;
     padding: 10px 12px;
-    background: #ffffff;
+    background: var(--surface);
     border-bottom: 1px solid #dde3ea;
+    /* The desktop panel has rounded corners + shadow — the mobile row
+       is square and flat (fix/whmcs-one-line-topbar). */
+    border-radius: 0;
+    box-shadow: none;
   }
   .admin-topbar-search.open { display: flex; }
-  .admin-topbar-search-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    background: #f4f6f9;
-    color: var(--admin-slate);
-    border: 1px solid #cfd8e3;
-    border-radius: 9px;
-    font-size: 17px;
-    cursor: pointer;
-  }
+  /* (fix/whmcs-one-line-topbar: the mobile .admin-topbar-search-btn rule
+     is deleted — the top-level rule now defines the same white-on-blue
+     icon button for desktop and mobile alike.) */
   /* Dark theme on mobile: the top bar, hamburger and search row keep
-     the old navy look (light theme above is WHMCS white). */
+     the old navy look (light theme above is WHMCS blue). */
   [data-theme="dark"] .admin-topbar { background: #0a1221; border-bottom-color: #26354b; }
   [data-theme="dark"] .admin-menu-btn {
     background: #1d2f4d;

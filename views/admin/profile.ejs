@@ -1,6 +1,7 @@
 <%- include('../partials/admin-header') %>
 
 <% const _name = (typeof adminName !== 'undefined' && adminName) ? String(adminName) : 'Admin'; %>
+<% const _rawName = (typeof adminDisplayNameRaw !== 'undefined' && adminDisplayNameRaw) ? String(adminDisplayNameRaw) : ''; %>
 <% const _email = (typeof adminEmail !== 'undefined' && adminEmail) ? String(adminEmail) : ''; %>
 <% const _role = (typeof adminRoleLabel !== 'undefined' && adminRoleLabel) ? String(adminRoleLabel) : 'Owner'; %>
 <% const _initial = _name.charAt(0).toUpperCase(); %>
@@ -69,10 +70,14 @@
 
 <div class="admin-profile-card" id="profile-details">
   <h2>👤 Profile Details</h2>
-  <p class="field-hint">The name shown in the top bar and your contact number. Leave the phone blank if you do not want to share it.</p>
+  <p class="field-hint">The name shown in the top bar and your contact number. Leave the name blank to show your email name instead, and the phone blank if you do not want to share it.</p>
   <form action="/admin/profile/details" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
     <label>Display Name</label>
-    <input type="text" name="display_name" value="<%= _name %>" maxlength="60" required autocomplete="name">
+    <!-- fix/whmcs-one-line-topbar: pre-fill the RAW stored name (empty
+         when none is set) and do NOT mark it required. Pre-filling the
+         effective name baked the email fallback into the DB on every
+         save, so the name could never go back to the email. -->
+    <input type="text" name="display_name" value="<%= _rawName %>" maxlength="60" placeholder="e.g. Jahid Hasan" autocomplete="name">
     <label>Phone Number (optional)</label>
     <input type="tel" name="phone" value="<%= _phone %>" placeholder="01XXXXXXXXX" autocomplete="tel">
     <button type="submit" class="btn-primary">Save Details</button>
