@@ -316,9 +316,12 @@ async function waitForServer(tries = 50) {
   check('hero image can shrink (flex 0 1 260px + min-width 0)', has(css, '.hero-image { flex: 0 1 260px; min-width: 0;'));
   check('hero text can shrink (min-width 0)', has(css, '.hero-text { flex: 1; min-width: 0; }'));
   check('hero caption wraps (overflow-wrap)', has(css, '.hero-image-caption') && has(css, 'overflow-wrap: break-word;'));
-  check('WhatsApp scroll-hide rules live in <=1024px block',
-    css.indexOf('@media (max-width: 1024px)') !== -1 &&
-    css.indexOf('.whatsapp-float--scroll {') > css.indexOf('@media (max-width: 1024px)'));
+  // (fix/shop-menu-bar: the fade rules moved OUT of the <=1024px block
+  // to top level, so the overlap guard also hides the float on desktop
+  // — at 1920px it covered the rightmost product card's Add to Cart.)
+  check('WhatsApp scroll-hide rules apply at all widths (top level, not only <=1024px)',
+    css.indexOf('.whatsapp-float--scroll {') !== -1 &&
+    css.indexOf('.whatsapp-float--scroll {') < css.indexOf('@media (max-width: 1024px)'));
   // Find the <=768px block that holds the mobile WhatsApp size/position
   // rules (there are several 768px blocks in the file).
   let block768 = '';

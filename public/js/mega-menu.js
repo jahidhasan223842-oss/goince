@@ -120,6 +120,27 @@
   });
 })();
 
+// Sticky shop header shadow (fix/shop-menu-bar): scroll korlei
+// header-er niche halka chhaya pore — bar-ta content-er upore vasche
+// bojha jay. Uporer dike (scroll 0) chhaya nei.
+(function () {
+  var header = document.querySelector('.site-header');
+  if (!header) return;
+  var ticking = false;
+  function update() {
+    ticking = false;
+    header.classList.toggle('is-stuck', (window.pageYOffset || document.documentElement.scrollTop || 0) > 0);
+  }
+  function onScroll() {
+    if (!ticking) {
+      ticking = true;
+      (window.requestAnimationFrame || function (fn) { fn(); })(update);
+    }
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  update();
+})();
+
 // Mobile search (≤768px): 🔍 icon chaple search row khulbe/bondho hobe.
 // Desktop-e (769px+) search bar sob somoy dekha jay, tai ei toggle
 // tokhon lukano thake (CSS) — JS kichhu kore na. Khulle input-e focus

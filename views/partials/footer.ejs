@@ -95,37 +95,54 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
         if (window.gtag) gtag('event', 'whatsapp_click', { page_path: location.pathname });
       });
 
-      // Scroll-aware (≤1024px: mobile + tablet): page-er ekdom upore
-      // thakle button lukano thake — product-er chobi/thumbnail ba hero
-      // dheke na fele; 300px-er beshi niche scroll korle fade-in hoy,
-      // upore firle abar lukay. Desktop-e (>1024px) button sob somoy
-      // dekha jay. JS na cholle (ba desktop-e) ager motoi sob somoy
-      // visible thake.
+      // Scroll-aware + overlap guard (sob width-e): button-ta jeno
+      // kono clickable control dheke na fele.
+      // - ≤1024px (mobile + tablet): page-er ekdom upore (scroll ≤
+      //   300px) thakle lukano thake — hero/product-er chobi dheke
+      //   na fele; 300px-er beshi niche scroll korle fade-in hoy.
+      // - sob width: guarded control-er sathe overlap korle lukano
+      //   thake — homepage Sort, cart "Proceed to Checkout",
+      //   product-card-er "Add to Cart" / "Choose Option" button
+      //   (.product-card .btn-card) ar product page-er Add to Cart
+      //   (.add-to-cart-form button / .product-info .btn-primary).
+      //   Desktop-e (1920px) dan dik-er shesh product card-er Add
+      //   to Cart button-er upore circle-ta boshe jeto — ekhon
+      //   overlap hole button lukay, scroll korle control sore
+      //   gelei abar ase. Overlap-ta float-er asol rect-er sathe
+      //   miliye dekha hoy (ager bottom-band onuman noy), tai jekono
+      //   scroll position-ei kaj kore. JS na cholle class-e ashe na,
+      //   tai button ager motoi sob somoy visible thake. CSS-e
+      //   .whatsapp-float--scroll / .is-visible fade dey;
+      //   prefers-reduced-motion-e transition none.
       var mq = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null;
       if (!mq) return;
       var THRESHOLD = 300;
+      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary';
       var raf = window.requestAnimationFrame || function (fn) { fn(); };
       var ticking = false;
+      function overlapsFloat(el) {
+        var r = el.getBoundingClientRect();
+        var f = btn.getBoundingClientRect();
+        if (!r || !f) return false;
+        if (r.bottom <= 0 || r.top >= window.innerHeight) return false;
+        var pad = 4;
+        return r.left < f.right + pad && r.right > f.left - pad &&
+               r.top < f.bottom + pad && r.bottom > f.top - pad;
+      }
       function update() {
         ticking = false;
+        var show;
         if (!mq.matches) {
-          btn.classList.remove('whatsapp-float--scroll', 'is-visible');
-          btn.setAttribute('aria-hidden', 'false');
-          btn.removeAttribute('tabindex');
-          return;
+          // Desktop (>1024px): scroll-er upor nirvor kore na — shudhu
+          // overlap holei lukay.
+          show = true;
+        } else {
+          show = (window.pageYOffset || document.documentElement.scrollTop || 0) > THRESHOLD;
         }
-        var show = (window.pageYOffset || document.documentElement.scrollTop || 0) > THRESHOLD;
-        // Professional polish 2: the float must never cover the homepage
-        // Sort control or the cart "Proceed to Checkout" button. If either
-        // is sitting in the viewport's bottom band (where the float lives),
-        // keep the float hidden until the user scrolls it clear.
         if (show) {
-          var guarded = [document.getElementById('sort'), document.querySelector('.cart-summary .btn-primary')];
+          var guarded = document.querySelectorAll(GUARDED);
           for (var i = 0; i < guarded.length; i++) {
-            var el = guarded[i];
-            if (!el) continue;
-            var r = el.getBoundingClientRect();
-            if (r.bottom > 0 && r.top < window.innerHeight && r.bottom > window.innerHeight - 170) { show = false; break; }
+            if (overlapsFloat(guarded[i])) { show = false; break; }
           }
         }
         btn.classList.add('whatsapp-float--scroll');
@@ -137,6 +154,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
         if (!ticking) { ticking = true; raf(update); }
       }
       window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onScroll, { passive: true });
       if (mq.addEventListener) { mq.addEventListener('change', update); }
       else if (mq.addListener) { mq.addListener(update); }
       update();
