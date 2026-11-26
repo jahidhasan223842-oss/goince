@@ -14,7 +14,7 @@ const { isConfigured: isPushConfigured } = require('../config/push');
 const { ROLES, requirePermission, hasPermission, resolveAdminPermissions } = require('../lib/roles');
 const { PERMISSION_GROUPS, filterGrantable, parsePermissions } = require('../lib/permissions');
 const { buildCategoryTree, flattenTree } = require('../lib/categories');
-const { validateProfileDetails, cropProfilePhoto } = require('../lib/admin-profile');
+const { validateProfileDetails, validateEmailChange, cropProfilePhoto } = require('../lib/admin-profile');
 
 function requireAdmin(req, res, next) {
   if (req.session.isAdmin) return next();
@@ -2558,12 +2558,18 @@ router.get('/profile', requireAdmin, async (req, res) => {
     memberSince,
     photoUrl,
     phone,
-    profileOk: req.query.saved === 'details' || req.query.saved === 'photo' || req.query.saved === 'removed',
+    profileOk: req.query.saved === 'details' || req.query.saved === 'photo' || req.query.saved === 'removed' || req.query.saved === 'email',
     profileMessage: req.query.saved === 'details' ? 'Profile details saved.' :
       req.query.saved === 'photo' ? 'Profile photo saved.' :
       req.query.saved === 'removed' ? 'Profile photo removed.' :
+      req.query.saved === 'email' ? 'Email changed successfully — use the new address to sign in next time.' :
       req.query.err === 'name' ? 'Display name must be 1–60 characters.' :
       req.query.err === 'phone' ? 'Enter a valid Bangladeshi mobile number (01XXXXXXXXX) or leave it blank.' :
+      req.query.err === 'email' ? 'Enter a valid email address.' :
+      req.query.err === 'emailmatch' ? 'The two new email addresses do not match.' :
+      req.query.err === 'emailsame' ? 'The new email is the same as your current one.' :
+      req.query.err === 'emailtaken' ? 'Another admin already uses that email address.' :
+      req.query.err === 'emailpw' ? 'Current password is wrong — email was not changed.' :
       req.query.err === 'photo' ? 'Choose a photo file (jpg, png or webp, up to 5 MB).' :
       req.query.err === 'crop' ? 'The photo could not be cropped — try another photo.' :
       req.query.err === 'noaccount' ? 'No admin account found in the database — use Forgot Password instead.' : null,
@@ -2607,6 +2613,30 @@ router.post('/profile/details', requireAdmin, async (req, res) => {
   await db.query('UPDATE admins SET display_name = ?, phone = ? WHERE id = ?', [result.displayName, result.phone, adminRow.id]);
   req.session.adminDisplayName = result.displayName;
   return res.redirect('/admin/profile?saved=details');
+});
+
+// Change email (fix/admin-theme-hover-profile): new email + confirm +
+// current password (required — proving the admin owns the account).
+// Format/match/different checks live in lib/admin-profile.js; the
+// current-password check and the duplicate check need the DB, so they
+// live here. On success the DB row AND the session are updated, so the
+// top-bar pill and dropdown show the new address immediately.
+router.post('/profile/email', requireAdmin, async (req, res) => {
+  const adminRow = await loadProfileAdminRow(req);
+  if (!adminRow) return res.redirect('/admin/profile?err=noaccount');
+  const result = validateEmailChange({
+    currentEmail: adminRow.email,
+    newEmail: req.body.new_email,
+    confirmEmail: req.body.confirm_new_email,
+  });
+  if (!result.ok) return res.redirect('/admin/profile?err=' + result.errors[0]);
+  const ok = await bcrypt.compare(req.body.current_password || '', adminRow.password);
+  if (!ok) return res.redirect('/admin/profile?err=emailpw');
+  const [taken] = await db.query('SELECT id FROM admins WHERE email = ? AND id != ?', [result.email, adminRow.id]);
+  if (taken.length > 0) return res.redirect('/admin/profile?err=emailtaken');
+  await db.query('UPDATE admins SET email = ? WHERE id = ?', [result.email, adminRow.id]);
+  req.session.adminEmail = result.email;
+  return res.redirect('/admin/profile?saved=email');
 });
 
 // Profile photo: one image (jpg/png/webp, up to 5 MB — the shared upload

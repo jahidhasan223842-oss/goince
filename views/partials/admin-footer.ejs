@@ -84,6 +84,17 @@
         });
       }
     });
+    // Top nav dropdowns: hovering one group must close a menu latched open
+    // on another group (fix/admin-theme-hover-profile) — otherwise the
+    // CSS :hover menu and a latched .open menu sit open at once (Shop
+    // behind Sales). Click latching above already closes the others; the
+    // hover path had no such close, so mouseenter does it here.
+    document.querySelectorAll('.admin-topnav-dropdown').forEach(function (wrap) {
+      wrap.addEventListener('mouseenter', function () {
+        var btn = wrap.querySelector('[data-topnav-btn]');
+        closeAdminDropdowns(btn);
+      });
+    });
     document.addEventListener('click', function () { closeAdminDropdowns(null); });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeAdminDropdowns(null);

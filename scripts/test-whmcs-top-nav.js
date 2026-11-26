@@ -135,9 +135,9 @@ check('hover/focus opens the menu, gated by (hover: hover) like the mega menu',
 check('active top nav button/link is blue',
   /\.admin-topnav-link\.is-active,\s*\.admin-topnav-btn\.is-active\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel),
   'active topnav state missing');
-check('top nav menu links are white cards with a light-blue hover',
+check('top nav menu links are white cards with a lavender hover + lift (dropdown colour, not the row colour)',
   /\.admin-topnav-menu\s*\{[^}]*background:\s*var\(--surface\);/.test(cssTopLevel) &&
-  /\.admin-topnav-menu-link:hover\s*\{[^}]*background:\s*var\(--table-hover\);/.test(hoverBlocks),
+  /\.admin-topnav-menu-link:hover\s*\{[^}]*background:\s*var\(--dropdown-hover\);[^}]*transform:\s*translateY\(-1px\)/.test(hoverBlocks),
   'menu link styling missing');
 check('dark theme keeps a navy top nav with a dark-blue active state',
   /\[data-theme="dark"\] \.admin-topnav\s*\{[^}]*background:\s*#0a1221;/.test(css) &&
@@ -211,9 +211,9 @@ check('the old single no-store (vapid key JSON endpoint) is untouched',
   'vapid route changed unexpectedly');
 
 console.log('WHMCS light theme + shop untouched');
-check('top bar is still white with dark text in the light theme',
-  /\.admin-topbar\s*\{[^}]*background:\s*#ffffff;/.test(cssTopLevel),
-  'topbar not white');
+check('top bar is still soft off-white with dark text in the light theme (not stark white)',
+  /\.admin-topbar\s*\{[^}]*background:\s*var\(--surface\);/.test(cssTopLevel),
+  'topbar not soft off-white');
 check('top nav badges are still blue',
   /\.admin-nav-badge\s*\{[^}]*background:\s*var\(--admin-blue\);/.test(cssTopLevel),
   'nav badge not blue');

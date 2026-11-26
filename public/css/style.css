@@ -711,6 +711,11 @@ a { text-decoration: none; color: inherit; }
      the hover colour never matches a stripe colour (see dark block below). */
   --table-stripe: #eef1f6;
   --table-hover: #e3f0f8;
+  /* Dropdown-item hover (fix/admin-theme-hover-profile): a soft lavender
+     tint, DELIBERATELY different from the pale-blue row/card hover above
+     — donal asked that a dropdown option never look the same colour as
+     a table row or card on hover. */
+  --dropdown-hover: #e9e7f6;
   /* WHMCS admin palette (light theme). */
   --admin-blue: #1a7bb9;
   --admin-blue-dark: #146a9e;
@@ -729,11 +734,26 @@ a { text-decoration: none; color: inherit; }
   --border: #26354b;
   --border-strong: #3a4d68;
   --admin-bg: #0b1120;
-  /* Dark table stripes + hover: warm gold hover (#54431c) is unmistakable
-     against the cool navy rows (#111c2f / #1a2947 / header #202c42). */
+  /* Dark table stripes + hover (fix/admin-theme-hover-profile): the warm
+     gold hover (#54431c) is gone — donal disliked it. The hover is now a
+     deep blue-grey (#22344e), unmistakable against the cool navy rows
+     (#111c2f / #1a2947 / header #202c42) and clearly different from the
+     dropdown hover (#37304f) below. */
   --table-stripe: #1a2947;
-  --table-hover: #54431c;
+  --table-hover: #22344e;
+  /* Dropdown-item hover, dark: muted violet-slate — different from the
+     deep blue-grey row/card hover above, same idea as the light theme. */
+  --dropdown-hover: #37304f;
 }
+
+/* Soft light theme (fix/admin-theme-hover-profile): pure-white cards and
+   top bar hurt the eyes in light mode, so admin surfaces are a soft
+   off-white (#f7f9fb) instead of #ffffff. Scoped to the admin bodies so
+   the shop (which shares --surface) is untouched; dark mode keeps its
+   own --surface from the [data-theme="dark"] block above, because this
+   rule only matches when the page is NOT dark. */
+html:not([data-theme="dark"]) body.admin-body,
+html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 
 /* Main layout */
 .admin-body {
@@ -818,10 +838,15 @@ a { text-decoration: none; color: inherit; }
   color: var(--text-strong);
 }
 .admin-content p { color: var(--text-muted); }
-.admin-content a:not(.btn-primary):not(.report-tab):not(.analytics-report-link):not(.admin-tab) {
+/* Admin text links are blue — but NEVER buttons. The old selector only
+   excluded .btn-primary, so its (0,5,1) specificity beat .btn-sm--primary
+   (0,1,0) and recoloured the active "All" payment chip's white label to
+   blue-on-blue — invisible in light mode (fix/admin-theme-hover-profile).
+   .btn-secondary and .btn-call links were recoloured the same way. */
+.admin-content a:not(.btn-primary):not(.btn-secondary):not(.btn-sm):not(.btn-call):not(.report-tab):not(.analytics-report-link):not(.admin-tab) {
   color: var(--admin-blue);
 }
-.admin-content a:hover { color: var(--admin-blue-dark); }
+.admin-content a:not(.btn-primary):not(.btn-secondary):not(.btn-sm):not(.btn-call):not(.report-tab):not(.analytics-report-link):not(.admin-tab):hover { color: var(--admin-blue-dark); }
 .admin-page-header { margin-bottom: 24px; }
 .admin-page-header h1,
 .admin-content > h1 {
@@ -929,9 +954,10 @@ a { text-decoration: none; color: inherit; }
     color: #fff;
   }
 }
-/* WHMCS secondary action: white with a light border in the light theme. */
+/* WHMCS secondary action: off-white with a light border in the light theme
+   (var(--surface) is the soft #f7f9fb in light mode, not pure white). */
 .admin-content .btn-secondary {
-  background: #fff;
+  background: var(--surface);
   color: var(--admin-slate);
   border-color: #cfd8e3;
 }
@@ -970,8 +996,11 @@ a { text-decoration: none; color: inherit; }
   .stat-card:hover,
   .report-card:hover,
   .analytics-kpi:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+    /* -3px + a stronger shadow (fix/admin-theme-hover-profile): the -2px
+       lift was not perceptible in the live inspection — only the
+       background changed. */
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .18);
   }
 }
 
@@ -997,8 +1026,8 @@ a { text-decoration: none; color: inherit; }
 }
 @media (hover: hover) {
   .analytics-panel:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .18);
   }
 }
 .admin-quick-links a {
@@ -1080,17 +1109,19 @@ a { text-decoration: none; color: inherit; }
    .report-summary-card or .invoice-box — the hover below then
    applies automatically. Do NOT invent a new row/card class
    with its own hover colour; reuse these.
-   Hover = light blue tint (var(--table-hover) — WHMCS blue since
-   fix/whmcs-light-theme: #e3f0f8 light, #54431c dark, always
-   distinct from both stripes) + a gentle
-   lift (translateY(-2px)) + a soft shadow, all in .22s.
+   Hover = blue tint (var(--table-hover): #e3f0f8 light, #22344e deep
+   blue-grey dark since fix/admin-theme-hover-profile — the dark gold
+   #54431c is gone, donal disliked it) + a gentle
+   lift (translateY(-2px) on rows, -3px on cards) + a soft shadow, all in
+   .22s. Dropdown menus use a DIFFERENT hover colour (var(--dropdown-hover),
+   a soft lavender) + lift, so a menu option never looks like a row/card.
    Touch (PR #51): tap korle :hover lege thake — tai shob :hover rule
    @media (hover: hover)-er vitore rakha hoyeche; touch screen-e tap-er
    por row/card blue/lift hoye thakbe na.
    Table rows: a <tr> itself cannot be transformed (the CSS
    Transforms spec lists table-cell, not table-row, as a
    transformable element), so the lift is applied to the row's
-   cells, which move together as one band; the gold is painted
+   cells, which move together as one band; the tint is painted
    on both the row and its cells so no strip shows while it
    lifts. A drop shadow under a lifted table row cannot be
    painted reliably while border-collapse: collapse is in use,
@@ -1100,7 +1131,7 @@ a { text-decoration: none; color: inherit; }
    (colour + shift/lift + shadow) — they are unchanged.
    ========================================================= */
 
-/* --- Tables: gold tint + lift (via the cells) --- */
+/* --- Tables: blue-grey tint + lift (via the cells) --- */
 .admin-table tbody tr td,
 .invoice-items-table tbody tr td {
   transition: background-color .22s ease, transform .22s ease;
@@ -1116,7 +1147,7 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-/* --- Category tree rows: gold (was grey), + lift + shadow --- */
+/* --- Category tree rows: blue-grey tint (was grey), + lift + shadow --- */
 .cat-row {
   transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
@@ -1128,7 +1159,7 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-/* --- Dashboard list rows: no hover before, now gold + lift + shadow --- */
+/* --- Dashboard list rows: no hover before, now blue-grey tint + lift + shadow --- */
 .analytics-status-row,
 .analytics-attention-row {
   border-radius: 9px;
@@ -1143,7 +1174,7 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-/* --- Cards: add the gold tint to the lift + shadow they already had --- */
+/* --- Cards: add the blue-grey tint to the lift + shadow they already had --- */
 @media (hover: hover) {
   .stat-card:hover,
   .report-card:hover,
@@ -1162,8 +1193,8 @@ a { text-decoration: none; color: inherit; }
 @media (hover: hover) {
   .report-summary-card:hover,
   .invoice-box:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, .14);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .18);
   }
 }
 
@@ -1217,7 +1248,7 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #ffffff;
+  background: var(--surface);
   color: var(--admin-slate);
   padding: 0 16px;
   min-height: 56px;
@@ -1351,7 +1382,7 @@ a { text-decoration: none; color: inherit; }
 .admin-profile-menu-divider { border-top: 1px solid var(--border); margin: 6px 0; }
 .admin-profile-menu .admin-profile-menu-logout { color: var(--danger) !important; font-weight: 700; }
 @media (hover: hover) {
-  .admin-profile-menu .admin-profile-menu-logout:hover { background: var(--bg-hover); color: var(--danger) !important; }
+  .admin-profile-menu .admin-profile-menu-logout:hover { background: var(--dropdown-hover); color: var(--danger) !important; }
 }
 
 /* My Profile page (fix/admin-profile-section): account overview card,
@@ -1365,6 +1396,13 @@ a { text-decoration: none; color: inherit; }
 .admin-profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-top: 16px; }
 .admin-profile-card h2 { margin-top: 0; font-size: 17px; }
 .admin-profile-card .admin-form { padding: 0; }
+/* Profile buttons are normal-sized (fix/admin-theme-hover-profile):
+   .admin-form is a column flex, so its children stretch full-width —
+   that is why "Choose photo" and "Save photo" rendered as giant
+   full-width blue bars. Submit buttons and the choose-photo label sit
+   at their natural size, left-aligned; the text inputs still stretch. */
+.admin-profile-card .admin-form button[type="submit"],
+.admin-profile-card .admin-form .admin-photo-choose { align-self: flex-start; width: auto; }
 .admin-profile-overview { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .admin-profile-avatar { width: 56px; height: 56px; font-size: 24px; }
 .admin-profile-details { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -1435,10 +1473,15 @@ a { text-decoration: none; color: inherit; }
   border-radius: 8px;
   color: var(--text) !important;
   font-size: 14px;
+  transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
 .admin-dropdown-menu a span { font-size: 12px; color: var(--text-muted); }
 @media (hover: hover) {
-  .admin-dropdown-menu a:hover { background: var(--bg-hover); color: var(--text) !important; }
+  /* Dropdown hover (fix/admin-theme-hover-profile): the soft lavender
+     --dropdown-hover + a visible lift — deliberately a DIFFERENT colour
+     from the pale-blue / deep-blue-grey row and card hover, so a menu
+     option never looks like a table row. */
+  .admin-dropdown-menu a:hover { background: var(--dropdown-hover); color: var(--text) !important; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .14); }
 }
 
 /* WHMCS LIGHT THEME — dark overrides (fix/whmcs-light-theme): the dark
@@ -1458,8 +1501,12 @@ a { text-decoration: none; color: inherit; }
 }
 [data-theme="dark"] .admin-topbar-search input[type="search"]::placeholder { color: #8fa1b8; }
 [data-theme="dark"] .admin-topbar-search button {
-  background: var(--accent);
-  color: #1a1a2e;
+  /* Same blue as light mode (fix/admin-theme-hover-profile): the button
+     used to be gold in dark mode and blue in light mode — donal asked
+     that the colour NOT change between modes. Gold stays only as the
+     small logo mark. */
+  background: var(--admin-blue);
+  color: #fff;
 }
 [data-theme="dark"] .admin-bell-btn,
 [data-theme="dark"] .admin-user-btn,
@@ -1648,6 +1695,7 @@ a { text-decoration: none; color: inherit; }
   border-radius: 8px;
   color: var(--text);
   font-size: 14px;
+  transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
 }
 .admin-topnav-menu-link.is-active {
   background: var(--table-hover);
@@ -1660,7 +1708,9 @@ a { text-decoration: none; color: inherit; }
   .admin-topnav-btn:hover { color: #fff; background: var(--admin-slate-light); }
   .admin-topnav-dropdown:hover .admin-topnav-menu,
   .admin-topnav-dropdown:focus-within .admin-topnav-menu { display: block; }
-  .admin-topnav-menu-link:hover { background: var(--table-hover); color: var(--text-strong); }
+  /* Top-nav menu hover: same lavender + lift as the bell/profile menus
+     (fix/admin-theme-hover-profile) — NOT the row/card hover colour. */
+  .admin-topnav-menu-link:hover { background: var(--dropdown-hover); color: var(--text-strong); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, .14); }
 }
 @media (max-width: 1024px) {
   .admin-topnav { padding: 0 8px; }
@@ -1754,10 +1804,10 @@ a { text-decoration: none; color: inherit; }
 [data-theme="dark"] .analytics-kpi-icon {
   color: #8bb4ff;
 }
-[data-theme="dark"] .admin-content a:not(.btn-primary):not(.report-tab):not(.analytics-report-link):not(.admin-tab) {
+[data-theme="dark"] .admin-content a:not(.btn-primary):not(.btn-secondary):not(.btn-sm):not(.btn-call):not(.report-tab):not(.analytics-report-link):not(.admin-tab) {
   color: #8bb4ff;
 }
-[data-theme="dark"] .admin-content a:hover {
+[data-theme="dark"] .admin-content a:not(.btn-primary):not(.btn-secondary):not(.btn-sm):not(.btn-call):not(.report-tab):not(.analytics-report-link):not(.admin-tab):hover {
   color: #b5ceff;
 }
 
