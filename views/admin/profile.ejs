@@ -27,7 +27,7 @@
       <% if (_since) { %><div class="admin-profile-field"><span class="admin-profile-label">Member since</span><span><%= _since %></span></div><% } %>
     </div>
   </div>
-  <p class="field-hint" style="margin-bottom:0;">Your email is the address you sign in with — it cannot be changed from this page.</p>
+  <p class="field-hint" style="margin-bottom:0;">Your email is the address you sign in with — change it in the Change Email section below.</p>
 </div>
 
 <div class="admin-profile-card" id="profile-photo">
@@ -76,6 +76,20 @@
     <label>Phone Number (optional)</label>
     <input type="tel" name="phone" value="<%= _phone %>" placeholder="01XXXXXXXXX" autocomplete="tel">
     <button type="submit" class="btn-primary">Save Details</button>
+  </form>
+</div>
+
+<div class="admin-profile-card" id="change-email">
+  <h2>✉️ Change Email</h2>
+  <p class="field-hint">Change the email address you sign in with. Your current password is required, and the new address must not belong to another admin.</p>
+  <form action="/admin/profile/email" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
+    <label>New Email</label>
+    <input type="email" name="new_email" required autocomplete="email" placeholder="new-email@example.com">
+    <label>Confirm New Email</label>
+    <input type="email" name="confirm_new_email" required autocomplete="email" placeholder="new-email@example.com">
+    <label>Current Password</label>
+    <input type="password" name="current_password" required autocomplete="current-password">
+    <button type="submit" class="btn-primary">Change Email</button>
   </form>
 </div>
 

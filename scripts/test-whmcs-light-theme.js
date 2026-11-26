@@ -146,10 +146,10 @@ check('admin palette vars defined (--admin-blue / --admin-slate / --admin-bg)',
 check('row hover tint is light blue now, not gold',
   /--table-hover:\s*#e3f0f8/.test(css) && !/--table-hover:\s*#fce9b8/.test(css),
   'hover tint still gold');
-check('top bar is white with dark text in the light theme',
-  /\.admin-topbar\s*\{[^}]*background:\s*#ffffff;/.test(cssTopLevel) &&
+check('top bar is soft off-white with dark text in the light theme (not stark pure white)',
+  /\.admin-topbar\s*\{[^}]*background:\s*var\(--surface\);/.test(cssTopLevel) &&
   /\.admin-topbar\s*\{[^}]*color:\s*var\(--admin-slate\);/.test(cssTopLevel),
-  'topbar not white/slate');
+  'topbar not soft off-white/slate');
 check('top nav bar is slate in the light theme (the sidebar moved there)',
   /\.admin-topnav\s*\{[^}]*background:\s*var\(--admin-slate\);/.test(cssTopLevel),
   'topnav not slate');
@@ -168,8 +168,10 @@ check('admin primary buttons are blue in the light theme',
 check('admin content links are blue in the light theme',
   // The link rule now also excludes .admin-tab (professional polish 2:
   // without it the active tab's white text was recoloured blue-on-blue
-  // and invisible). The rule still makes admin links blue.
-  /\.admin-content a:not\(\.btn-primary\):not\(\.report-tab\):not\(\.analytics-report-link\):not\(\.admin-tab\)\s*\{[^}]*color:\s*var\(--admin-blue\);/.test(cssTopLevel),
+  // and invisible) and every button class (admin-theme-hover-profile:
+  // the same specificity bug hid the invoices "All" chip label).
+  // The rule still makes admin links blue.
+  /\.admin-content a:not\(\.btn-primary\):not\(\.btn-secondary\):not\(\.btn-sm\):not\(\.btn-call\):not\(\.report-tab\):not\(\.analytics-report-link\):not\(\.admin-tab\)\s*\{[^}]*color:\s*var\(--admin-blue\);/.test(cssTopLevel),
   'admin links not blue');
 check('admin table header is light grey, not gold-tinted',
   /\.admin-table th\s*\{[^}]*background:\s*#f4f6f9;/.test(cssTopLevel),

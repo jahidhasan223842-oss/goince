@@ -29,7 +29,7 @@
 //     form inputs are intentionally untouched.
 //
 // Fix (public/css/style.css only — no view changed, every page already
-// uses the standard classes): one "ADMIN HOVER SYSTEM" section — gold
+// uses the standard classes): one "ADMIN HOVER SYSTEM" section — blue-grey
 // tint var(--table-hover) + translateY(-2px) lift + soft shadow, .22s.
 // Table rows lift via their CELLS: a <tr> cannot be transformed (the
 // CSS Transforms spec lists table-cell, not table-row, as transformable),
@@ -38,7 +38,7 @@
 //
 // Checks:
 //   1. CSS: the unified section exists with its future-proof convention
-//      comment; every surface above has gold tint + lift (+ shadow where
+//      comment; every surface above has blue-grey tint + lift (+ shadow where
 //      a shadow can paint); the old grey cat-row hover is gone; the
 //      Orders row hover is unchanged; sidebar/buttons still lift;
 //      reduced-motion covers the new selectors with transition:none AND
@@ -102,30 +102,30 @@ check('unified section touches admin classes only (no shop selectors)',
   !hoverSection.includes('.site-header'),
   'shop selector leaked into the admin hover section');
 
-// --- Table rows: gold tint + lift via cells ---
+// --- Table rows: blue-grey tint + lift via cells ---
 check('admin-table row cells lift on hover (translateY(-2px))',
   /\.admin-table tbody tr:hover td[\s\S]*?transform:\s*translateY\(-2px\)/.test(hoverSection),
   'no td lift rule');
-check('admin-table row cells turn gold on hover (var(--table-hover))',
+check('admin-table row cells turn blue-grey on hover (var(--table-hover))',
   /\.admin-table tbody tr:hover td[\s\S]*?background:\s*var\(--table-hover\)/.test(hoverSection),
-  'no td gold rule');
+  'no td tint rule');
 check('admin-table row cells transition background + transform',
   /\.admin-table tbody tr td[\s\S]*?transition:[^;]*background-color[^;]*transform/.test(hoverSection),
   'td transition missing transform');
-check('invoice-items-table rows turn gold on hover (had no hover before)',
+check('invoice-items-table rows turn blue-grey on hover (had no hover before)',
   /\.invoice-items-table tbody tr:hover\s*\{\s*background:\s*var\(--table-hover\)/.test(hoverSection),
   'no invoice-items-table row tint');
 check('invoice-items-table row cells lift on hover',
   /\.invoice-items-table tbody tr:hover td[\s\S]*?transform:\s*translateY\(-2px\)/.test(hoverSection),
   'no invoice-items-table td lift');
-check('Orders row hover itself is unchanged (same gold tint on the row)',
+check('Orders row hover itself is unchanged (same blue-grey tint on the row)',
   /\.admin-table tbody tr:hover\s*\{\s*background:\s*var\(--table-hover\)/.test(css),
   'original row hover rule changed or missing');
 
-// --- Category tree rows: gold (was grey) + lift + shadow ---
-check('cat-row hover is gold now (var(--table-hover))',
+// --- Category tree rows: blue-grey (was grey) + lift + shadow ---
+check('cat-row hover is blue-grey now (var(--table-hover))',
   /\.cat-row:hover\s*\{\s*background:\s*var\(--table-hover\)/.test(hoverSection),
-  'cat-row hover is not gold');
+  'cat-row hover is not blue-grey');
 check('cat-row hover lifts + shadows',
   /\.cat-row:hover[\s\S]*?transform:\s*translateY\(-2px\)/.test(hoverSection) &&
   /\.cat-row:hover[\s\S]*?box-shadow:\s*0 8px 18px/.test(hoverSection),
@@ -134,33 +134,32 @@ check('old grey cat-row hover is gone (no var(--bg-hover) on .cat-row:hover)',
   !/\.cat-row:hover\s*\{\s*background:\s*var\(--bg-hover\)/.test(css),
   'old grey cat-row hover still present');
 
-// --- Dashboard list rows: no hover before, now gold + lift + shadow ---
-check('analytics-status-row hover: gold + lift + shadow',
+// --- Dashboard list rows: no hover before, now blue-grey + lift + shadow ---
+check('analytics-status-row hover: blue-grey + lift + shadow',
   /\.analytics-status-row:hover[\s\S]*?background:\s*var\(--table-hover\)/.test(hoverSection) &&
   /\.analytics-status-row:hover[\s\S]*?transform:\s*translateY\(-2px\)/.test(hoverSection) &&
   /\.analytics-status-row:hover[\s\S]*?box-shadow:\s*0 8px 18px/.test(hoverSection),
   'status-row hover incomplete');
-check('analytics-attention-row hover: gold + lift + shadow',
+check('analytics-attention-row hover: blue-grey + lift + shadow',
   /\.analytics-attention-row:hover[\s\S]*?background:\s*var\(--table-hover\)/.test(hoverSection) &&
   /\.analytics-attention-row:hover[\s\S]*?transform:\s*translateY\(-2px\)/.test(hoverSection) &&
   /\.analytics-attention-row:hover[\s\S]*?box-shadow:\s*0 8px 18px/.test(hoverSection),
   'attention-row hover incomplete');
 
-// --- Cards: gold tint added to the lift + shadow they already had ---
-check('cards turn gold on hover (stat/report/kpi/panel/summary/invoice-box)',
+// --- Cards: blue-grey tint added to the lift + shadow they already had ---
+check('cards turn blue-grey on hover (stat/report/kpi/panel/summary/invoice-box)',
   /\.stat-card:hover,[\s\S]*?\.invoice-box:hover\s*\{\s*background:\s*var\(--table-hover\)/.test(hoverSection),
   'card tint rule missing');
 check('report-summary-card + invoice-box lift + shadow on hover (had none)',
-  /\.report-summary-card:hover,[\s\S]*?transform:\s*translateY\(-2px\)/.test(hoverSection) &&
-  /\.report-summary-card:hover,[\s\S]*?box-shadow:\s*0 12px 28px/.test(hoverSection),
+  /\.report-summary-card:hover,\s*\.invoice-box:hover\s*\{[^}]*transform:\s*translateY\(-3px\)[^}]*box-shadow:\s*0 14px 30px/.test(css),
   'summary/invoice-box lift missing');
-check('cards keep their existing lift rules (stat-card, analytics-panel)',
-  /\.stat-card:hover,[\s\S]*?transform:\s*translateY\(-2px\)/.test(css) &&
-  /\.analytics-panel:hover\s*\{\s*transform:\s*translateY\(-2px\)/.test(css),
+check('cards keep their existing lift rules (stat-card, analytics-panel) — now -3px, more perceptible',
+  /\.stat-card:hover,[\s\S]*?transform:\s*translateY\(-3px\)/.test(css) &&
+  /\.analytics-panel:hover\s*\{\s*transform:\s*translateY\(-3px\)/.test(css),
   'existing card lift changed');
 
 // --- Admin filter pills (Inventory): no hover before ---
-check('admin filter pills turn gold + lift on hover',
+check('admin filter pills turn blue-grey + lift on hover',
   /\.admin-content \.category-bar a:not\(\.active\):hover\s*\{\s*background:\s*var\(--table-hover\)/.test(hoverSection) &&
   /\.admin-content \.category-bar a:not\(\.active\):hover[\s\S]*?transform:\s*translateY\(-1px\)/.test(hoverSection),
   'filter-pill hover missing');
@@ -205,7 +204,7 @@ check('reduced-motion transform:none covers the full admin button selectors',
 
 // --- Hygiene: theme variables only, no hardcoded grey, braces balanced ---
 check('hover vars defined in both themes',
-  /--table-hover:\s*#e3f0f8/.test(css) && /--table-hover:\s*#54431c/.test(css),
+  /--table-hover:\s*#e3f0f8/.test(css) && /--table-hover:\s*#22344e/.test(css),
   'table-hover vars missing');
 check('no hardcoded grey hover colour in the new section',
   !/#888|#999|#666/.test(hoverSection) && !hoverSection.includes('var(--bg-hover)'),

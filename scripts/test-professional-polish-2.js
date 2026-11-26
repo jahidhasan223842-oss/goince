@@ -90,8 +90,8 @@ const banglaLetters = /[\u0985-\u09E5]/;
     'unbalanced braces');
 
   console.log('CSS — active tab readable (link rule must not beat .admin-tab.is-active)');
-  check('light link rule excludes .admin-tab', css.includes('.admin-content a:not(.btn-primary):not(.report-tab):not(.analytics-report-link):not(.admin-tab)'));
-  check('dark link rule excludes .admin-tab', css.includes('[data-theme="dark"] .admin-content a:not(.btn-primary):not(.report-tab):not(.analytics-report-link):not(.admin-tab)'));
+  check('light link rule excludes .admin-tab', css.includes('.admin-content a:not(.btn-primary):not(.btn-secondary):not(.btn-sm):not(.btn-call):not(.report-tab):not(.analytics-report-link):not(.admin-tab)'));
+  check('dark link rule excludes .admin-tab', css.includes('[data-theme="dark"] .admin-content a:not(.btn-primary):not(.btn-secondary):not(.btn-sm):not(.btn-call):not(.report-tab):not(.analytics-report-link):not(.admin-tab)'));
 
   console.log('CSS — product cards, trust bar, report grid equal heights');
   check('.product-card is a flex column', /\.product-card\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column/.test(css));
