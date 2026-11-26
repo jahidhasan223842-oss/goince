@@ -1283,8 +1283,34 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
    the bar — the 🔍 icon opens this form as a panel under the icon
    (desktop) or a full-width row under the bar (mobile, see below).
    The form is hidden until .open; the submit button inside stays blue. */
+/* =========================================================
+   DROPDOWN MOTION (fix/dropdown-animations) — one motion
+   language for the three top-bar panels (search form here,
+   .admin-dropdown-menu below, .admin-topnav-menu further down):
+   - Show/hide is VISIBILITY-based, never display:none: hidden =
+     visibility:hidden + opacity:0 + translateY(-6px) +
+     pointer-events:none. Opening (.open / :hover / :focus-within)
+     fades + slides down in .2s (visibility flips instantly);
+     closing plays the reverse in .15s and visibility flips to
+     hidden only AFTER the transition (visibility 0s linear .15s)
+     — so a closing menu fades out instead of vanishing, never
+     stays invisible-but-clickable, and no JS timeout or
+     transitionend listener is needed; re-opening mid-fade just
+     reverses the transition. visibility:hidden also takes the
+     panel out of the tab order.
+   - Items cascade in: @keyframes admin-menu-item-in (opacity +
+     translateY 4px -> 0), 25ms per item (nth-of-type, capped at
+     175ms). Fill mode is `backwards` (NOT both) so the entrance
+     never overrides the hover lift (-3px) once it ends.
+   - Press: :active dips the item (lift -3px -> -1px) + scale(.98)
+     + a brightness dip — pure CSS, instant, never delays nav.
+   - prefers-reduced-motion disables all of it (instant open/close).
+   - transform + opacity ONLY — no layout animation, no jank.
+   New menus: give the panel the hidden/open pair below and put
+   its links under the stagger selectors after the top-nav rules.
+   ========================================================= */
 .admin-topbar-search {
-  display: none;
+  display: flex;
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -1298,8 +1324,22 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
   z-index: 950;
+  /* DROPDOWN MOTION: hidden state (see convention above) — the
+     close transition; visibility flips to hidden .15s after .open
+     is removed, once the fade/slide-up has played. */
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
 }
-.admin-topbar-search.open { display: flex; }
+.admin-topbar-search.open {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition: opacity .2s ease, transform .2s ease, visibility 0s;
+}
 .admin-topbar-search input[type="search"] {
   flex: 1;
   min-width: 0;
@@ -1512,7 +1552,7 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   font-size: 17px;
 }
 .admin-dropdown-menu {
-  display: none;
+  display: block;
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
@@ -1525,8 +1565,22 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
   padding: 8px;
   z-index: 950;
+  /* DROPDOWN MOTION (fix/dropdown-animations): hidden state — see the
+     convention above .admin-topbar-search. Never display:none, so the
+     close fade/slide-up can play and visibility flips only after it. */
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
 }
-.admin-dropdown-menu.open { display: block; }
+.admin-dropdown-menu.open {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition: opacity .2s ease, transform .2s ease, visibility 0s;
+}
 .admin-dropdown-heading {
   font-size: 12px;
   font-weight: 700;
@@ -1775,7 +1829,7 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 .admin-topnav-chevron { font-size: 11px; transition: transform .2s ease; }
 .admin-topnav-btn[aria-expanded="true"] .admin-topnav-chevron { transform: rotate(180deg); }
 .admin-topnav-menu {
-  display: none;
+  display: block;
   position: absolute;
   top: calc(100% - 1px);
   left: 0;
@@ -1788,8 +1842,22 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   box-shadow: 0 12px 32px var(--shadow-md);
   padding: 8px;
   z-index: 950;
+  /* DROPDOWN MOTION (fix/dropdown-animations): hidden state — see the
+     convention above .admin-topbar-search. Never display:none, so the
+     close fade/slide-up can play and visibility flips only after it. */
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease, visibility 0s linear .15s;
 }
-.admin-topnav-menu.open { display: block; }
+.admin-topnav-menu.open {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition: opacity .2s ease, transform .2s ease, visibility 0s;
+}
 .admin-topnav-menu-link {
   display: flex;
   align-items: center;
@@ -1813,12 +1881,82 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .admin-topnav-link:hover,
   .admin-topnav-btn:hover { color: #fff; background: rgba(255, 255, 255, .14); }
   .admin-topnav-dropdown:hover .admin-topnav-menu,
-  .admin-topnav-dropdown:focus-within .admin-topnav-menu { display: block; }
+  .admin-topnav-dropdown:focus-within .admin-topnav-menu {
+    /* DROPDOWN MOTION: same open state as .open above — hover/focus
+       opens with the same fade + slide-down. */
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    transition: opacity .2s ease, transform .2s ease, visibility 0s;
+  }
   /* Top-nav menu hover: same lavender + lift as the bell/profile menus
      (fix/admin-theme-hover-profile) — NOT the row/card hover colour.
      Lift is -3px (fix/whmcs-one-line-topbar, was -1px) so the item
      visibly floats up, as donal asked. */
   .admin-topnav-menu-link:hover { background: var(--dropdown-hover); color: var(--text-strong); transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0, 0, 0, .18); }
+}
+/* Dropdown motion — entrance stagger + press feedback
+   (fix/dropdown-animations). The panel fade/slide lives on the menu
+   rules above; these rules animate the ITEMS inside an opening menu.
+   Stagger: each item fades + rises 4px, 25ms after the previous one
+   (nth-of-type, capped at 175ms so even the 7-link Shop menu finishes
+   fast). Fill mode is `backwards` — during the delay the item shows
+   the from-keyframe, and once the entrance ends NO fill applies, so
+   the hover lift (translateY(-3px)) works exactly as before; the
+   entrance never fights it. The animation only applies while the
+   menu is open/hovered, so it replays on every open and never on a
+   menu that is already open. */
+@keyframes admin-menu-item-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.admin-topnav-menu.open .admin-topnav-menu-link,
+.admin-topnav-dropdown:hover .admin-topnav-menu-link,
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link,
+.admin-dropdown-menu.open a {
+  animation: admin-menu-item-in .18s ease-out backwards;
+}
+.admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(2),
+.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(2),
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(2),
+.admin-dropdown-menu.open a:nth-of-type(2) { animation-delay: 25ms; }
+.admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(3),
+.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(3),
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(3),
+.admin-dropdown-menu.open a:nth-of-type(3) { animation-delay: 50ms; }
+.admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(4),
+.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(4),
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(4),
+.admin-dropdown-menu.open a:nth-of-type(4) { animation-delay: 75ms; }
+.admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(5),
+.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(5),
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(5),
+.admin-dropdown-menu.open a:nth-of-type(5) { animation-delay: 100ms; }
+.admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(6),
+.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(6),
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(6),
+.admin-dropdown-menu.open a:nth-of-type(6) { animation-delay: 125ms; }
+.admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(7),
+.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(7),
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(7),
+.admin-dropdown-menu.open a:nth-of-type(7) { animation-delay: 150ms; }
+.admin-topnav-menu.open .admin-topnav-menu-link:nth-of-type(8),
+.admin-topnav-dropdown:hover .admin-topnav-menu-link:nth-of-type(8),
+.admin-topnav-dropdown:focus-within .admin-topnav-menu-link:nth-of-type(8),
+.admin-dropdown-menu.open a:nth-of-type(8) { animation-delay: 175ms; }
+/* Press feedback (fix/dropdown-animations): a clicked/tapped menu item
+   dips slightly (lift -3px -> -1px) + scales to .98 + dims a touch —
+   pure CSS :active, instant, never delays navigation. Placed AFTER
+   the hover rules so it wins at equal specificity; :hover:active
+   beats :hover alone. Outside @media (hover: hover) so touch taps
+   get the same feedback. */
+.admin-topnav-menu-link:active,
+.admin-topnav-menu-link:hover:active,
+.admin-dropdown-menu a:active,
+.admin-dropdown-menu a:hover:active {
+  transform: translateY(-1px) scale(.98);
+  filter: brightness(.96);
 }
 @media (max-width: 1024px) {
   /* Narrow window (fix/whmcs-one-line-topbar): the bar wraps — the nav
@@ -2212,6 +2350,17 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
     transform: none;
     box-shadow: none;
   }
+  /* DROPDOWN MOTION (fix/dropdown-animations): menus open/close
+     instantly — no fade, slide, stagger or press effect. transition:
+     none also removes the visibility delay, so a closing menu hides
+     at once instead of fading; animation: none kills the stagger. */
+  .admin-topnav-menu,
+  .admin-dropdown-menu,
+  .admin-topbar-search { transition: none; }
+  .admin-topnav-menu-link,
+  .admin-dropdown-menu a { animation: none; }
+  .admin-topnav-menu-link:active,
+  .admin-dropdown-menu a:active { transform: none; filter: none; }
 }
 
 /* =========================================================
@@ -2450,7 +2599,6 @@ img, video { max-width: 100%; }
   .admin-menu-btn { display: inline-flex; align-items: center; justify-content: center; }
   .admin-topbar-brand span { display: none; }
   .admin-topbar-search {
-    display: none;
     position: absolute;
     top: 52px;
     left: 0;
@@ -2464,6 +2612,9 @@ img, video { max-width: 100%; }
        is square and flat (fix/whmcs-one-line-topbar). */
     border-radius: 0;
     box-shadow: none;
+    /* DROPDOWN MOTION (fix/dropdown-animations): NO display:none here
+       either — the desktop visibility/opacity/transform rules above
+       hide it, so the mobile row fades + slides down the same way. */
   }
   .admin-topbar-search.open { display: flex; }
   /* (fix/whmcs-one-line-topbar: the mobile .admin-topbar-search-btn rule

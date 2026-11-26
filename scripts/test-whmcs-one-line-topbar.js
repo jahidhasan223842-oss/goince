@@ -274,8 +274,11 @@ check('search icon button is visible on desktop (inline-flex, white on blue)',
   /\.admin-topbar-search-btn\s*\{[^}]*display:\s*inline-flex;[^}]*background:\s*transparent;[^}]*color:\s*#fff;/.test(cssTopLevel),
   'search icon button still desktop-hidden');
 check('search form is a hidden panel that opens with .open (desktop)',
-  /\.admin-topbar-search\s*\{[^}]*display:\s*none;[^}]*position:\s*absolute;[^}]*top:\s*calc\(100% \+ 8px\);/.test(cssTopLevel)
-  && /\.admin-topbar-search\.open\s*\{\s*display:\s*flex;/.test(cssTopLevel),
+  // fix/dropdown-animations: hidden is visibility-based now (never
+  // display:none) so the panel can fade + slide open and closed.
+  // (position/top come before visibility in the rule body.)
+  /\.admin-topbar-search\s*\{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100% \+ 8px\);[^}]*visibility:\s*hidden;/.test(cssTopLevel)
+  && /\.admin-topbar-search\.open\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;/.test(cssTopLevel),
   'search panel rules missing');
 check('right-hand group is pushed to the far right edge as one group',
   /\.admin-topbar-right\s*\{[^}]*display:\s*flex;[^}]*margin-left:\s*auto;/.test(cssTopLevel),

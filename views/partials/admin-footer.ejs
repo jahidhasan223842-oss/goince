@@ -24,6 +24,14 @@
     // menu. Button chaple khole, baire chaple / Esc chaple / focus
     // beriye gele bondho hoy. Ekta khola thakle arekta bondho hoye jay.
     // Top nav dropdowns (fix/whmcs-top-nav) follow the same close rules.
+    // CLOSE ANIMATION (fix/dropdown-animations): removing .open does
+    // NOT hide the menu instantly — the CSS keeps it visible while it
+    // fades + slides up (opacity/transform .15s) and flips visibility
+    // to hidden only after the transition (visibility 0s linear .15s),
+    // so every close path here (click, Esc, outside-click, focusout,
+    // hovering another group) animates the close and the menu can
+    // never stay invisible-but-clickable. No timeout or transitionend
+    // listener is needed; re-opening mid-fade just reverses it.
     function closeAdminDropdowns(exceptBtn) {
       document.querySelectorAll('[data-dropdown-btn]').forEach(function (btn) {
         if (btn === exceptBtn) return;
@@ -108,7 +116,9 @@
 
     // One-line top bar search (fix/whmcs-one-line-topbar): the 🔍 icon
     // opens the search as a panel under the icon (desktop) or a row under
-    // the bar (mobile). Same close rules as the menus above.
+    // the bar (mobile). Same close rules as the menus above — and the
+    // same close animation (fix/dropdown-animations): removing .open
+    // fades + slides the panel up via the CSS visibility transition.
     function closeAdminSearch() {
       var form = document.getElementById('admin-topbar-search');
       var btn = document.getElementById('admin-topbar-search-btn');
