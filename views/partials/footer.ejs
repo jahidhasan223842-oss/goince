@@ -20,6 +20,73 @@
         proper tap target. Nijer overlap guard (niche) tab-ta lukay
         jokhon kono product button-er sathe lege jay. */ %>
   <a href="/cart" class="side-cart" aria-label="View cart" title="View cart"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="side-cart-badge"><%= cartCount %></span><% } %></a>
+  <% /* ---------- Mini-cart drawer (fix/mini-cart-drawer-hover) ----------
+        donal asked (2026-11-27): clicking the cart option must NOT go
+        to another page — it should open on the SAME page — and if
+        there are any advance features, add them. So the side-cart tab
+        above stays a plain <a href="/cart"> (no-JS fallback: it still
+        navigates to /cart), and the footer IIFE below intercepts the
+        click and opens this panel instead. Server-rendered from the
+        session cart (res.locals.miniCart / miniCartSubtotal, set in
+        server.js — no new query, no new route, no JSON API): photo,
+        name, variant/option label, quantity stepper, line total,
+        per-item remove, subtotal, delivery note (the site's real
+        charges: ৳60 inside Dhaka / ৳120 outside), View Cart + Checkout
+        buttons. Quantity + remove reuse the EXISTING cart POST routes
+        (/cart/update/:cartKey, /cart/remove/:cartKey — same as the
+        cart page), so a stepper click does a full page reload to
+        /cart, exactly like the cart page today; the drawer re-opens
+        only via the tab after reload. No recommendations row here —
+        a footer query on every page load would be wasteful. */ %>
+  <% const _miniTk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
+  <% const _miniCart = (typeof miniCart !== 'undefined' && miniCart) ? miniCart : []; %>
+  <% const _miniSubtotal = (typeof miniCartSubtotal !== 'undefined' && miniCartSubtotal) ? miniCartSubtotal : _miniCart.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0); %>
+  <div class="mini-cart-overlay" id="mini-cart-overlay" hidden></div>
+  <aside class="mini-cart-drawer" id="mini-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="mini-cart-title" hidden>
+    <div class="mini-cart-head">
+      <h2 id="mini-cart-title">Your Cart<% if (typeof cartCount !== 'undefined' && cartCount > 0) { %> (<%= cartCount %>)<% } %></h2>
+      <button type="button" class="mini-cart-close" aria-label="Close cart">×</button>
+    </div>
+    <% if (_miniCart.length === 0) { %>
+      <div class="mini-cart-empty">
+        <p>Your cart is empty.</p>
+        <a href="/" class="btn-primary">Start Shopping</a>
+      </div>
+    <% } else { %>
+      <ul class="mini-cart-items">
+        <% _miniCart.forEach(function (item) { %>
+          <li class="mini-cart-item">
+            <a href="/product/<%= item.id %>"><img src="/uploads/<%= item.image %>" alt="<%= item.name %>" class="mini-cart-thumb" onerror="this.src='/uploads/no-image.png'"></a>
+            <div class="mini-cart-info">
+              <a href="/product/<%= item.id %>" class="mini-cart-name"><%= item.name %></a>
+              <% if (item.variantLabel) { %><span class="mini-cart-variant"><%= item.variantLabel %></span><% } %>
+              <span class="mini-cart-price"><%= _miniTk(item.price) %> each</span>
+              <form action="/cart/update/<%= item.cartKey || item.id %>" method="POST" class="qty-stepper mini-cart-qty"><%- include('csrf-field') %>
+                <button type="submit" name="quantity" value="<%= Math.max(1, item.quantity - 1) %>" class="qty-btn" aria-label="Decrease quantity">−</button>
+                <input type="number" name="quantity" value="<%= item.quantity %>" min="1" class="qty-input" aria-label="Quantity">
+                <button type="submit" name="quantity" value="<%= item.quantity + 1 %>" class="qty-btn" aria-label="Increase quantity">+</button>
+              </form>
+            </div>
+            <div class="mini-cart-line">
+              <span class="mini-cart-line-total"><%= _miniTk(item.price * item.quantity) %></span>
+              <form action="/cart/remove/<%= item.cartKey || item.id %>" method="POST"><%- include('csrf-field') %>
+                <button type="submit" class="mini-cart-remove" aria-label="Remove <%= item.name %>">×</button>
+              </form>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+      <div class="mini-cart-foot">
+        <p class="mini-cart-subtotal"><span>Subtotal</span><strong><%= _miniTk(_miniSubtotal) %></strong></p>
+        <p class="mini-cart-delivery">🚚 Delivery: ৳60 inside Dhaka / ৳120 outside Dhaka — calculated at checkout.</p>
+        <div class="mini-cart-actions">
+          <a href="/cart" class="mini-cart-view">View Cart</a>
+          <a href="/checkout" class="btn-primary mini-cart-checkout">Checkout</a>
+        </div>
+        <button type="button" class="mini-cart-continue">Continue shopping</button>
+      </div>
+    <% } %>
+  </aside>
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
@@ -220,22 +287,52 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
   </script>
 
   <script>
-    // Side-cart tab overlap guard (fix/header-cart-side-tab): tab-ta
-    // fixed, majhkhane dan dike thake — scroll korle dan diker
-    // product card-er "Add to Cart" / "Choose Option" button-er dan
-    // pranto-er niche chole aste pare (live-e dekha geche, Best
-    // Sellers row-e). WhatsApp guard-er motoi asol rect intersection
-    // diye mapa hoy: overlap hole tab lukay (.side-cart--hidden —
-    // fade + pointer-events none), na hole abar dekha jay. Check
-    // scroll/resize-e noy — load, font ready, ResizeObserver,
-    // pageshow ar prothom paint-er pore rAF-eo chole. JS na cholle
-    // tab ager motoi sob somoy visible thake.
+    // Side-cart tab overlap guard (fix/header-cart-side-tab) + 6s
+    // idle timer + mini-cart drawer (fix/mini-cart-drawer-hover):
+    // tab-ta fixed, majhkhane dan dike thake — scroll korle dan
+    // diker product card-er "Add to Cart" / "Choose Option"
+    // button-er dan pranto-er niche chole aste pare (live-e dekha
+    // geche, Best Sellers row-e). WhatsApp guard-er motoi asol rect
+    // intersection diye mapa hoy: overlap hole tab lukay
+    // (.side-cart--hidden — fade + pointer-events none), na hole
+    // abar dekha jay. Check scroll/resize-e noy — load, font ready,
+    // ResizeObserver, pageshow ar prothom paint-er pore rAF-eo
+    // chole. JS na cholle tab ager motoi sob somoy visible thake.
+    // 6 SECOND RULE (donal: click na korle vasoman obosthay 6 second
+    // thakbe): load-er pore tab puropuri visible + 6s timer chole;
+    // 6s-er moddhe hover/click na hole tab dan dike sore giye
+    // shudhu ~14px sonali sliver rekhe jay (.side-cart--minimised)
+    // — cart pouchano jay, page porishkar thake. Sliver-e hover /
+    // click korle puro pill fire ashe + timer notun kore shuru hoy.
+    // Puro tab-e click korle /cart-e jaoa hoy NA — eki page-e
+    // mini-cart drawer khole (preventDefault; href="/cart" thakay
+    // JS na cholle ager motoi /cart-e jay). Drawer khola thakle
+    // timer bondho + tab puropuri visible thake; drawer bondho hole
+    // tab abar visible hoy + 6s timer notun kore shuru hoy. Guard
+    // sobar upore: overlap hole tab puropuri lukay, timer-er
+    // obostha jai hok na keno, ar overlap shesh hole timer-er
+    // obosthay fire ashe.
     (function () {
       var tab = document.querySelector('.side-cart');
       if (!tab) return;
+      var drawer = document.querySelector('#mini-cart-drawer');
+      var overlay = document.querySelector('#mini-cart-overlay');
+      var closeBtn = document.querySelector('.mini-cart-close');
+      var continueBtn = document.querySelector('.mini-cart-continue');
       var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary';
+      var IDLE_MS = 6000;
+      var CLOSE_MS = 260;
       var raf = window.requestAnimationFrame || function (fn) { fn(); };
       var ticking = false;
+      var timerId = null;
+      var minimised = false;
+      var drawerOpen = false;
+      var guardHidden = false;
+      var lastFocused = null;
+      // Test-er vm sandbox-e setTimeout na thakleo IIFE cholte
+      // hobe — tai age thekei porikkha kore rakhi; browser-e sob
+      // somoy ache.
+      var hasTimer = typeof setTimeout === 'function' && typeof clearTimeout === 'function';
       function overlapsTab(el) {
         var r = el.getBoundingClientRect();
         var t = tab.getBoundingClientRect();
@@ -245,6 +342,20 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
         return r.left < t.right + pad && r.right > t.left - pad &&
                r.top < t.bottom + pad && r.bottom > t.top - pad;
       }
+      // Tab-er asol state ek jaygay: guard sobar upore (overlap
+      // hole puropuri lukay), tarpor timer-er sliver, tarpor drawer
+      // khola thakle tab puropuri visible.
+      function applyTabState() {
+        if (guardHidden) {
+          tab.classList.add('side-cart--hidden');
+          tab.classList.remove('side-cart--minimised');
+        } else {
+          tab.classList.remove('side-cart--hidden');
+          tab.classList.toggle('side-cart--minimised', minimised && !drawerOpen);
+        }
+        tab.setAttribute('aria-hidden', guardHidden ? 'true' : 'false');
+        if (guardHidden) { tab.setAttribute('tabindex', '-1'); } else { tab.removeAttribute('tabindex'); }
+      }
       function update() {
         ticking = false;
         var hide = false;
@@ -252,12 +363,97 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
         for (var i = 0; i < guarded.length; i++) {
           if (overlapsTab(guarded[i])) { hide = true; break; }
         }
-        tab.classList.toggle('side-cart--hidden', hide);
-        tab.setAttribute('aria-hidden', hide ? 'true' : 'false');
-        if (hide) { tab.setAttribute('tabindex', '-1'); } else { tab.removeAttribute('tabindex'); }
+        guardHidden = hide;
+        applyTabState();
+      }
+      function stopTimer() {
+        if (hasTimer && timerId !== null) { clearTimeout(timerId); timerId = null; }
+      }
+      function startTimer() {
+        stopTimer();
+        if (!hasTimer || drawerOpen) return;
+        timerId = setTimeout(function () {
+          timerId = null;
+          minimised = true;
+          applyTabState();
+        }, IDLE_MS);
+      }
+      function restoreTab() {
+        minimised = false;
+        applyTabState();
+        startTimer();
+      }
+      function openDrawer() {
+        if (!drawer || !overlay) return;
+        drawerOpen = true;
+        stopTimer();
+        lastFocused = document.activeElement || null;
+        drawer.hidden = false;
+        overlay.hidden = false;
+        // Reflow, jate hidden soranor pore .is-open jog korle
+        // slide-in animation-ta sotti chole (na hole ek frame-ei
+        // shesh obostha dekhabe).
+        void drawer.offsetWidth;
+        drawer.classList.add('is-open');
+        overlay.classList.add('is-open');
+        if (document.body) document.body.classList.add('mini-cart-open');
+        applyTabState();
+        if (closeBtn && closeBtn.focus) closeBtn.focus();
+      }
+      function closeDrawer() {
+        if (!drawerOpen) return;
+        drawerOpen = false;
+        if (drawer) drawer.classList.remove('is-open');
+        if (overlay) overlay.classList.remove('is-open');
+        if (document.body) document.body.classList.remove('mini-cart-open');
+        // Bondho howar slide-out-ta dekhte deoar jonno hidden ektu
+        // pore boshe (260ms = transition-er somoy); tar moddhe abar
+        // khulle hidden bosbe na (drawerOpen abar check kora hoy).
+        if (hasTimer) {
+          setTimeout(function () {
+            if (!drawerOpen) {
+              if (drawer) drawer.hidden = true;
+              if (overlay) overlay.hidden = true;
+            }
+          }, CLOSE_MS);
+        } else {
+          if (drawer) drawer.hidden = true;
+          if (overlay) overlay.hidden = true;
+        }
+        applyTabState();
+        startTimer();
+        if (lastFocused && lastFocused.focus) lastFocused.focus();
+        lastFocused = null;
       }
       function onScroll() {
         if (!ticking) { ticking = true; raf(update); }
+      }
+      // Sliver-e hover/focus korle puro pill abar ashe + timer
+      // notun kore shuru hoy.
+      tab.addEventListener('mouseenter', function () { restoreTab(); });
+      tab.addEventListener('focus', function () { restoreTab(); });
+      tab.addEventListener('click', function (e) {
+        // preventDefault DUITA shakha-tei lage: sliver-e click-eo
+        // browser /cart-e chole jeto (tab-ta <a href="/cart">),
+        // kintu sliver-er kaj shudhu pill-ta firiye ana — drawer
+        // khola noy. href="/cart" thakay JS na cholle ager motoi
+        // /cart-e jaoa jay (no-JS fallback).
+        if (e && e.preventDefault) e.preventDefault();
+        if (minimised) { restoreTab(); return; }
+        // Puro tab-e click: /cart-e jaoa noy — eki page-e drawer
+        // khole.
+        openDrawer();
+      });
+      if (closeBtn) closeBtn.addEventListener('click', function () { closeDrawer(); });
+      if (continueBtn) continueBtn.addEventListener('click', function () { closeDrawer(); });
+      if (overlay) overlay.addEventListener('click', function () { closeDrawer(); });
+      if (document.addEventListener) {
+        document.addEventListener('keydown', function (e) {
+          if (drawerOpen && e && (e.key === 'Escape' || e.key === 'Esc')) {
+            if (e.preventDefault) e.preventDefault();
+            closeDrawer();
+          }
+        });
       }
       window.addEventListener('scroll', onScroll, { passive: true });
       window.addEventListener('resize', onScroll, { passive: true });
@@ -274,6 +470,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       }
       raf(function () { update(); });
       update();
+      startTimer();
     })();
   </script>
 

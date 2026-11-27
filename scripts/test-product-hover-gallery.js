@@ -233,7 +233,9 @@ const baseLocals = {
   // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): same —
   // :focus-within no longer golds the button; it keeps lift + ring.
   check('card: :focus-within does NOT gold the button anymore', !/\.product-card:focus-within \.btn-card/.test(cssNoComments));
-  check('card: button own :hover still gold (unchanged)', !!ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/)));
+  // UPDATED (fix/mini-cart-drawer-hover): button own :hover is now
+  // success green + -2px lift, not gold.
+  check('card: button own :hover still green (unchanged rule, new colour)', !!ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/) && /background:\s*var\(--success\)/.test(ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/)));
   check('card: hover gated behind @media (hover: hover) — no stuck hover on touch', hoverBlocks.includes('.product-card:hover'));
   check('card: reduced-motion disables lift + zoom (ring reset, colour only)', /\.product-card:hover, \.product-card:focus-within \{ transform: none;/.test(reducedMotionBlocks) && /\.product-card:hover img \{ transform: none;/.test(reducedMotionBlocks));
 

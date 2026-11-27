@@ -313,8 +313,11 @@ function ruleBody(source, selectorRe) {
   check('card: the PR #69 rule that golded the button on CARD hover is GONE', !/\.product-card:hover \.btn-card/.test(cssNoComments));
   check('card: the :focus-within button-gold rule is GONE too', !/\.product-card:focus-within \.btn-card/.test(cssNoComments));
   const btnHover = ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/);
-  check('card: button turns dark gold ONLY on its own :hover (still navy -> gold)', !!btnHover && /background:\s*var\(--mega-hover-gold\)/.test(btnHover) && /color:\s*#fff/.test(btnHover));
-  check('card: button :focus-visible / :active still gold (own states, not card hover)', /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/) || '') && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/) || ''));
+  // UPDATED (fix/mini-cart-drawer-hover): button hover is now
+  // success green + -2px lift, not dark gold — still ONLY on its
+  // own :hover (never on card hover).
+  check('card: button turns success green ONLY on its own :hover (still navy -> green, + -2px lift)', !!btnHover && /background:\s*var\(--success\)/.test(btnHover) && /color:\s*#fff/.test(btnHover) && /transform:\s*translateY\(-2px\)/.test(btnHover));
+  check('card: button :focus-visible / :active still match the button\'s own states (green / darker green #176327, not card hover)', /background:\s*var\(--success\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/) || '') && /background:\s*#176327/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/) || ''));
   const btnBase = cssTopLevel.match(/^\.btn-card \{[^}]*\}/m);
   check('card: base button is still dark navy (normal colour on card hover)', !!btnBase && /background:\s*var\(--navy\)/.test(btnBase[0]));
   // Bottom zone.

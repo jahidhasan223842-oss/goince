@@ -185,11 +185,20 @@ function ruleBody(source, selectorRe) {
     'no underline on :focus-visible');
 
   // ---------- 4. Header buttons: lift + shadow ----------
-  check('buttons: single "Login / Sign Up" solid button darkens + shadows on hover (fix/header-account-menu: the outline Login button is gone)',
-    /\.btn-nav-solid:hover[^{]*\{[^}]*background:\s*var\(--accent-hover\)/.test(hoverBlocks)
-    && /\.btn-nav-solid:hover[^{]*\{[^}]*box-shadow:/.test(hoverBlocks)
+  // UPDATED (fix/mini-cart-drawer-hover): the Login / Sign Up hover
+  // is no longer a plain accent-hover darken — it is the two-colour
+  // treatment (navy slides in from the left, dark gold from the
+  // right, white text, base gold kept). The old accent-hover rule
+  // is still in the file but the more specific .main-nav
+  // .btn-nav-solid:hover rule (0,3,0, later) wins, so the button
+  // never shows accent-hover. Assert the NEW end state here; the
+  // new suite (test-mini-cart-drawer.js) covers the pseudos.
+  check('buttons: single "Login / Sign Up" solid button gets the two-colour hover (navy left + dark gold right, white text) instead of the old accent-hover darken (fix/mini-cart-drawer-hover: no separate outline Login button)',
+    /\.main-nav \.btn-nav-solid:hover \{[^}]*background:\s*var\(--accent\);[^}]*color:\s*#fff !important/.test(hoverBlocks)
+    && /\.main-nav \.btn-nav-solid:hover \{[^}]*box-shadow:/.test(hoverBlocks)
+    && !/\.main-nav \.btn-nav-solid:hover \{[^}]*background:\s*var\(--accent-hover\)/.test(hoverBlocks)
     && !/\.btn-nav-outline\s*\{/.test(cssTopLevel),
-    'no darken/shadow on .btn-nav-solid:hover, or dead .btn-nav-outline rule still present');
+    'no two-colour hover on .btn-nav-solid:hover, or dead .btn-nav-outline rule still present');
   check('buttons: Search button darkens + lifts + shadows on hover',
     /\.search-form button:hover[^{]*\{[^}]*background:\s*var\(--accent-hover\)/.test(hoverBlocks)
     && /\.search-form button:hover[^{]*\{[^}]*transform:\s*translateY\(-2px\)/.test(hoverBlocks)

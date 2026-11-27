@@ -186,8 +186,12 @@ check('reduced-motion: drawer sub/sub-sub links get transition: none', /\.shop-d
 check('reduced-motion: card lift + zoom are also switched off (transform: none on hover)', /\.product-card:hover, \.product-card:focus-within \{[^}]*transform:\s*none/.test(reducedMotionBlocks) && /\.product-card:hover img \{[^}]*transform:\s*none/.test(reducedMotionBlocks));
 
 // ---------- 5. Hover END states are unchanged ----------
+// UPDATED (fix/mini-cart-drawer-hover): the button hover is no
+// longer dark gold — it is the success green var(--success) #1f7a30
+// (the .btn-call pair) + a -2px lift on the button itself. Card
+// hover (ring + lift + mint foot) is unchanged.
 const btnHover = ruleBody(cssTopLevel, /\.btn-card:hover \{[^}]*\}/);
-check('end-state: button turns dark gold + white text on its OWN :hover', !!btnHover && /background:\s*var\(--mega-hover-gold\)/.test(btnHover) && /color:\s*#fff/.test(btnHover));
+check('end-state: button turns SUCCESS GREEN + white text on its OWN :hover, and lifts -2px', !!btnHover && /background:\s*var\(--success\)/.test(btnHover) && /color:\s*#fff/.test(btnHover) && /transform:\s*translateY\(-2px\)/.test(btnHover));
 check('end-state: NO rule golds the button on CARD hover (PR #71 behaviour kept)', !/\.product-card:hover \.btn-card/.test(cssNoComments) && !/\.product-card:focus-within \.btn-card/.test(cssNoComments));
 const cardHover = hoverBlocks.match(/\.product-card:hover \{[^}]*\}/);
 check('end-state: card hover still lifts -10px with the 2px gold ring + deep shadow', !!cardHover && /transform:\s*translateY\(-10px\)/.test(cardHover[0]) && /box-shadow:\s*0 0 0 2px var\(--mega-hover-gold\), 0 18px 36px/.test(cardHover[0]));
