@@ -72,7 +72,7 @@
 //      HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27):
 //      donal changed his mind — the button now turns gold ONLY on
 //      its OWN hover; the bottom zone (.product-card-foot) gets a
-//      warm background on card hover instead.
+//      mint background on card hover instead (PR #72).
 //   3. PHOTOS: object-fit: cover -> contain on a consistent soft
 //      neutral background (var(--bg)), same fixed 180px frame so
 //      the grid stays uniform. Photo files untouched.
@@ -236,8 +236,8 @@ function ruleBody(source, selectorRe) {
   // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): the
   // button/form no longer sit directly in the card — they live in
   // the new .product-card-foot wrapper (price + button zone), which
-  // does the pushing (margin-top: auto) and gets the warm hover
-  // background. The old selector is gone by design.
+  // does the pushing (margin-top: auto) and gets the mint hover
+  // background (PR #72). The old selector is gone by design.
   check('buttons: button/form pushed to the bottom via the foot (margin-top: auto on .product-card > .product-card-foot)', css.includes('.product-card > .product-card-foot { margin-top: auto; }'));
   const formRule = ruleBody(cssTopLevel, /\.product-card form\s*\{[^}]*\}/);
   check('buttons: form rule is plain margin: 0 now (the foot does the pushing)', !!formRule && /margin:\s*0/.test(formRule) && !/margin-top:\s*auto/.test(formRule));

@@ -55,8 +55,9 @@
 //      HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27):
 //      donal changed his mind — the button now turns gold ONLY on
 //      its OWN hover (the card-hover button rule is removed); the
-//      bottom zone (.product-card-foot) gets a warm background on
-//      card hover instead. Lift + ring + zoom are unchanged.
+//      bottom zone (.product-card-foot) gets a mint background on
+//      card hover instead (PR #72: mint, not the PR #71 warm
+//      champagne). Lift + ring + zoom are unchanged.
 //   3. GALLERY (new public/js/product-gallery.js, cache-busted via
 //      lib/assets.js, included in the footer like mega-menu.js):
 //      fixed 4/3 stage (mobile + desktop), whole photo via
@@ -225,7 +226,7 @@ const baseLocals = {
   // changed his mind — the button must turn gold ONLY on its OWN
   // hover, not on card hover (it keeps its normal navy while only
   // the card is hovered). The PR #69 card-hover button rule is
-  // removed by design; the warm foot background replaces it.
+  // removed by design; the mint foot background replaces it.
   check('card: button does NOT turn gold on CARD hover anymore (removed in fix/pills-band-ripple-card)', !/\.product-card:hover \.btn-card/.test(cssNoComments));
   const cardFocus = ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/);
   check('card: :focus-within lifts -10px + gold ring like hover (keyboard)', !!cardFocus && /translateY\(-10px\)/.test(cardFocus) && /0 0 0 2px var\(--mega-hover-gold\)/.test(cardFocus));
