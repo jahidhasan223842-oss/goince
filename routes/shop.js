@@ -193,6 +193,18 @@ router.get('/', async (req, res) => {
       optionProductIds = new Set(orows.map(r => r.product_id));
     } catch (e) {}
 
+    // Recently Viewed: purono saved item-e (PR #69-er age save kora)
+    // stock + hasOptions flag nei — tai server theke shob visible
+    // product-er id -> { stock, hasOptions } map pathano hoy, jate
+    // purono item-eo thik button (Add to Cart / Choose Option /
+    // kichu na) dekhano jay. `products` filter kora thakte pare
+    // (category/search), tai map-er jonno alada query.
+    let recentlyViewedMap = {};
+    try {
+      const [allRows] = await db.query(`SELECT id, stock FROM products WHERE ${VISIBLE_PRODUCT_SQL}`);
+      recentlyViewedMap = Object.fromEntries(allRows.map((r) => [r.id, { stock: r.stock, hasOptions: variantProductIds.has(r.id) || optionProductIds.has(r.id) }]));
+    } catch (e) { recentlyViewedMap = {}; }
+
     // Best sellers: shobcheye beshi bikri hoya product (homepage hero-r niche)
     let bestSellers = [];
     if (!categoryId && !search) {
@@ -226,6 +238,7 @@ router.get('/', async (req, res) => {
       heroProduct,
       variantProductIds: [...variantProductIds],
       optionProductIds: [...optionProductIds],
+      recentlyViewedMap,
       minPrice: isNaN(minPrice) ? '' : minPrice,
       maxPrice: isNaN(maxPrice) ? '' : maxPrice,
       bestSellers,
