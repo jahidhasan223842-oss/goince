@@ -1,52 +1,139 @@
 <%- include('../partials/header') %>
+<% const _photo = (typeof photoUrl !== 'undefined' && photoUrl) ? String(photoUrl) : null; %>
+<% const _initial = ((typeof displayName !== 'undefined' && displayName) ? String(displayName) : (user && user.name) || 'C').trim().charAt(0).toUpperCase() || 'C'; %>
+<% const _email = (user && user.email) ? String(user.email) : ''; %>
 
-<div class="auth-box" style="max-width:500px;">
-  <h1>My Profile</h1>
-  <% if (error) { %><p class="error-msg"><%= error %></p><% } %>
-  <% if (message) { %><p class="success-msg"><%= message %></p><% } %>
-
-  <form action="/account/profile" method="POST"><%- include('../partials/csrf-field') %>
-    <label>Full Name</label>
-    <input type="text" name="name" value="<%= user.name %>" required>
-
-    <label>Email</label>
-    <input type="email" name="email" value="<%= user.email %>" required>
-
-    <label>Phone Number</label>
-    <input type="text" name="phone" value="<%= user.phone || '' %>">
-
-    <label>Delivery Address</label>
-    <textarea name="address" rows="3"><%= user.address || '' %></textarea>
-
-    <button type="submit" class="btn-primary">Update Profile</button>
-  </form>
-
-  <hr style="margin:24px 0;">
-
-  <h1>Change Password</h1>
-  <form action="/account/change-password" method="POST"><%- include('../partials/csrf-field') %>
-    <label>Current Password</label>
-    <div class="password-wrapper">
-      <input type="password" name="current_password" id="profile-pw-current" required>
-      <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'profile-pw-current')">Show</button>
+<div class="customer-profile-page">
+  <div class="customer-profile-head">
+    <% if (_photo) { %><span class="customer-avatar customer-profile-avatar" aria-hidden="true"><img src="<%= _photo %>" alt=""></span><% } else { %><span class="customer-avatar customer-profile-avatar" aria-hidden="true"><%= _initial %></span><% } %>
+    <div>
+      <h1 class="customer-profile-name"><%= displayName %></h1>
+      <p class="customer-profile-email"><%= _email %></p>
+      <% if (typeof memberSince !== 'undefined' && memberSince) { %><p class="field-hint" style="margin:0;">Member since: <%= memberSince %></p><% } %>
     </div>
+  </div>
 
-    <label>New Password</label>
-    <div class="password-wrapper">
-      <input type="password" name="new_password" id="profile-pw-new" minlength="6" required>
-      <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'profile-pw-new')">Show</button>
+  <% if (typeof profileOk !== 'undefined' && profileOk && profileMessage) { %><p class="success-msg"><%= profileMessage %></p><% } %>
+  <% if (typeof pwOk !== 'undefined' && pwOk && pwMessage) { %><p class="success-msg"><%= pwMessage %></p><% } %>
+  <% if (typeof profileOk !== 'undefined' && !profileOk && profileMessage) { %><p class="error-msg"><%= profileMessage %></p><% } %>
+  <% if (typeof pwOk !== 'undefined' && !pwOk && pwMessage) { %><p class="error-msg"><%= pwMessage %></p><% } %>
+
+  <div class="customer-stats">
+    <div class="customer-stat"><span class="customer-stat-num"><%= (typeof ordersCount !== 'undefined' && ordersCount) || 0 %></span><span class="customer-stat-label">Total Orders</span></div>
+    <div class="customer-stat"><span class="customer-stat-num">৳<%= (typeof totalSpent !== 'undefined' && totalSpent) || 0 %></span><span class="customer-stat-label">Total Spent</span></div>
+  </div>
+
+  <div class="customer-quick-links">
+    <a href="/account" class="btn-secondary">📦 My Orders</a>
+    <a href="/wishlist" class="btn-secondary">♥️ Wishlist</a>
+    <a href="/track-order" class="btn-secondary">🔍 Track Order</a>
+    <a href="/logout" class="btn-secondary">🚪 Logout</a>
+  </div>
+
+  <div class="customer-profile-card" id="profile-photo">
+    <h2>📷 Profile Photo</h2>
+    <p class="field-hint">Recommended: square photo, at least 256 × 256 px. The photo is saved as a 256 × 256 square and shown next to your name in the header.</p>
+    <div class="customer-photo-current">
+      <% if (_photo) { %><img src="<%= _photo %>" alt="Current profile photo" class="customer-photo-current-img"><% } else { %><span class="customer-avatar customer-profile-avatar" aria-hidden="true"><%= _initial %></span><% } %>
+      <div>
+        <p class="field-hint" style="margin:0 0 8px;"><%= _photo ? 'Your current photo.' : 'No photo yet — your initial is shown instead.' %></p>
+        <% if (_photo) { %>
+        <form action="/account/profile/photo/remove" method="POST" style="display:inline;"><%- include('../partials/csrf-field') %><button type="submit" class="btn-secondary">Remove photo</button></form>
+        <% } %>
+      </div>
     </div>
+    <form action="/account/profile/photo<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" enctype="multipart/form-data" class="customer-form" id="customer-photo-form"><%- include('../partials/csrf-field') %>
+      <input type="file" id="customer-photo-file" name="photo" accept="image/jpeg,image/png,image/webp" required>
+      <label class="customer-photo-choose" for="customer-photo-file">Choose photo</label>
+      <p class="error-msg" id="customer-photo-error" hidden style="text-align:left;"></p>
+      <div id="customer-photo-crop-wrap" hidden>
+        <p class="field-hint">Drag the square to choose which part of the photo to keep — use the slider to zoom in. The circle shows how it will look.</p>
+        <div class="customer-photo-crop-row">
+          <div class="customer-photo-crop-stage" id="customer-photo-crop-stage">
+            <img id="customer-photo-crop-img" alt="Photo to crop" draggable="false">
+            <div class="customer-photo-crop-box" id="customer-photo-crop-box" role="button" tabindex="0" aria-label="Crop area — drag to move"><span class="customer-photo-crop-handle" id="customer-photo-crop-handle" aria-hidden="true"></span></div>
+          </div>
+          <div class="customer-photo-crop-side">
+            <div class="customer-photo-crop-preview" id="customer-photo-crop-preview" aria-label="Cropped photo preview"></div>
+            <label for="customer-photo-crop-zoom">Zoom</label>
+            <input type="range" id="customer-photo-crop-zoom" min="1" max="3" step="0.05" value="1">
+          </div>
+        </div>
+        <input type="hidden" id="customer-photo-crop-x" name="crop_x" value="">
+        <input type="hidden" id="customer-photo-crop-y" name="crop_y" value="">
+        <input type="hidden" id="customer-photo-crop-size" name="crop_size" value="">
+      </div>
+      <button type="submit" class="btn-primary" id="customer-photo-save-btn" disabled>Save photo</button>
+    </form>
+  </div>
 
-    <label>Confirm New Password</label>
-    <div class="password-wrapper">
-      <input type="password" name="confirm_new_password" id="profile-pw-confirm" minlength="6" required>
-      <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'profile-pw-confirm')">Show</button>
-    </div>
+  <div class="customer-profile-card" id="profile-details">
+    <h2>👤 Profile Details</h2>
+    <p class="field-hint">The name shown in the header and your contact number. Leave the name blank to keep your current name (your email name is shown when no name is set), and the phone blank if you do not want to share it.</p>
+    <form action="/account/profile" method="POST" class="customer-form"><%- include('../partials/csrf-field') %>
+      <label>Display Name</label>
+      <input type="text" name="name" value="<%= (typeof rawName !== 'undefined' ? rawName : (user && user.name) || '') %>" maxlength="60" placeholder="e.g. Rahim Uddin" autocomplete="name">
+      <label>Email (read-only — change it in the Change Email section below)</label>
+      <input type="email" value="<%= _email %>" readonly>
+      <label>Phone Number (optional)</label>
+      <input type="tel" name="phone" value="<%= (user && user.phone) || '' %>" placeholder="01XXXXXXXXX" autocomplete="tel">
+      <label>Delivery Address</label>
+      <textarea name="address" rows="3"><%= (user && user.address) || '' %></textarea>
+      <button type="submit" class="btn-primary">Save Details</button>
+    </form>
+  </div>
 
-    <button type="submit" class="btn-primary">Change Password</button>
-  </form>
+  <div class="customer-profile-card" id="change-email">
+    <h2>✉️ Change Email</h2>
+    <p class="field-hint">Change the email address you sign in with. Your current password is required, and the new address must not belong to another account.</p>
+    <form action="/account/profile/email" method="POST" class="customer-form"><%- include('../partials/csrf-field') %>
+      <label>New Email</label>
+      <input type="email" name="new_email" required autocomplete="email" placeholder="new-email@example.com">
+      <label>Confirm New Email</label>
+      <input type="email" name="confirm_new_email" required autocomplete="email" placeholder="new-email@example.com">
+      <label>Current Password</label>
+      <input type="password" name="current_password" required autocomplete="current-password">
+      <button type="submit" class="btn-primary">Change Email</button>
+    </form>
+  </div>
+
+  <div class="customer-profile-card" id="change-password">
+    <h2>🔑 Change Password</h2>
+    <p class="field-hint">Change the password you use to sign in.</p>
+    <form action="/account/change-password" method="POST" class="customer-form"><%- include('../partials/csrf-field') %>
+      <label>Current Password</label>
+      <div class="password-wrapper">
+        <input type="password" name="current_password" id="customer-pw-current" required>
+        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'customer-pw-current')">Show</button>
+      </div>
+      <label>New Password</label>
+      <div class="password-wrapper">
+        <input type="password" name="new_password" id="customer-pw-new" minlength="6" required>
+        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'customer-pw-new')">Show</button>
+      </div>
+      <label>Confirm New Password</label>
+      <div class="password-wrapper">
+        <input type="password" name="confirm_new_password" id="customer-pw-confirm" minlength="6" required>
+        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this, 'customer-pw-confirm')">Show</button>
+      </div>
+      <button type="submit" class="btn-primary">Change Password</button>
+    </form>
+  </div>
+
+  <div class="customer-profile-card" id="forgot-password">
+    <h2>✉️ Forgot Password</h2>
+    <p class="field-hint">Forgot your password? Request a reset link for your email — it is valid for 1 hour.</p>
+    <% if (typeof emailConfigured !== 'undefined' && emailConfigured) { %>
+      <p>A reset link will be emailed to the address you enter on the next page.</p>
+    <% } else { %>
+      <p>Email is not set up on the server yet, so the reset link will be shown on screen after you submit the form instead of being emailed.</p>
+    <% } %>
+    <a href="/forgot-password" class="btn-secondary" style="text-decoration:none;">Request a reset link</a>
+  </div>
 
   <p class="switch-link"><a href="/account">&larr; Back to My Orders</a></p>
 </div>
+
+<script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/customer-photo-crop.js') : '/js/customer-photo-crop.js' %>"></script>
 
 <%- include('../partials/footer') %>

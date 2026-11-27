@@ -376,6 +376,22 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- Customer profile photo (fix/customer-profile-section) ----------
+// Additive column only, safe default — a missing table/column only logs,
+// the server never crashes on it.
+//   users.photo_url — customer profile photo path
+//   (/uploads/customer-photo-….webp).
+(async () => {
+  try {
+    const db = require('./config/db');
+    const [cols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'");
+    const have = new Set((cols || []).map(c => c.COLUMN_NAME));
+    if (!have.has('photo_url')) await db.query('ALTER TABLE users ADD COLUMN photo_url VARCHAR(255) DEFAULT NULL');
+  } catch (err) {
+    console.error('Customer profile columns skip holo:', err.message);
+  }
+})();
+
 // ---------- WHMCS-style admin (fix/whmcs-style-admin): customer notes + ticket status ----------
 // Additive columns only, safe defaults — a missing table/column only logs,
 // the server never crashes on it.
@@ -549,6 +565,10 @@ app.use(async (req, res, next) => {
   // refreshed when the profile is saved — the header never queries the DB.
   res.locals.adminDisplayName = req.session.adminDisplayName || null;
   res.locals.adminPhotoUrl = req.session.adminPhotoUrl || null;
+  // Customer profile photo (fix/customer-profile-section): set at login,
+  // refreshed when the customer saves a photo — the shop header avatar
+  // never queries the DB.
+  res.locals.userPhotoUrl = req.session.userPhotoUrl || null;
   res.locals.cartCount = (req.session.cart || []).reduce((sum, item) => sum + item.quantity, 0);
 
   // Shop phone + site settings Database theke real-time e neya, jate Admin Panel

@@ -1799,6 +1799,59 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 .admin-photo-crop-side { display: flex; flex-direction: column; gap: 8px; }
 .admin-photo-crop-preview { width: 64px; height: 64px; border-radius: 50%; background-color: #101c2e; background-repeat: no-repeat; border: 1px solid var(--border); }
 .admin-photo-crop-side input[type="range"] { width: 160px; max-width: 100%; min-height: 44px; }
+
+/* ---------- Customer profile (fix/customer-profile-section, SHOP side) ----------
+   The shop-side mirror of the admin profile page: same 760px hub width,
+   same card rhythm, same 280px crop stage + 64px circle preview — but
+   shop class names (.customer-*, .shop-user-avatar), so the admin CSS
+   above is untouched. The header avatar is a small navy circle with a
+   gold initial (or the photo) next to the customer's name. */
+.customer-profile-page { max-width: 760px; margin: 0 auto; }
+.customer-profile-head { display: flex; gap: 16px; align-items: center; margin: 24px 0 8px; }
+.customer-profile-name { margin: 0; font-size: 24px; }
+.customer-profile-email { margin: 4px 0 0; color: var(--text-muted); }
+.customer-avatar { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--navy); color: #f0a500; font-weight: 700; flex-shrink: 0; overflow: hidden; }
+.customer-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.customer-profile-avatar { width: 64px; height: 64px; font-size: 26px; }
+.customer-stats { display: flex; gap: 12px; margin: 16px 0; flex-wrap: wrap; }
+.customer-stat { flex: 1 1 140px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: center; }
+.customer-stat-num { display: block; font-size: 22px; font-weight: 700; }
+.customer-stat-label { font-size: 13px; color: var(--text-muted); }
+.customer-quick-links { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+.customer-quick-links .btn-secondary { text-decoration: none; }
+.customer-profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-top: 16px; }
+.customer-profile-card h2 { margin-top: 0; font-size: 17px; }
+.customer-profile-card .customer-form { padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.customer-profile-card .customer-form label { font-weight: 600; }
+.customer-profile-card .customer-form input,
+.customer-profile-card .customer-form textarea { padding: 10px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); color: var(--text); width: 100%; box-sizing: border-box; }
+.customer-profile-card .customer-form input[readonly] { background: var(--bg); color: var(--text-muted); }
+.customer-profile-card .customer-form button[type="submit"],
+.customer-profile-card .customer-form .customer-photo-choose { align-self: flex-start; width: auto; }
+.customer-profile-card .success-msg { color: var(--success); }
+.customer-profile-card .error-msg { color: var(--danger); }
+.customer-profile-page > .success-msg { color: var(--success); text-align: center; }
+.customer-profile-page > .error-msg { color: var(--danger); text-align: center; }
+.customer-photo-current { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.customer-photo-current-img { width: 56px; height: 56px; object-fit: cover; border-radius: 50%; flex-shrink: 0; }
+.customer-photo-choose { display: inline-block; padding: 10px 16px; border-radius: 6px; background: var(--navy); color: #fff; cursor: pointer; font-weight: 600; }
+#customer-photo-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.customer-photo-crop-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin: 16px 0; }
+.customer-photo-crop-stage { position: relative; width: 280px; max-width: 100%; aspect-ratio: 1; overflow: hidden; background: #101c2e; border-radius: 10px; flex-shrink: 0; }
+.customer-photo-crop-stage img { position: absolute; user-select: none; -webkit-user-drag: none; }
+.customer-photo-crop-box { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); cursor: grab; touch-action: none; }
+.customer-photo-crop-box:active { cursor: grabbing; }
+.customer-photo-crop-box:focus-visible { outline: 2px solid var(--accent, #f0a500); outline-offset: 2px; }
+.customer-photo-crop-handle { position: absolute; right: -8px; bottom: -8px; width: 20px; height: 20px; background: #fff; border: 2px solid var(--accent, #f0a500); border-radius: 50%; cursor: nwse-resize; touch-action: none; }
+.customer-photo-crop-side { display: flex; flex-direction: column; gap: 8px; }
+.customer-photo-crop-preview { width: 64px; height: 64px; border-radius: 50%; background-color: #101c2e; background-repeat: no-repeat; border: 1px solid var(--border); }
+.customer-photo-crop-side input[type="range"] { width: 160px; max-width: 100%; min-height: 44px; }
+.shop-account-link { display: inline-flex; align-items: center; gap: 8px; }
+.shop-user-avatar { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: #f0a500; font-size: 13px; font-weight: 700; flex-shrink: 0; overflow: hidden; }
+.shop-user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.shop-drawer-account { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.shop-drawer-avatar { width: 40px; height: 40px; font-size: 17px; }
+.shop-drawer-account-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-topbar .theme-toggle-btn {
   width: 44px;
   height: 44px;
