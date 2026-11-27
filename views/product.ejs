@@ -2,13 +2,25 @@
 
 <div class="product-details">
   <div class="product-image">
-    <img src="/uploads/<%= product.image %>" alt="<%= product.name %>" id="main-product-image" onerror="this.src='/uploads/no-image.png'">
+    <div class="gallery-stage" id="gallery-stage" tabindex="0" role="group" aria-label="Product photos">
+      <img src="/uploads/<%= product.image %>" alt="<%= product.name %>" id="main-product-image" onerror="this.src='/uploads/no-image.png'">
+      <% if (galleryImages && galleryImages.length > 0) { %>
+        <button type="button" class="gallery-arrow gallery-prev" id="gallery-prev" aria-label="Previous photo">‹</button>
+        <button type="button" class="gallery-arrow gallery-next" id="gallery-next" aria-label="Next photo">›</button>
+      <% } %>
+      <div class="gallery-zoom-controls">
+        <button type="button" class="gallery-zoom-btn" id="gallery-zoom-out" aria-label="Zoom out">−</button>
+        <button type="button" class="gallery-zoom-btn" id="gallery-zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" class="gallery-zoom-btn gallery-zoom-reset" id="gallery-zoom-reset" aria-label="Reset zoom">⟲</button>
+      </div>
+      <span class="gallery-zoom-hint"><span class="zoom-hint-hover">Hover to zoom · Click to toggle</span><span class="zoom-hint-touch">Tap to zoom</span></span>
+    </div>
 
     <% if (galleryImages && galleryImages.length > 0) { %>
       <div class="thumbnail-row">
-        <img src="/uploads/<%= product.image %>" class="thumbnail active" onclick="swapImage(this, '/uploads/<%= product.image %>')" onerror="this.src='/uploads/no-image.png'">
-        <% galleryImages.forEach(img => { %>
-          <img src="/uploads/<%= img.image %>" class="thumbnail" onclick="swapImage(this, '/uploads/<%= img.image %>')" onerror="this.src='/uploads/no-image.png'">
+        <img src="/uploads/<%= product.image %>" class="thumbnail active" data-index="0" data-full="/uploads/<%= product.image %>" onclick="swapImage(this, '/uploads/<%= product.image %>')" onerror="this.src='/uploads/no-image.png'" alt="">
+        <% galleryImages.forEach((img, i) => { %>
+          <img src="/uploads/<%= img.image %>" class="thumbnail" data-index="<%= i + 1 %>" data-full="/uploads/<%= img.image %>" onclick="swapImage(this, '/uploads/<%= img.image %>')" onerror="this.src='/uploads/no-image.png'" alt="">
         <% }) %>
       </div>
     <% } %>
@@ -199,14 +211,19 @@
   function copyProductLink() {
     navigator.clipboard.writeText(location.href).then(function () { alert('Link copied!'); });
   }
-  // Recently viewed-e save kora (homepage-e dekhabe)
+  // Recently viewed-e save kora (homepage-e dekhabe). stock + hasOptions-o
+  // save kora hoy — homepage-e Recently Viewed card-er button (Add to
+  // Cart na Choose Option) ei duto diye thik hoy (fix/product-hover-gallery).
   try {
     var recent = JSON.parse(localStorage.getItem('goince-recent') || '[]');
     recent = recent.filter(function (it) { return it.id !== <%= product.id %>; });
-    recent.unshift({ id: <%= product.id %>, name: <%- JSON.stringify(product.name) %>, price: <%= product.price %>, image: <%- JSON.stringify(product.image || 'no-image.png') %> });
+    recent.unshift({ id: <%= product.id %>, name: <%- JSON.stringify(product.name) %>, price: <%= product.price %>, image: <%- JSON.stringify(product.image || 'no-image.png') %>, stock: <%= product.stock %>, hasOptions: <%= ((variants && variants.length > 0) || (options && options.length > 0)) ? 'true' : 'false' %> });
     localStorage.setItem('goince-recent', JSON.stringify(recent.slice(0, 4)));
   } catch (e) {}
   function swapImage(el, src) {
+    // Gallery module thakle shetai chobi bodlay (index + zoom reset
+    // soho); na thakle purono upay (direct src bodol + active class).
+    if (window.GoinceGallery) { window.GoinceGallery.showBySrc(src, el); return; }
     document.getElementById('main-product-image').src = src;
     document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
     el.classList.add('active');

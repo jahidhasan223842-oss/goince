@@ -64,12 +64,11 @@
 //      soft shadow); the active "All" pill keeps its orange and
 //      only lifts -2px on hover. Hover gated behind
 //      @media (hover: hover); :focus-visible matches hover.
-//   2. CARDS: hover lifts -6px with a deep soft shadow; the photo
-//      zooms 1.06x inside overflow: hidden; the "Add to Cart" /
-//      "Choose Option" button turns dark gold (#966e00) + white.
-//      "Choose Option" is CORRECT for products with size variants
-//      and is unchanged. Focus-within lifts the card,
-//      :focus-visible on the button turns it gold, :active too.
+//   2. CARDS: hover lifts -10px with a dark-gold ring + deep soft
+//      shadow (strengthened in fix/product-hover-gallery — was -6px
+//      / 1.06x); the photo zooms 1.08x inside overflow: hidden; the
+//      "Add to Cart" / "Choose Option" button turns dark gold
+//      (#966e00) + white on CARD hover (not only its own hover).
 //   3. PHOTOS: object-fit: cover -> contain on a consistent soft
 //      neutral background (var(--bg)), same fixed 180px frame so
 //      the grid stays uniform. Photo files untouched.
@@ -183,23 +182,34 @@ function ruleBody(source, selectorRe) {
   const pillFocus = ruleBody(cssTopLevel, /\.category-bar > a:not\(\.active\):focus-visible,[\s\S]*?\{[^}]*\}/);
   check('pills: :focus-visible matches hover (gold + lift + outline)', !!pillFocus && /background:\s*var\(--mega-hover-gold\)/.test(pillFocus) && /transform:\s*translateY\(-4px\)/.test(pillFocus) && /outline:/.test(pillFocus));
   check('pills: hover is gated behind @media (hover: hover) — no stuck hover on touch', hoverBlocks.includes('.category-bar > a:not(.active):hover'));
-  check('pills: dropdown menu links keep their own hover (bg-hover, untouched)', !!ruleBody(cssTopLevel, /\.category-bar \.cat-pill-menu a:hover\s*\{[^}]*\}/) && /background:\s*var\(--bg-hover\)/.test(ruleBody(cssTopLevel, /\.category-bar \.cat-pill-menu a:hover\s*\{[^}]*\}/)));
+  // HONEST UPDATE (fix/product-hover-gallery, 2026-11-27): the pill
+  // dropdown child links no longer use the plain bg-hover tint —
+  // donal said the children in the screenshot had no effect, so they
+  // now get the mega-menu dark-gold hover (same as the mega menu
+  // items). The check now asserts the new gold hover instead.
+  const pillChildHoverOld = hoverBlocks.match(/\.category-bar \.cat-pill-menu a:hover\s*\{[^}]*\}/);
+  check('pills: dropdown menu links now have the dark-gold hover (was bg-hover — changed in fix/product-hover-gallery)', !!pillChildHoverOld && /background:\s*var\(--mega-hover-gold\)/.test(pillChildHoverOld) && /color:\s*#fff/.test(pillChildHoverOld));
   check('pills: still flat pills (no round category-cards strip added)', indexEjs.includes('class="category-bar"') && !indexEjs.includes('cat-strip') && !indexEjs.includes('cat-round'));
 
-  // ---------- 2. Product card hover ----------
+  // HONEST UPDATE (fix/product-hover-gallery, 2026-11-27): donal said
+  // hovering a product does not change colour and the product should
+  // rise up a lot — the card hover is now -10px + a dark-gold ring +
+  // deeper shadow, and the photo zooms 1.08x. The checks below assert
+  // the new values (the old -6px / 1.06x / 0 14px 30px values are gone
+  // by design, not by accident).
   const cardHover = hoverBlocks.match(/\.product-card:hover\s*\{[^}]*\}/);
-  check('card: hover lifts -6px (was -4px with no shadow)', !!cardHover && /transform:\s*translateY\(-6px\)/.test(cardHover));
-  check('card: hover has a deep soft shadow', !!cardHover && /box-shadow:\s*0 14px 30px/.test(cardHover));
+  check('card: hover lifts -10px (was -6px)', !!cardHover && /transform:\s*translateY\(-10px\)/.test(cardHover));
+  check('card: hover has a dark-gold ring + deep soft shadow', !!cardHover && /box-shadow:\s*0 0 0 2px var\(--mega-hover-gold\), 0 18px 36px/.test(cardHover));
   check('card: old -4px no-shadow hover is gone', !cssNoComments.includes('.product-card:hover { transform: translateY(-4px); }'));
   const imgZoom = hoverBlocks.match(/\.product-card:hover img\s*\{[^}]*\}/);
-  check('card: photo zooms 1.06x on hover', !!imgZoom && /transform:\s*scale\(1\.06\)/.test(imgZoom));
+  check('card: photo zooms 1.08x on hover (was 1.06x)', !!imgZoom && /transform:\s*scale\(1\.08\)/.test(imgZoom));
   const cardBase = cssTopLevel.match(/\.product-card \{ background: var\(--surface\);[^}]*\}/);
   check('card: overflow hidden so the zoom never spills out', !!cardBase && /overflow:\s*hidden/.test(cardBase[0]));
   check('card: transition covers transform + box-shadow', !!cardBase && /transition:\s*transform[^;]*, box-shadow/.test(cardBase[0]));
   const btnHover = ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/);
   check('card: Add to Cart button turns dark gold on hover', !!btnHover && /background:\s*var\(--mega-hover-gold\)/.test(btnHover) && /color:\s*#fff/.test(btnHover));
   check('card: old navy -> navy-2 button hover is gone', !/\.btn-card:hover\s*\{\s*background:\s*var\(--navy-2\)/.test(cssNoComments));
-  check('card: :focus-within lifts the card like hover (keyboard)', !!ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/) && /translateY\(-6px\)/.test(ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/)));
+  check('card: :focus-within lifts the card like hover (keyboard)', !!ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/) && /translateY\(-10px\)/.test(ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/)));
   check('card: button :focus-visible turns gold + outline', !!ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/)));
   check('card: button :active turns gold (touch feedback)', !!ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/)));
 
@@ -232,7 +242,11 @@ function ruleBody(source, selectorRe) {
 
   // ---------- 6. Best Sellers / Recently Viewed full-width rows ----------
   check('sections: Best Sellers grid uses the fill modifier', indexEjs.includes('<div class="product-grid product-grid--fill">'));
-  check('sections: Recently Viewed grid uses the fill modifier', indexEjs.includes('<div class="product-grid product-grid--fill" id="recently-viewed-grid">'));
+  // HONEST UPDATE (fix/product-hover-gallery, 2026-11-27): the Recently
+  // Viewed grid now also carries data-csrf (the JS renderer needs the
+  // token to build its Add to Cart form), so the exact div string
+  // changed — the fill modifier itself is unchanged.
+  check('sections: Recently Viewed grid uses the fill modifier', indexEjs.includes('<div class="product-grid product-grid--fill" id="recently-viewed-grid" data-csrf='));
   check('sections: All Products grid stays the plain grid (no fill)', (indexEjs.match(/<div class="product-grid">/g) || []).length === 1);
   check('sections: fill modifier lifts the 360px card cap', !!ruleBody(cssTopLevel, /\.product-grid--fill \.product-card\s*\{[^}]*\}/) && /max-width:\s*none/.test(ruleBody(cssTopLevel, /\.product-grid--fill \.product-card\s*\{[^}]*\}/)));
   check('sections: incomplete rows still centre (justify-content: center on .product-grid)', !!ruleBody(cssTopLevel, /\.product-grid\s*\{[^}]*\}/) && /justify-content:\s*center/.test(ruleBody(cssTopLevel, /\.product-grid\s*\{[^}]*\}/)));
