@@ -171,6 +171,13 @@
           <h3><%= p.name %></h3>
           <p class="price">৳<%= p.price %></p>
         </a>
+        <% if (p.stock > 0) { %>
+          <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
+            <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
+          <% } else { %>
+            <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+          <% } %>
+        <% } %>
       </div>
     <% }) %>
   </div>
@@ -178,7 +185,7 @@
 
 <div id="recently-viewed" hidden>
   <div class="section-heading"><h2>👀 Recently Viewed</h2></div>
-  <div class="product-grid product-grid--fill" id="recently-viewed-grid"></div>
+  <div class="product-grid product-grid--fill" id="recently-viewed-grid" data-csrf="<%= (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '' %>"></div>
 </div>
 
 <section class="why-shop">
@@ -192,14 +199,30 @@
 </section>
 
 <script>
-  // Recently viewed: product page-e save kora list ekhane dekhano
+  // Recently viewed: product page-e save kora list ekhane dekhano.
+  // Card-e All Products-er motoi button thake (fix/product-hover-gallery):
+  // variant/option thakle "Choose Option →" (product page-e giye beche
+  // nite hobe), na thakle stock thakle direct Add to Cart form — CSRF
+  // token grid-er data-csrf theke neya (form-eo oi token-i thake, notun
+  // kono exposure na). Purono saved item-e hasOptions flag nei — tokhon
+  // safe route: "Choose Option →" (variant na jene cart-e base product
+  // dhokano hobe na). Stock 0 hole kono button nei.
   (function () {
     try {
       var items = JSON.parse(localStorage.getItem('goince-recent') || '[]');
       if (!items.length) return;
       var grid = document.getElementById('recently-viewed-grid');
+      var csrf = grid.getAttribute('data-csrf') || '';
       grid.innerHTML = items.map(function (it) {
-        return '<div class="product-card"><a href="/product/' + it.id + '"><img src="/uploads/' + it.image + '" alt="" loading="lazy" onerror="this.src=\'/uploads/no-image.png\'"><h3>' + it.name.replace(/</g, '&lt;') + '</h3><p class="price">৳' + it.price + '</p></a></div>';
+        var card = '<div class="product-card"><a href="/product/' + it.id + '"><img src="/uploads/' + it.image + '" alt="" loading="lazy" onerror="this.src=\'/uploads/no-image.png\'"><h3>' + it.name.replace(/</g, '&lt;') + '</h3><p class="price">৳' + it.price + '</p></a>';
+        if (it.hasOptions !== false) {
+          card += '<a href="/product/' + it.id + '" class="btn-card">Choose Option →</a>';
+        } else if (it.stock > 0 && csrf) {
+          card += '<form action="/cart/add/' + it.id + '" method="POST"><input type="hidden" name="_csrf" value="' + csrf + '"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>';
+        } else if (it.stock > 0) {
+          card += '<a href="/product/' + it.id + '" class="btn-card">Choose Option →</a>';
+        }
+        return card + '</div>';
       }).join('');
       document.getElementById('recently-viewed').hidden = false;
     } catch (e) {}
