@@ -110,7 +110,10 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       //   overlap hole button lukay, scroll korle control sore
       //   gelei abar ase. Overlap-ta float-er asol rect-er sathe
       //   miliye dekha hoy (ager bottom-band onuman noy), tai jekono
-      //   scroll position-ei kaj kore. JS na cholle class-e ashe na,
+      //   scroll position-ei kaj kore. Check shudhu scroll/resize-e
+      //   noy — load, font ready, ResizeObserver (jekono layout
+      //   bodol) ar pageshow-teo chole, jate prothom load-ei overlap
+      //   thakle button lukay. JS na cholle class-e ashe na,
       //   tai button ager motoi sob somoy visible thake. CSS-e
       //   .whatsapp-float--scroll / .is-visible fade dey;
       //   prefers-reduced-motion-e transition none.
@@ -157,6 +160,29 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       window.addEventListener('resize', onScroll, { passive: true });
       if (mq.addEventListener) { mq.addEventListener('change', update); }
       else if (mq.addListener) { mq.addListener(update); }
+      // Parse-er somoy ekbar-i map (update()) jothesto chilo na — etai
+      // chilo asol karon: prothom viewport-e overlap thaka sotteo
+      // button lukato na, karon map-ta neya hoto document parse
+      // howar somoyei, prothom paint / chobi load / layout boshar
+      // age; pore layout bodle guarded button float-er niche chole
+      // gele ar keu abar mapto na (scroll/resize na korle). Tai
+      // layout boshar prottek muhurte abar check: window load-er
+      // pore, font ready hole, jekono layout-size bodol-e
+      // (ResizeObserver — chobi load, deri-te asa content, viewport
+      // bodol), bfcache theke firle (pageshow), ar prothom paint-er
+      // pore rAF-e ekbar. Scroll/resize listener ager motoi ache.
+      if (window.addEventListener) {
+        window.addEventListener('load', update);
+        window.addEventListener('pageshow', update);
+      }
+      if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+        document.fonts.ready.then(function () { update(); });
+      }
+      if (window.ResizeObserver && document.documentElement) {
+        var ro = new window.ResizeObserver(function () { onScroll(); });
+        ro.observe(document.documentElement);
+      }
+      raf(function () { update(); });
       update();
     })();
   </script>

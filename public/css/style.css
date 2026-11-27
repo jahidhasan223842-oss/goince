@@ -125,6 +125,42 @@ a { text-decoration: none; color: inherit; }
 .category-bar { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
 .category-bar a { padding: 8px 16px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border-strong); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
 .category-bar a.active { background: var(--accent); color: var(--navy); border-color: var(--accent); }
+/* ---------- Category pills hover — dark gold lift (fix/homepage-beauty)
+   2nd menu bar (category pills): inactive pill-e hover korle kichui
+   hoto na — ekhon mega menu-r (PR #67) moto garo sonali (#966e00) +
+   sada lekha + -4px lift + norom chhaya. Active "All" pill komola-i
+   thake (hover-e shudhu halka -2px lift, rong paltay na — active
+   bojha jay). Hover @media (hover: hover)-er vitore — touch-e
+   tap-er por stuck hover hobe na. Keyboard-e :focus-visible-e eki
+   rong + lift. Dropdown-er vitorer link-er (cat-pill-menu a) hover
+   alada (bg-hover) — ei rule shudhu pill nijer jonno (direct child). */
+.category-bar > a, .category-bar .cat-pill-wrap > a { transition: transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease, border-color .18s ease; }
+@media (hover: hover) {
+  .category-bar > a:not(.active):hover,
+  .category-bar .cat-pill-wrap > a:not(.active):hover {
+    background: var(--mega-hover-gold);
+    color: #fff;
+    border-color: var(--mega-hover-gold);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+  }
+  .category-bar > a:not(.active):hover .cat-caret,
+  .category-bar .cat-pill-wrap > a:not(.active):hover .cat-caret { color: #fff; }
+  .category-bar > a.active:hover,
+  .category-bar .cat-pill-wrap > a.active:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
+}
+.category-bar > a:not(.active):focus-visible,
+.category-bar .cat-pill-wrap > a:not(.active):focus-visible {
+  background: var(--mega-hover-gold);
+  color: #fff;
+  border-color: var(--mega-hover-gold);
+  transform: translateY(-4px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+  outline: 2px solid var(--text-strong);
+  outline-offset: 2px;
+}
+.category-bar > a:not(.active):focus-visible .cat-caret,
+.category-bar .cat-pill-wrap > a:not(.active):focus-visible .cat-caret { color: #fff; }
 .category-bar a img.cat-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
 
 .subcategory-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 20px; flex-wrap: wrap; padding-left: 10px; }
@@ -163,11 +199,41 @@ a { text-decoration: none; color: inherit; }
 /* Product grid */
 .product-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 20px 0 40px; }
 .product-grid .product-card { flex: 1 1 230px; max-width: 360px; }
-.product-card { background: var(--surface); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px var(--shadow-sm); transition: transform 0.15s; display: flex; flex-direction: column; }
+/* Best Sellers / Recently Viewed (fix/homepage-beauty): All Products-er
+   moto full-width row — card-er 360px cap tule deya, tai 3-4 ta card-o
+   puro row jure boro hoy; incomplete last row justify-content: center-e
+   majhkhane boshe (uporer .product-grid-ei ache). */
+.product-grid--fill .product-card { max-width: none; }
+.product-card { background: var(--surface); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px var(--shadow-sm); transition: transform .22s ease, box-shadow .22s ease; display: flex; flex-direction: column; }
 .product-card > a.btn-card, .product-card > form { margin-top: auto; }
-.product-card:hover { transform: translateY(-4px); }
-.product-card img { width: 100%; height: 180px; object-fit: cover; }
-.product-card h3 { padding: 10px 12px 0; font-size: 16px; }
+/* ---------- Product card hover + whole photo + aligned buttons
+   (fix/homepage-beauty) ----------
+   Card hover ageo chilo (translateY(-4px), kono chhaya na, button
+   navy -> navy-2) — chokhe porto na. Ekhon mega menu-r (PR #67)
+   moto sundor: card -6px uthe + govir norom chhaya, chobi 1.06x
+   zoom (overflow: hidden thakay card-er baire jay na), "Add to
+   Cart" / "Choose Option" button garo sonali (#966e00) + sada lekha
+   (nicher .btn-card:hover dekho).
+   Chobi: object-fit: cover kata porto (Mini Bag Sealer-er lekha /
+   icon, sewing machine-er uporer lekha kata jeto) — ekhon contain,
+   tai puro chobi dekha jay; nirdishto 180px frame + norom
+   background (var(--bg)) thakay grid soman thake. Chobi file
+   bodlano hoy ni.
+   Button sariboddho: h3 2 line-e clamp + min-height 2.8em (1 line-er
+   title-o 2 line-er jayga ney, tai price row-o sariboddho), ar
+   form-er margin-top: auto ageo chilo kintu nicher
+   `.product-card form { margin: 0; }` (eki specificity, pore lekha)
+   seta 0 kore dito — tai form-er Add to Cart button upore-niche
+   bosto. Ekhon form-eo margin-top: auto sposhto kore deya. */
+.product-card img { width: 100%; height: 180px; object-fit: contain; background: var(--bg); transition: transform .25s ease; }
+.product-card h3 { padding: 10px 12px 0; font-size: 16px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; }
+@media (hover: hover) {
+  .product-card:hover { transform: translateY(-6px); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22); }
+  .product-card:hover img { transform: scale(1.06); }
+}
+.product-card:focus-within { transform: translateY(-6px); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22); }
+.product-card .btn-card:focus-visible { background: var(--mega-hover-gold); color: #fff; outline: 2px solid var(--text-strong); outline-offset: 2px; }
+.product-card .btn-card:active { background: var(--mega-hover-gold); color: #fff; }
 .product-card .price { padding: 6px 12px 14px; color: var(--accent-text); font-weight: bold; }
 .product-card .price-row { padding: 6px 12px 14px; margin-bottom: 0; flex-wrap: wrap; }
 .product-card .price-row .price { padding: 0; }
@@ -2156,16 +2222,24 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
    hero card-er baire chole jeto. flex item choto hote parbe (min-width: 0)
    ar caption nije wrap korbe (overflow-wrap), tai ar majh-shobdo kata
    porbe na — dorkar hole shobdo venge porer line-e jabe. */
-.hero-image { flex: 0 1 260px; min-width: 0; position: relative; display: block; }
-.hero-image img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; }
+/* Hero product-er chobi boro kora (fix/homepage-beauty): hero-ta boro
+   khali gradient chilo — lekha bame, chhoto chobi dan dike, majhe
+   onek khali jayga. Chobi 260px -> 360px basis, 200px -> 260px
+   height — majher khali jayga kome, hero-ta varsammo pay. Copy /
+   product bodlano hoy ni. */
+.hero-image { flex: 0 1 360px; min-width: 0; position: relative; display: block; }
+.hero-image img { width: 100%; height: 260px; object-fit: cover; border-radius: 10px; }
 .hero-image-caption { display: block; margin-top: 6px; font-size: 13px; color: #fff; opacity: .95; overflow-wrap: break-word; }
 .btn-hero-outline { display: inline-block; border: 2px solid #fff; color: #fff; padding: 9px 18px; border-radius: 6px; font-weight: 600; margin-left: 8px; }
 .card-rating { padding: 0 12px; font-size: 13px; color: var(--accent-text); font-weight: 600; }
 .card-stock-low { padding: 0 12px 4px; font-size: 13px; color: var(--danger); font-weight: 600; }
 .card-stock-out { padding: 0 12px 4px; font-size: 13px; color: var(--text-muted); }
 .btn-card { display: block; margin: 0 12px 14px; text-align: center; background: var(--navy); color: #fff; padding: 9px 12px; border-radius: 6px; font-weight: 600; border: none; width: calc(100% - 24px); cursor: pointer; font-size: 14px; }
-.btn-card:hover { background: var(--navy-2); }
-.product-card form { margin: 0; }
+/* "Add to Cart" / "Choose Option" hover: ageo navy -> navy-2 chilo —
+   pray dekha jeto na. Ekhon mega menu-r garo sonali (#966e00) + sada
+   lekha (fix/homepage-beauty). */
+.btn-card:hover { background: var(--mega-hover-gold); color: #fff; }
+.product-card form { margin: 0; margin-top: auto; }
 .why-shop { margin: 10px 0 40px; }
 .why-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .why-grid > div { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
@@ -2587,6 +2661,8 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .shop-menu-btn, .shop-search-btn, .shop-cart-btn,
   .shop-drawer-link, .shop-drawer-cat-btn, .shop-drawer-cat-link,
   .shop-drawer-sub-toggle, .shop-drawer-theme,
+  .category-bar > a, .category-bar .cat-pill-wrap > a,
+  .product-card, .product-card img, .product-card .btn-card,
   .main-nav .badge, .shop-cart-btn .badge {
     transition: none;
   }
@@ -2613,6 +2689,13 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .site-header .theme-toggle-btn:hover { transform: none; box-shadow: none; }
   .logo:hover { transform: none; filter: none; }
   .logo:hover .logo-mark { transform: none; }
+  /* Homepage beauty (fix/homepage-beauty): reduced-motion-e pill /
+     card lift + zoom bondho — shudhu rong paltabe. */
+  .category-bar > a:not(.active):hover, .category-bar > a:not(.active):focus-visible,
+  .category-bar .cat-pill-wrap > a:not(.active):hover, .category-bar .cat-pill-wrap > a:not(.active):focus-visible,
+  .category-bar > a.active:hover, .category-bar .cat-pill-wrap > a.active:hover { transform: none; box-shadow: none; }
+  .product-card:hover, .product-card:focus-within { transform: none; box-shadow: 0 2px 8px var(--shadow-sm); }
+  .product-card:hover img { transform: none; }
 }
 
 /* Respect reduced-motion: no hover lift or transitions in the admin */

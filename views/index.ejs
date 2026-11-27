@@ -19,7 +19,7 @@
 <section class="trust-bar">
   <div>✅ Cash on Delivery</div>
   <div>🚚 Fast Delivery</div>
-  <div>🔄 24h Return <span>(defective / wrong product)</span></div>
+  <div>🔄 24h Return</div>
   <div>💬 WhatsApp Support</div>
 </section>
 <% if (typeof banners !== 'undefined' && banners && banners.length > 0) { %>
@@ -163,7 +163,7 @@
 
 <% if (typeof bestSellers !== 'undefined' && bestSellers && bestSellers.length > 0 && !selectedCategory && !search) { %>
   <div class="section-heading"><h2>🔥 Best Sellers</h2></div>
-  <div class="product-grid">
+  <div class="product-grid product-grid--fill">
     <% bestSellers.forEach(p => { %>
       <div class="product-card">
         <a href="/product/<%= p.id %>">
@@ -178,7 +178,7 @@
 
 <div id="recently-viewed" hidden>
   <div class="section-heading"><h2>👀 Recently Viewed</h2></div>
-  <div class="product-grid" id="recently-viewed-grid"></div>
+  <div class="product-grid product-grid--fill" id="recently-viewed-grid"></div>
 </div>
 
 <section class="why-shop">
