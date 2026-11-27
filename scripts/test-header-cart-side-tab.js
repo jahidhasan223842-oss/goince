@@ -188,7 +188,17 @@ function mobileTopRow(html) {
   }
   if (inHtml) {
     check('header render logged-in: desktop nav has NO Cart link', !navBlock(inHtml).includes('/cart'));
-    check('header render logged-in: nav still has Wishlist, avatar/name, Logout', navBlock(inHtml).includes('href="/wishlist"') && navBlock(inHtml).includes('Rohim') && navBlock(inHtml).includes('href="/logout"'));
+    // (fix/header-account-menu): Wishlist + Logout no longer sit as
+    // separate text links in the nav — they live inside the profile
+    // dropdown, reached from the profile pill; the pill shows the
+    // avatar + name, and the menu carries the account header.
+    check('header render logged-in: profile pill (avatar/name) + Wishlist and Logout inside the dropdown menu',
+      navBlock(inHtml).includes('id="shop-profile-btn"') && navBlock(inHtml).includes('Rohim')
+      && navBlock(inHtml).includes('id="shop-profile-menu"')
+      && navBlock(inHtml).includes('href="/wishlist" class="shop-profile-link"')
+      && navBlock(inHtml).includes('href="/logout" class="shop-profile-link"')
+      && !/<a href="\/wishlist">Wishlist<\/a>/.test(navBlock(inHtml))
+      && !/<a href="\/logout">Logout<\/a>/.test(navBlock(inHtml)));
     check('header render logged-in: drawer Cart entry still present', inHtml.includes('href="/cart" class="shop-drawer-link"'));
   }
 

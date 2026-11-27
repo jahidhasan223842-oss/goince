@@ -554,6 +554,10 @@ app.use((req, res, next) => {
 // ---------- Global view variables (shob view e automatic available thakbe) ----------
 app.use(async (req, res, next) => {
   res.locals.userName = req.session.userName || null;
+  // Customer email (fix/header-account-menu): the profile dropdown's
+  // account header shows it — set at login/signup, refreshed on email
+  // change; the header never queries the DB for it.
+  res.locals.userEmail = req.session.userEmail || null;
   res.locals.adminRole = req.session.adminRole || 'owner';
   // Permissions of the signed-in admin (custom roles, fix/custom-roles-permissions).
   // Set at login; an old session without it falls back to the legacy role string.

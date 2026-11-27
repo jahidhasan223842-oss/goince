@@ -7,13 +7,15 @@
 //
 // What was built (SHOP ONLY — the admin panel is untouched):
 //   1. NAV HOVER: Home / Categories (+ Wishlist, My Account,
-//      Logout, Login, Sign Up) turn gold (var(--accent)) on hover,
-//      lift translateY(-2px), and grow a gold underline sliding in
-//      from the left (::after scaleX 0 -> 1). The header is navy in
-//      BOTH themes, so gold reads in both. Buttons (Login/Sign Up)
-//      are excluded from the underline (bordered/solid buttons) but
-//      still lift + deepen their shadow on hover; the Search button
-//      darkens + lifts. The active page keeps a subtle underline
+//      Logout) turn gold (var(--accent)) on hover, lift
+//      translateY(-2px), and grow a gold underline sliding in from
+//      the left (::after scaleX 0 -> 1). The header is navy in BOTH
+//      themes, so gold reads in both. The single "Login / Sign Up"
+//      solid button is excluded from the underline (bordered/solid
+//      button) but still lifts + deepens its shadow on hover; the
+//      Search button darkens + lifts. (fix/header-account-menu:
+//      Login + Sign Up are ONE button now; the separate outline
+//      Login button is gone.) The active page keeps a subtle underline
 //      (opacity .55) — marked by a small IIFE in mega-menu.js that
 //      matches window.location.pathname (Home only on exact '/',
 //      Categories button when ?category= is present).
@@ -183,20 +185,18 @@ function ruleBody(source, selectorRe) {
     'no underline on :focus-visible');
 
   // ---------- 4. Header buttons: lift + shadow ----------
-  check('buttons: Login (outline) lifts + shadows on hover',
-    /\.btn-nav-outline:hover[^{]*\{[^}]*box-shadow:/.test(hoverBlocks),
-    'no shadow on .btn-nav-outline:hover');
-  check('buttons: Sign Up (solid) darkens + shadows on hover',
+  check('buttons: single "Login / Sign Up" solid button darkens + shadows on hover (fix/header-account-menu: the outline Login button is gone)',
     /\.btn-nav-solid:hover[^{]*\{[^}]*background:\s*var\(--accent-hover\)/.test(hoverBlocks)
-    && /\.btn-nav-solid:hover[^{]*\{[^}]*box-shadow:/.test(hoverBlocks),
-    'no darken/shadow on .btn-nav-solid:hover');
+    && /\.btn-nav-solid:hover[^{]*\{[^}]*box-shadow:/.test(hoverBlocks)
+    && !/\.btn-nav-outline\s*\{/.test(cssTopLevel),
+    'no darken/shadow on .btn-nav-solid:hover, or dead .btn-nav-outline rule still present');
   check('buttons: Search button darkens + lifts + shadows on hover',
     /\.search-form button:hover[^{]*\{[^}]*background:\s*var\(--accent-hover\)/.test(hoverBlocks)
     && /\.search-form button:hover[^{]*\{[^}]*transform:\s*translateY\(-2px\)/.test(hoverBlocks)
     && /\.search-form button:hover[^{]*\{[^}]*box-shadow:/.test(hoverBlocks),
     'no lift/shadow on .search-form button:hover');
-  check('buttons: nav buttons + search button have a transition',
-    /\.btn-nav-outline,\s*\.btn-nav-solid,\s*\.search-form button\s*\{[^}]*transition:/.test(cssTopLevel),
+  check('buttons: nav button + search button have a transition',
+    /\.btn-nav-solid,\s*\.search-form button\s*\{[^}]*transition:/.test(cssTopLevel),
     'no transition on header buttons');
 
   // ---------- 5. Mega menu entrance ----------
@@ -352,7 +352,7 @@ function ruleBody(source, selectorRe) {
     check('shop header renders (EJS)', false, String(e && e.message));
   }
   if (html) {
-    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'href="/login" class="btn-nav-outline">Login</a>', 'href="/signup" class="btn-nav-solid">Sign Up</a>'];
+    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'class="theme-toggle-btn"', 'href="/login" class="btn-nav-solid">Login / Sign Up</a>'];
     let lastIdx = -1;
     let inOrder = true;
     for (const piece of order) {
@@ -360,7 +360,7 @@ function ruleBody(source, selectorRe) {
       if (i < 0 || i < lastIdx) { inOrder = false; break; }
       lastIdx = i;
     }
-    check('header render: logo, search, Home, Categories, Login, Sign Up in order (NO Cart link)', inOrder && html.includes('class="logo"'));
+    check('header render: logo, search, Home, Categories, theme toggle, single "Login / Sign Up" in order (NO Cart link)', inOrder && html.includes('class="logo"'));
     check('header render: no desktop Cart link in the nav (fix/header-cart-side-tab)', !html.includes('href="/cart">Cart'));
     check('header render: theme toggle present', html.includes('toggleGoinceTheme()'));
     check('header render: drawer Cart badge shows the count (2)', html.includes('<span class="badge">2</span>'));
@@ -390,7 +390,6 @@ function ruleBody(source, selectorRe) {
   function runActiveScenario(pathname, search) {
     const home = makeLink('/');
     const login = makeLink('/login');
-    const signup = makeLink('/signup');
     const wrap = { tagName: 'DIV', getAttribute() { return null; }, classList: { add() {}, contains() { return false; } } };
     const megaBtn = {
       _classes: new Set(),
@@ -399,10 +398,11 @@ function ruleBody(source, selectorRe) {
         contains(c) { return megaBtn._classes.has(c); },
       },
     };
-    // (fix/header-cart-side-tab): the nav has NO Cart link any more —
+    // (fix/header-cart-side-tab + fix/header-account-menu): the nav
+    // has NO Cart link any more, and Login + Sign Up are ONE button —
     // the stubbed nav mirrors the real one: Home, Categories wrap,
-    // Login, Sign Up.
-    const nav = { children: [home, wrap, login, signup] };
+    // single Login / Sign Up link.
+    const nav = { children: [home, wrap, login] };
     const sandbox = {
       document: {
         querySelector(sel) { return sel === '.main-nav' ? nav : null; },
@@ -412,7 +412,7 @@ function ruleBody(source, selectorRe) {
     };
     sandbox.window.location = sandbox.window.location;
     vm.runInNewContext(actCode, sandbox);
-    return { home, login, signup, megaBtn };
+    return { home, login, megaBtn };
   }
 
   // Homepage: Home active, Categories not.
