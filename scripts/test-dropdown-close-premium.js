@@ -394,7 +394,12 @@ function buildDoc() {
   check('stagger animation applies to top-nav links and dropdown links via .open only',
     /\.admin-topnav-menu\.open \.admin-topnav-menu-link,\s*\.admin-dropdown-menu\.open a\s*\{\s*animation:\s*admin-menu-item-in \.2s ease-out backwards;/.test(css),
     'stagger animation rule missing');
-  const delays = [...css.matchAll(/animation-delay:\s*(\d+)ms;/g)].map((m) => Number(m[1]));
+  // Admin stagger delays ONLY (fix/shop-header-hover, PR #66: the
+  // shop mega menu + pill dropdowns now have their own delays —
+  // 30ms steps on .mega-col, 25ms steps on pill items — so the
+  // collection must be scoped to the admin selectors, not the whole
+  // file; the check itself is unchanged: 7 admin delays, 30..210ms.
+  const delays = [...css.matchAll(/(?:admin-topnav-menu-link|admin-dropdown-menu)[^{]*\{[^}]*animation-delay:\s*(\d+)ms;/g)].map((m) => Number(m[1]));
   check('stagger delays increase in 30ms steps and the last is under 250ms',
     delays.length === 7
     && delays.every((d, i) => d === (i + 1) * 30)

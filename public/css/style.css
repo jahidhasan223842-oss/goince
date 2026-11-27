@@ -131,7 +131,7 @@ a { text-decoration: none; color: inherit; }
 .cat-caret { font-size: 10px; color: var(--text-muted); }
 /* Panel pill-er ekdom gaye lage (top: 100% theke 1px overlap) — majhe kono
    faka jayga nei, tai aste mouse namaleo dropdown bondho hoy na. */
-.cat-pill-menu { display: none; position: absolute; top: calc(100% - 1px); left: 0; min-width: 220px; max-width: calc(100vw - 32px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 8px; z-index: 300; }
+.cat-pill-menu { position: absolute; top: calc(100% - 1px); left: 0; min-width: 220px; max-width: calc(100vw - 32px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 8px; z-index: 300; transform-origin: top left; visibility: hidden; opacity: 0; pointer-events: none; translate: 0 -6px; scale: .98; transition: opacity .2s ease, translate .2s ease, scale .2s ease, visibility 0s linear .2s; }
 .cat-pill-menu ul { list-style: none; }
 .category-bar .cat-pill-menu a { display: block; padding: 7px 10px; font-size: 14px; color: var(--text); background: none; border: none; border-radius: 8px; margin: 0; }
 .category-bar .cat-pill-menu a:hover { background: var(--bg-hover); color: var(--text-strong); }
@@ -141,9 +141,9 @@ a { text-decoration: none; color: inherit; }
    device-e hover rule cholbe na — tap korle pill-er link-e chole jabe, ar
    sub-category mobile-e category page-r "In this category:" bar theke pawa jay). */
 @media (hover: hover) {
-  .cat-pill-wrap:hover .cat-pill-menu { display: block; }
+  .cat-pill-wrap:hover .cat-pill-menu { visibility: visible; opacity: 1; pointer-events: auto; translate: 0 0; scale: 1; transition: opacity .2s ease, translate .2s ease, scale .2s ease, visibility 0s; }
 }
-.cat-pill-wrap:focus-within .cat-pill-menu { display: block; }
+.cat-pill-wrap:focus-within .cat-pill-menu { visibility: visible; opacity: 1; pointer-events: auto; translate: 0 0; scale: 1; transition: opacity .2s ease, translate .2s ease, scale .2s ease, visibility 0s; }
 /* Dan dik-er sesh pill-er menu jate screen-er baire na jay */
 .cat-pill-wrap:last-child .cat-pill-menu { left: auto; right: 0; }
 
@@ -2279,11 +2279,11 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 .mega-menu-btn:hover { color: var(--accent); }
 .mega-caret { font-size: 11px; transition: transform 0.15s; }
 .mega-menu-btn[aria-expanded="true"] .mega-caret { transform: rotate(180deg); }
-.mega-menu-panel { display: none; position: absolute; top: calc(100% + 10px); left: 0; width: max-content; max-width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 18px 20px 12px; z-index: 400; }
-.mega-menu-panel.open { display: block; }
+.mega-menu-panel { position: absolute; top: calc(100% + 10px); left: 0; width: max-content; max-width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 18px 20px 12px; z-index: 400; transform-origin: top center; visibility: hidden; opacity: 0; pointer-events: none; translate: 0 -8px; scale: .97; transition: opacity .15s ease, translate .15s ease, scale .15s ease, visibility 0s linear .15s; }
+.mega-menu-panel.open { visibility: visible; opacity: 1; pointer-events: auto; translate: 0 0; scale: 1; transition: opacity .25s cubic-bezier(.22, 1.25, .36, 1), translate .25s cubic-bezier(.22, 1.25, .36, 1), scale .25s cubic-bezier(.22, 1.25, .36, 1), visibility 0s; }
 /* Mouse thakle hover-ei khulbe (touch device-e hover rule cholbe na, okhane click/tap-e khole) */
 @media (hover: hover) and (min-width: 769px) {
-  .mega-menu-wrap:hover .mega-menu-panel { display: block; }
+  .mega-menu-wrap:hover .mega-menu-panel { visibility: visible; opacity: 1; pointer-events: auto; translate: 0 0; scale: 1; transition: opacity .25s cubic-bezier(.22, 1.25, .36, 1), translate .25s cubic-bezier(.22, 1.25, .36, 1), scale .25s cubic-bezier(.22, 1.25, .36, 1), visibility 0s; }
   /* Button ar panel-er majher 10px faka jayga bridge kora: ::after strip-ta
      wrap-er-i ongsho, tai mouse button theke panel-er dike namar somoy
      hover chole jay na — na hole aste namale panel bondho hoye jeto. */
@@ -2329,6 +2329,203 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 .mega-menu-footer { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; text-align: center; }
 .mega-menu-footer a { color: var(--accent-text); font-weight: 700; font-size: 14px; margin: 0 !important; }
 .mega-menu-empty { color: var(--text-muted); font-size: 14px; padding: 8px 0; }
+
+/* =========================================================
+   SHOP HEADER HOVER (fix/shop-header-hover)
+   Donal: dokan-er menu bar-e hover-e rong paltay na — admin
+   panel-er moto koro, ar sundor kore extra effect dao.
+   SHOP ONLY — admin top bar / admin dropdown alada system,
+   ekhane admin-er kono selector nei. Header navy dui theme-ei,
+   tai hover rong gold (var(--accent) #f0a500) — navy-te dui
+   theme-ei pora jay. Motion: transform + opacity shudhu.
+   ========================================================= */
+
+/* --- Nav link: rong + lift + sliding underline --- */
+/* .main-nav-er DIRECT child shudhu (Home, Cart, Wishlist/My
+   Account/Logout, Login, Sign Up): panel-er vitore link-gulo
+   (.mega-menu-panel a) ekhane dhora hoy ni — ogulo .main-nav-er
+   direct child na, tai tader nijossho hover rule ager motoi thake. */
+.main-nav > a { transition: color .2s ease, transform .2s ease, box-shadow .2s ease; }
+.main-nav > .mega-menu-wrap > .mega-menu-btn { position: relative; transition: color .2s ease, transform .2s ease; }
+@media (hover: hover) {
+  .main-nav > a:hover,
+  .main-nav > .mega-menu-wrap > .mega-menu-btn:hover {
+    color: var(--accent);
+    transform: translateY(-2px);
+  }
+}
+.main-nav > a:focus-visible,
+.main-nav > .mega-menu-wrap > .mega-menu-btn:focus-visible {
+  color: var(--accent);
+  transform: translateY(-2px);
+  outline-offset: 3px;
+}
+/* Gold underline: bam dik theke slide kore ase (scaleX 0 -> 1).
+   Button-gulo (Login/Sign Up) bad — ogulo bordered/solid button,
+   underline manabe na. */
+.main-nav > a:not(.btn-nav-outline):not(.btn-nav-solid)::after,
+.main-nav > .mega-menu-wrap > .mega-menu-btn::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -4px;
+  height: 2px; border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .25s ease;
+}
+@media (hover: hover) {
+  .main-nav > a:not(.btn-nav-outline):not(.btn-nav-solid):hover::after,
+  .main-nav > .mega-menu-wrap > .mega-menu-btn:hover::after {
+    transform: scaleX(1);
+  }
+}
+.main-nav > a:not(.btn-nav-outline):not(.btn-nav-solid):focus-visible::after,
+.main-nav > .mega-menu-wrap > .mega-menu-btn:focus-visible::after {
+  transform: scaleX(1);
+}
+/* Active page (mega-menu.js-e .active bosay — server header-e kono
+   active class pathay na): halka underline sob somoy thake, jate
+   kothay achi bojha jay. */
+.main-nav > a.active:not(.btn-nav-outline):not(.btn-nav-solid)::after,
+.main-nav > .mega-menu-wrap > .mega-menu-btn.active::after {
+  transform: scaleX(1);
+  opacity: .55;
+}
+
+/* --- Header button: lift + chhaya --- */
+.btn-nav-outline, .btn-nav-solid, .search-form button {
+  transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+@media (hover: hover) {
+  .btn-nav-outline:hover { background: rgba(240, 165, 0, 0.14); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+  .btn-nav-solid:hover { background: var(--accent-hover); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+  .search-form button:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+}
+
+/* --- Cart badge: hover-e chhoto pop --- */
+/* .badge global (admin-eo bebohar hoy) — display/transition shudhu
+   shop header-er badge-e. Emoji icon-e color kaj kore na, tai
+   badge-er scale-i hover feedback. */
+.main-nav .badge, .shop-cart-btn .badge { display: inline-block; transition: transform .2s ease; }
+@media (hover: hover) {
+  .main-nav > a:hover .badge,
+  .shop-cart-btn:hover .badge { transform: scale(1.2); }
+}
+
+/* --- Theme toggle: glow + halka rotate (SHOP header shudhu) --- */
+/* .theme-toggle-btn admin topbar-eo ache — tai selector-e
+   .site-header scope kora holo, admin-er hover ekdom bodlabe na.
+   Icon emoji (🌙/☀️) text node — color bodlay na, tai glow
+   shadow + gota button halka rotate-i visible effect. */
+.site-header .theme-toggle-btn { transition: background .2s ease, transform .25s ease, box-shadow .25s ease; }
+@media (hover: hover) {
+  .site-header .theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 3px rgba(240, 165, 0, 0.25), 0 0 14px rgba(240, 165, 0, 0.35);
+    transform: rotate(12deg) scale(1.05);
+  }
+}
+
+/* --- Logo: khub halka brightness + lift (flashy kichhu na) --- */
+.logo { transition: filter .2s ease, transform .2s ease; }
+.logo-mark { transition: transform .2s ease; }
+@media (hover: hover) {
+  .logo:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .logo:hover .logo-mark { transform: scale(1.08); }
+}
+
+/* --- Mega menu + pill dropdown: stagger cascade --- */
+/* Ekta shared keyframes — admin-er admin-menu-item-in ALADA
+   (shop-e admin keyframes leak kora jabe na). */
+@keyframes shop-menu-item-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Click-e latch (.open) hole ar hover-e khulle — duibhabei item
+   ekta-r por ekta asbe. */
+.mega-menu-panel.open .mega-col,
+.mega-menu-panel.open .mega-menu-footer { animation: shop-menu-item-in .2s ease-out backwards; }
+@media (hover: hover) and (min-width: 769px) {
+  .mega-menu-wrap:hover .mega-menu-panel .mega-col,
+  .mega-menu-wrap:hover .mega-menu-panel .mega-menu-footer { animation: shop-menu-item-in .2s ease-out backwards; }
+}
+/* Delay shudhu animation chollei kaj kore (na cholle inert), tai
+   top level-e lekha. Mot 30ms/item, sesh 210ms — 250ms-er vitore. */
+.mega-menu-panel .mega-col:nth-of-type(1) { animation-delay: 0ms; }
+.mega-menu-panel .mega-col:nth-of-type(2) { animation-delay: 30ms; }
+.mega-menu-panel .mega-col:nth-of-type(3) { animation-delay: 60ms; }
+.mega-menu-panel .mega-col:nth-of-type(4) { animation-delay: 90ms; }
+.mega-menu-panel .mega-col:nth-of-type(5) { animation-delay: 120ms; }
+.mega-menu-panel .mega-col:nth-of-type(6) { animation-delay: 150ms; }
+.mega-menu-panel .mega-col:nth-of-type(7) { animation-delay: 180ms; }
+.mega-menu-panel .mega-col:nth-of-type(n+8) { animation-delay: 210ms; }
+.mega-menu-panel .mega-menu-footer { animation-delay: 150ms; }
+/* Pill dropdown-er item: 25ms/item, sesh 150ms. Dan dik-er sesh
+   pill-er menu right-aligned — scale origin dan dik. */
+.cat-pill-wrap:last-child .cat-pill-menu { transform-origin: top right; }
+.cat-pill-wrap:focus-within .cat-pill-menu > ul > li { animation: shop-menu-item-in .18s ease-out backwards; }
+@media (hover: hover) {
+  .cat-pill-wrap:hover .cat-pill-menu > ul > li { animation: shop-menu-item-in .18s ease-out backwards; }
+}
+.cat-pill-menu > ul > li:nth-of-type(1) { animation-delay: 0ms; }
+.cat-pill-menu > ul > li:nth-of-type(2) { animation-delay: 25ms; }
+.cat-pill-menu > ul > li:nth-of-type(3) { animation-delay: 50ms; }
+.cat-pill-menu > ul > li:nth-of-type(4) { animation-delay: 75ms; }
+.cat-pill-menu > ul > li:nth-of-type(5) { animation-delay: 100ms; }
+.cat-pill-menu > ul > li:nth-of-type(6) { animation-delay: 125ms; }
+.cat-pill-menu > ul > li:nth-of-type(n+7) { animation-delay: 150ms; }
+
+/* --- Mobile top row + drawer: hover/tap feedback --- */
+/* Drawer-er accordion behaviour bodlano hoy ni — shudhu hover-e
+   rong + bam dike gold dag, tap-e (:active) feedback. */
+@media (max-width: 768px) {
+  .shop-menu-btn, .shop-search-btn, .shop-cart-btn { transition: background .15s ease, color .15s ease, transform .15s ease; }
+  .shop-menu-btn:hover, .shop-search-btn:hover { background: rgba(255, 255, 255, 0.12); color: var(--accent); }
+  .shop-cart-btn:hover { background: rgba(255, 255, 255, 0.12); color: var(--accent); }
+  .shop-menu-btn:active, .shop-search-btn:active, .shop-cart-btn:active { transform: scale(.94); }
+  .shop-drawer-link, .shop-drawer-cat-btn { transition: background .15s ease, color .15s ease, box-shadow .15s ease; }
+  .shop-drawer-link:hover, .shop-drawer-cat-btn:hover { background: var(--bg-hover); color: var(--accent-text); box-shadow: inset 3px 0 0 var(--accent); }
+  .shop-drawer-link:active, .shop-drawer-cat-btn:active { background: var(--bg-hover); color: var(--accent-text); }
+  .shop-drawer-cat-link:hover { color: var(--accent-text); }
+  .shop-drawer-sub-toggle:hover { color: var(--text-strong); background: var(--bg-hover); }
+  .shop-drawer-theme:hover { background: var(--bg-hover); border-color: var(--accent); }
+}
+
+/* --- Reduced motion: shop header-er shob motion bondho --- */
+/* Rong bodol instant hobe (transition: none), kono lift/slide/
+   scale/stagger thakbe na. visibility transition-o none hoye
+   jaway panel instant khulbe/bondho hobe — close animation-er
+   delay thakbe na. */
+@media (prefers-reduced-motion: reduce) {
+  .main-nav > a,
+  .main-nav > .mega-menu-wrap > .mega-menu-btn,
+  .main-nav > a::after,
+  .main-nav > .mega-menu-wrap > .mega-menu-btn::after,
+  .btn-nav-outline, .btn-nav-solid, .search-form button,
+  .site-header .theme-toggle-btn, .logo, .logo-mark,
+  .mega-menu-panel, .cat-pill-menu,
+  .shop-menu-btn, .shop-search-btn, .shop-cart-btn,
+  .shop-drawer-link, .shop-drawer-cat-btn, .shop-drawer-cat-link,
+  .shop-drawer-sub-toggle, .shop-drawer-theme,
+  .main-nav .badge, .shop-cart-btn .badge {
+    transition: none;
+  }
+  .mega-menu-panel .mega-col, .mega-menu-panel .mega-menu-footer,
+  .cat-pill-menu > ul > li { animation: none; }
+  .main-nav > a:hover, .main-nav > a:focus-visible,
+  .main-nav > .mega-menu-wrap > .mega-menu-btn:hover,
+  .main-nav > .mega-menu-wrap > .mega-menu-btn:focus-visible,
+  .btn-nav-outline:hover, .btn-nav-solid:hover,
+  .search-form button:hover,
+  .shop-menu-btn:active, .shop-search-btn:active, .shop-cart-btn:active {
+    transform: none;
+    box-shadow: none;
+  }
+  .site-header .theme-toggle-btn:hover { transform: none; box-shadow: none; }
+  .logo:hover { transform: none; filter: none; }
+  .logo:hover .logo-mark { transform: none; }
+}
 
 /* Respect reduced-motion: no hover lift or transitions in the admin */
 @media (prefers-reduced-motion: reduce) {
@@ -2886,7 +3083,7 @@ img, video { max-width: 100%; }
   /* Mobile-e pill dropdown khole na (tap korle category page-e jay) — tai
      hover/focus-er menu-o lukano thakbe. */
   .cat-pill-wrap .cat-caret { display: none; }
-  .cat-pill-wrap:hover .cat-pill-menu, .cat-pill-wrap:focus-within .cat-pill-menu { display: none; }
+  .cat-pill-wrap:hover .cat-pill-menu, .cat-pill-wrap:focus-within .cat-pill-menu { display: none; visibility: hidden; }
 }
 
 /* =========================================================
