@@ -79,6 +79,14 @@
 // that loop has no variant ids in scope; the hover applies to them
 // automatically via the shared .product-card classes.
 //
+// FIX (fix/recently-viewed-old-items): PR #69-er poreo Recently Viewed-e
+// purono saved item (flag chara) shob "Choose Option →" dekhachhilo —
+// karon renderer-er kache variant/stock janar upay chilo na. Ekhon
+// server theke id -> { stock, hasOptions } map (data-products) ashe;
+// purono item-er button map theke fallback-e thik hoy (Add to Cart /
+// Choose Option / kichu na). Notun save-er flags-oi primary thake;
+// map-e na thaka product (muche geche) ager motoi safe "Choose Option →".
+//
 // No live MySQL needed: CSS/EJS source checks + direct EJS renders
 // of the homepage and the product page + the REAL gallery IIFE run
 // in a stubbed DOM (vm sandbox — no jsdom in node_modules).
@@ -258,6 +266,9 @@ const baseLocals = {
       bestSellers: [products[0], products[4], products[1], products[2]],
       variantProductIds: [7],
       optionProductIds: [],
+      // Server map (fix/recently-viewed-old-items): purono saved item-er
+      // fallback — id -> { stock, hasOptions }.
+      recentlyViewedMap: { 3: { stock: 15, hasOptions: false }, 4: { stock: 12, hasOptions: false }, 5: { stock: 16, hasOptions: false }, 6: { stock: 0, hasOptions: false }, 7: { stock: 8, hasOptions: true } },
       heroProduct: { id: 3, name: 'BINBOND 2521 Men\'s Luxury Quartz Watch', price: 990, image: 'watch.jpg' },
       banners: [],
     }));
@@ -274,12 +285,72 @@ const baseLocals = {
     check('render: Best Sellers buttons reuse .btn-card inside .product-card (hover + WhatsApp guard apply)', (bestHtml.match(/class="btn-card"/g) || []).length >= 4);
     check('render: All Products buttons still present (no regression)', html.includes('action="/cart/add/3"'));
     check('render: Recently Viewed grid carries data-csrf for its JS form', html.includes('id="recently-viewed-grid" data-csrf="test-csrf"'));
+    check('render: Recently Viewed grid carries the server map (data-products) for old saved items', html.includes("data-products='{\"3\":{\"stock\":15,\"hasOptions\":false}") && html.includes('"7":{"stock":8,"hasOptions":true}'));
     check('render: Recently Viewed renderer builds an Add to Cart form from data-csrf', indexEjs.includes("grid.getAttribute('data-csrf')") && indexEjs.includes("'<form action=\"/cart/add/' + it.id"));
-    check('render: Recently Viewed renderer shows "Choose Option →" for variant/old items (safe route)', indexEjs.includes("it.hasOptions !== false") && indexEjs.includes("Choose Option →</a>'"));
-    check('render: Recently Viewed renderer hides the button when out of stock', indexEjs.includes('it.stock > 0'));
+    check('render: Recently Viewed renderer reads the server map as the old-item fallback', indexEjs.includes("grid.getAttribute('data-products')") && indexEjs.includes('serverMap[it.id]'));
+    check('render: Recently Viewed renderer still shows "Choose Option →" for variants + gone products (safe route)', indexEjs.includes('flags && flags.hasOptions') && indexEjs.includes("} else if (!flags) {") && indexEjs.includes("Choose Option →</a>'"));
+    check('render: Recently Viewed renderer hides the button when out of stock (flags.stock > 0)', indexEjs.includes('flags.stock > 0'));
+    check('render: Recently Viewed renderer no longer defaults every old item to "Choose Option →"', !indexEjs.includes('it.hasOptions !== false'));
     // Grandchild links exist in the pill dropdown (generic rule must cover them too).
     check('render: pill dropdown contains a grandchild link (Cookware under Kitchen)', html.includes('cat-pill-sub') && html.includes('Cookware'));
   }
+
+  // ---------- 4b. Recently Viewed IIFE behaviour (real code, stubbed DOM) ----------
+  // The renderer is inline in index.ejs — extract the REAL IIFE and run it
+  // against saved items (old = no flags, new = with flags) + the server map.
+  const rvStart = indexEjs.indexOf('// Recently viewed:');
+  const rvJs = indexEjs.slice(indexEjs.lastIndexOf('<script>', rvStart) + '<script>'.length, indexEjs.indexOf('</script>', rvStart));
+  const rvMapJson = JSON.stringify({ 3: { stock: 15, hasOptions: false }, 4: { stock: 12, hasOptions: false }, 5: { stock: 16, hasOptions: false }, 6: { stock: 0, hasOptions: false }, 7: { stock: 8, hasOptions: true } });
+  function runRecentlyViewed(savedItems, csrf) {
+    let gridHtml = '';
+    let sectionHidden = true;
+    const grid = {
+      getAttribute(k) {
+        if (k === 'data-csrf') return csrf;
+        if (k === 'data-products') return rvMapJson;
+        return null;
+      },
+      set innerHTML(v) { gridHtml = v; },
+      get innerHTML() { return gridHtml; },
+    };
+    const section = {
+      set hidden(v) { sectionHidden = v; },
+      get hidden() { return sectionHidden; },
+    };
+    const sandbox = {
+      document: {
+        getElementById(id) {
+          if (id === 'recently-viewed-grid') return grid;
+          if (id === 'recently-viewed') return section;
+          return null;
+        },
+      },
+      localStorage: { getItem() { return JSON.stringify(savedItems); } },
+      console,
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(rvJs, sandbox);
+    return { html: gridHtml, shown: !sectionHidden };
+  }
+  const oldSimple = { id: 3, name: 'BINBOND Watch', price: 990, image: 'watch.jpg' };
+  const oldVariant = { id: 7, name: 'A.T.Z Dress', price: 310, image: 'dress.jpg' };
+  const oldOutOfStock = { id: 6, name: 'Mini Bag Sealer', price: 399, image: 'sealer.jpg' };
+  const gone = { id: 99, name: 'Deleted Product', price: 100, image: 'gone.jpg' };
+
+  let rv = runRecentlyViewed([oldSimple, oldVariant, oldOutOfStock, gone], 'test-csrf');
+  check('recently-viewed behaviour: section unhidden when items exist', rv.shown === true);
+  check('recently-viewed behaviour: OLD simple in-stock item gets an Add to Cart form (the bug)', rv.html.includes('action="/cart/add/3"') && rv.html.includes('🛒 Add to Cart') && rv.html.includes('name="_csrf" value="test-csrf"'));
+  check('recently-viewed behaviour: OLD variant item gets "Choose Option →" (map fallback)', rv.html.includes('href="/product/7" class="btn-card"') && rv.html.includes('Choose Option →'));
+  check('recently-viewed behaviour: OLD out-of-stock item gets NO button', !rv.html.includes('/cart/add/6') && !rv.html.includes('href="/product/6" class="btn-card"'));
+  check('recently-viewed behaviour: gone product keeps the safe "Choose Option →" fallback', rv.html.includes('href="/product/99" class="btn-card"'));
+  // New saved items (with flags) still render from their flags (primary).
+  rv = runRecentlyViewed([{ id: 3, name: 'BINBOND Watch', price: 990, image: 'watch.jpg', stock: 15, hasOptions: false }], 'test-csrf');
+  check('recently-viewed behaviour: NEW simple item still renders from its saved flags', rv.html.includes('action="/cart/add/3"') && rv.html.includes('🛒 Add to Cart'));
+  rv = runRecentlyViewed([{ id: 7, name: 'A.T.Z Dress', price: 310, image: 'dress.jpg', stock: 8, hasOptions: true }], 'test-csrf');
+  check('recently-viewed behaviour: NEW variant item still renders "Choose Option →" from its flags', rv.html.includes('href="/product/7" class="btn-card"'));
+  // No CSRF token: safe route even for a simple in-stock old item.
+  rv = runRecentlyViewed([oldSimple], '');
+  check('recently-viewed behaviour: no CSRF token → simple item falls back to "Choose Option →"', rv.html.includes('href="/product/3" class="btn-card"') && !rv.html.includes('/cart/add/3'));
 
   // ---------- 5. Product page render — gallery markup ----------
   let phtml = '';
