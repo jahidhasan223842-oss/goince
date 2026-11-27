@@ -95,7 +95,11 @@ const banglaLetters = /[\u0985-\u09E5]/;
 
   console.log('CSS — product cards, trust bar, report grid equal heights');
   check('.product-card is a flex column', /\.product-card\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column/.test(css));
-  check('product-card button sits at the bottom (margin-top:auto)', css.includes('.product-card > a.btn-card, .product-card > form { margin-top: auto; }'));
+  // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): the
+  // button/form now live in the .product-card-foot wrapper, which
+  // does the pushing (margin-top: auto); the old selector is gone
+  // by design.
+  check('product-card button sits at the bottom (margin-top:auto on .product-card > .product-card-foot)', css.includes('.product-card > .product-card-foot { margin-top: auto; }'));
   check('.product-grid centres the last row', /\.product-grid\s*\{[^}]*justify-content:\s*center/.test(css));
   check('.trust-bar rows are equal height', /\.trust-bar\s*\{[^}]*grid-auto-rows:\s*1fr/.test(css));
   check('.report-summary-grid is 3 columns (no lone card on a row)', /\.report-summary-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3,/.test(css));
