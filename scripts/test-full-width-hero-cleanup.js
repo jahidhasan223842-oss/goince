@@ -313,7 +313,11 @@ async function waitForServer(tries = 50) {
   check('policy pages keep a readable width on desktop', has(css, '.container.policy-page { max-width: 900px; }'));
   check('base container still capped (mobile-first default)', has(css, '.container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }'));
   check('mobile container padding unchanged (14px)', has(css, '.container { padding: 0 14px; }'));
-  check('hero image can shrink (flex 0 1 260px + min-width 0)', has(css, '.hero-image { flex: 0 1 260px; min-width: 0;'));
+  // HONEST UPDATE (fix/homepage-beauty, 2026-11-27): the hero product
+  // image was enlarged to rebalance the hero (260px -> 360px basis,
+  // 200px -> 260px tall) — the empty middle is smaller now. The
+  // shrink behaviour (min-width: 0) and the caption wrap are unchanged.
+  check('hero image can shrink (flex 0 1 360px + min-width 0)', has(css, '.hero-image { flex: 0 1 360px; min-width: 0;'));
   check('hero text can shrink (min-width 0)', has(css, '.hero-text { flex: 1; min-width: 0; }'));
   check('hero caption wraps (overflow-wrap)', has(css, '.hero-image-caption') && has(css, 'overflow-wrap: break-word;'));
   // (fix/shop-menu-bar: the fade rules moved OUT of the <=1024px block
