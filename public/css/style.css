@@ -334,8 +334,8 @@ a { text-decoration: none; color: inherit; }
 }
 .product-card:focus-within { transform: translateY(-10px); box-shadow: 0 0 0 2px var(--mega-hover-gold), 0 18px 36px rgba(0, 0, 0, 0.28); }
 .product-card:focus-within .product-card-foot { background: var(--card-foot-hover); }
-.product-card .btn-card:focus-visible { background: var(--mega-hover-gold); color: #fff; outline: 2px solid var(--text-strong); outline-offset: 2px; }
-.product-card .btn-card:active { background: var(--mega-hover-gold); color: #fff; }
+.product-card .btn-card:focus-visible { background: var(--success); color: #fff; outline: 2px solid var(--text-strong); outline-offset: 2px; }
+.product-card .btn-card:active { background: #176327; color: #fff; }
 .product-card .price { padding: 6px 12px 14px; color: var(--accent-text); font-weight: bold; }
 .product-card .price-row { padding: 6px 12px 14px; margin-bottom: 0; flex-wrap: wrap; }
 .product-card .price-row .price { padding: 0; }
@@ -809,8 +809,18 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* WhatsApp floating chat button */
-.whatsapp-float { position: fixed; bottom: 20px; right: 20px; z-index: 999; width: 60px; height: 60px; border-radius: 50%; background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(37,211,102,0.45); transition: transform 0.2s; }
-.whatsapp-float:hover { transform: scale(1.08); }
+.whatsapp-float { position: fixed; bottom: 20px; right: 20px; z-index: 999; width: 60px; height: 60px; border-radius: 50%; background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(37,211,102,0.45); transition: transform .25s ease, box-shadow .25s ease; }
+/* WhatsApp hover lift (fix/mini-cart-drawer-hover, donal: transition
+   hoye ar hover hoye ektu upre uthbe): age scale(1.08) chhilo, kintu
+   .whatsapp-float--scroll.is-visible-er transform: none (0,3,0)
+   hover-er cheye specific chilo bole hover-er transform kokhono
+   lagto na — tai scroll-visible obosthar jonnoo alada rule lage.
+   Base rule-ei transition thake (PR #72 lesson), hover shudhu
+   @media (hover: hover)-er vitore. */
+@media (hover: hover) {
+  .whatsapp-float:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 10px 24px rgba(37,211,102,0.55); }
+  .whatsapp-float.whatsapp-float--scroll.is-visible:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 10px 24px rgba(37,211,102,0.55); }
+}
 
 /* Scroll-aware hide (footer.ejs-er JS .whatsapp-float--scroll /
    .is-visible class toggle kore). Sob width-ei chole:
@@ -862,7 +872,8 @@ a { text-decoration: none; color: inherit; }
    Badge (top: -6px, left: -6px) pill 12px vitore thakay puropuri
    viewport-er vitorei thake, kokhono clip hoy na. 56px is a
    proper tap target on phones too. z-index 600 sits below the
-   drawer (900) and the WhatsApp float (999), above page content;
+   mini-cart overlay (1000) + drawer (1001) and the WhatsApp float
+   (999), above page content;
    on very short viewports the WhatsApp overlap guard
    (footer.ejs) hides the WhatsApp button if the two ever meet.
    .side-cart--hidden: nijer overlap guard (footer.ejs) tab-ta
@@ -874,6 +885,68 @@ a { text-decoration: none; color: inherit; }
 .side-cart:focus-visible { outline: 2px solid var(--text-strong); outline-offset: 2px; }
 .side-cart--hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .side-cart-badge { position: absolute; top: -6px; left: -6px; min-width: 22px; height: 22px; padding: 0 5px; display: flex; align-items: center; justify-content: center; background: var(--danger-solid); color: #fff; border-radius: 11px; font-size: 12px; font-weight: 700; line-height: 1; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
+
+/* ---------- 6-second idle + mini-cart drawer
+   (fix/mini-cart-drawer-hover) ----------
+   .side-cart--minimised: 6s keu tab-e hat na dile tab dan dike
+   sore jay — pill 56px + right: 12px, tai translateX(54px)-e
+   dan kinara theke shudhu ~14px sonali sliver dekha jay (56 + 12
+   − 54 = 14). Sliver-e hover/click korle footer IIFE class soriye
+   puro pill fire ane + timer notun kore shuru kore. Transform
+   base .side-cart rule-er .25s spring transition-ei chole, tai
+   slide-ta fade kore; prefers-reduced-motion-e transition none
+   (nicher block-e), tai obostha bodol sathe sathe hoy, kintu 6s
+   hide-ta thik-i hoy. Hover rule-ta (translateX(-4px)) minimised
+   obosthay jeno pill-ta ber kore na ane, tai :hover-eo 54px-i
+   rakha holo — JS mouseenter-e class sorale tobei hover slide
+   kaj kore. */
+/* 6s idle sliver: right edge-e shudhu ~14px dekha jay (54px sore jay) */
+.side-cart--minimised { transform: translateX(54px); }
+.side-cart--minimised:hover { transform: translateX(54px); }
+
+/* Mini-cart drawer: dan dik theke slide-in panel, eki page-ei
+   khole — /cart-e jaoa hoy na. Overlay puro page dheke fele
+   (WhatsApp float-soho: overlay 1000 > WhatsApp 999, drawer 1001
+   > overlay), drawer tar upore. Desktop-e ~400px chaoda, mobile-e
+   92vw (width: min(400px, 92vw)). [hidden] thakle display: none
+   — na hole author-er display: flex UA-r [hidden] rule-ke hariye
+   dito ar bondho drawer-o off-screen-e focusable thakto. Body
+   scroll lock: drawer khola thakle body.mini-cart-open-e
+   overflow: hidden. */
+.mini-cart-drawer[hidden], .mini-cart-overlay[hidden] { display: none; }
+body.mini-cart-open { overflow: hidden; }
+.mini-cart-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); z-index: 1000; opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility .25s ease; }
+.mini-cart-overlay.is-open { opacity: 1; visibility: visible; }
+.mini-cart-drawer { position: fixed; top: 0; right: 0; height: 100%; height: 100dvh; width: min(400px, 92vw); max-width: 400px; background: var(--surface); color: var(--text); z-index: 1001; transform: translateX(102%); transition: transform .25s cubic-bezier(.22, 1.25, .36, 1); display: flex; flex-direction: column; box-shadow: -8px 0 30px rgba(0, 0, 0, .25); }
+.mini-cart-drawer.is-open { transform: translateX(0); }
+.mini-cart-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); }
+.mini-cart-head h2 { font-size: 18px; margin: 0; }
+.mini-cart-close { width: 36px; height: 36px; min-width: 36px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); border-radius: 50%; font-size: 20px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.mini-cart-items { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+.mini-cart-item { display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.mini-cart-thumb { width: 64px; height: 64px; min-width: 64px; object-fit: cover; border-radius: 6px; }
+.mini-cart-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mini-cart-name { font-weight: 600; color: var(--text); overflow-wrap: break-word; }
+.mini-cart-variant, .mini-cart-price { font-size: 13px; color: var(--text-muted); }
+.mini-cart-qty { margin-top: 4px; }
+.mini-cart-line { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.mini-cart-line-total { font-weight: 700; white-space: nowrap; }
+.mini-cart-remove { background: none; border: none; color: var(--danger); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px; }
+.mini-cart-foot { padding: 16px; border-top: 1px solid var(--border); }
+.mini-cart-subtotal { display: flex; justify-content: space-between; font-size: 16px; margin: 0 0 8px; }
+.mini-cart-delivery { font-size: 13px; color: var(--text-muted); margin: 0 0 12px; }
+.mini-cart-actions { display: flex; gap: 10px; }
+.mini-cart-actions a { flex: 1; text-align: center; padding: 10px 12px; border-radius: 6px; font-weight: 600; text-decoration: none; }
+.mini-cart-view { background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); }
+.mini-cart-actions .btn-primary { display: flex; align-items: center; justify-content: center; }
+.mini-cart-continue { display: block; width: 100%; margin-top: 12px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; text-decoration: underline; padding: 4px; }
+.mini-cart-empty { padding: 32px 16px; text-align: center; }
+.mini-cart-empty p { margin-bottom: 16px; }
+@media (hover: hover) {
+  .mini-cart-close:hover { background: var(--bg-hover); }
+  .mini-cart-remove:hover { color: var(--danger-solid); }
+  .mini-cart-view:hover { background: var(--bg-hover); }
+}
 
 /* ---------- Wishlist empty state (fix/floating-cart-wishlist) ----------
    The wishlist page was a bare one-liner ("Your wishlist is empty.
@@ -2489,15 +2562,19 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 .card-stock-low { padding: 0 12px 4px; font-size: 13px; color: var(--danger); font-weight: 600; }
 .card-stock-out { padding: 0 12px 4px; font-size: 13px; color: var(--text-muted); }
 .btn-card { display: block; margin: 0 12px 14px; text-align: center; background: var(--navy); color: #fff; padding: 9px 12px; border-radius: 6px; font-weight: 600; border: none; width: calc(100% - 24px); cursor: pointer; font-size: 14px; transition: background-color .25s ease, color .25s ease, border-color .25s ease, transform .25s ease, box-shadow .25s ease; }
-/* "Add to Cart" / "Choose Option" hover: ageo navy -> navy-2 chilo —
-   pray dekha jeto na. Ekhon mega menu-r garo sonali (#966e00) + sada
-   lekha (fix/homepage-beauty). TRANSITION BUG (fix/card-hover-transition):
-   base rule-e kono transition chilo na — tai :hover-e navy -> sonali
-   rong-ta sathe sathe bodle jeto, kono fade hoto na (donal-er report:
-   "hover hoye but transition hoye na"). Transition BASE rule-ei thakte
-   hobe — shudhu :hover-e dile vitore dhokar somoy fade hoto kintu
-   mouse sorale sathe sathe chole jeto. Ekhon du dik-ei .25s-e fade hoy. */
-.btn-card:hover { background: var(--mega-hover-gold); color: #fff; }
+/* "Add to Cart" / "Choose Option" hover: age navy -> garo sonali
+   (#966e00) hoto. Ekhon SOBUJ (fix/mini-cart-drawer-hover, donal:
+   add card-e onno color hover hobe) — var(--success) #1f7a30,
+   press korle #176327 — .btn-call-er thik eki sobuj jora (call
+   button-er motoi "add" action-er rong), login button-er sonali
+   ar card-er sonali ring theke alada. Hover-e button nijeo ektu
+   upore vase (translateY(-2px)); transform age thekei base
+   rule-er .25s transition-e ache, tai vitore + baire — du dik-ei
+   fade hoy (PR #72 lesson: transition BASE rule-ei thakte hobe).
+   "Choose Option →" button .btn-card-i share kore, tai eki
+   treatment pay (consistent). Card hover nije (ring + lift + mint
+   foot) bodlay ni. */
+.btn-card:hover { background: var(--success); color: #fff; transform: translateY(-2px); }
 .product-card form { margin: 0; }
 .why-shop { margin: 10px 0 40px; }
 .why-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
@@ -2813,6 +2890,38 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .btn-nav-solid:hover { background: var(--accent-hover); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
   .search-form button:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
 }
+
+/* --- "Login / Sign Up" button: DU RONG-er hover, du pash theke
+   (fix/mini-cart-drawer-hover, donal: cursor niye asle du pash
+   theke 2 colour-e hover hobe) — INTERPRETATION (donal thik kore
+   dite parben): bam dik theke garo NEEL (var(--navy)) ar dan dik
+   theke garo SONALI (var(--mega-hover-gold) #966e00 — mega menu-r
+   hover-er-i rong) — prottekta button-er ordhek jure, majhkhane
+   eshe milbe; majher tuku sonali base-i thake. Sada lekha uporei
+   thake. Kaj kore ::before (bam ordhek, navy) + ::after (dan
+   ordhek, dark gold) diye — duitai .25s spring-e slide kore dhoke
+   ar mouse sorale slide kore beriye jay. z-index: -1 + isolation:
+   isolate — pseudo-duita button-er sonali background-er UPORE
+   kintu lekhar NICHE boshe, tai lekha kokhono dhaka pore na;
+   isolation na thakle -1 pseudo header-er background-er pichone
+   chole jeto ar dekha jeto na. Uporer .btn-nav-solid:hover rule
+   (accent-hover) eyi rule-er cheye kom specific (0,2,0 vs 0,3,0),
+   tai hover-e base sonali-i thake. Shudhu header-er button —
+   login page-er nijer button-e noy. :focus-visible-e hover-er
+   motoi treatment, jate keyboard-eo eki jinish dekha jay. */
+.main-nav .btn-nav-solid { position: relative; overflow: hidden; isolation: isolate; }
+.main-nav .btn-nav-solid::before,
+.main-nav .btn-nav-solid::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50%; z-index: -1; transition: transform .25s cubic-bezier(.22, 1.25, .36, 1); }
+.main-nav .btn-nav-solid::before { left: 0; background: var(--navy); transform: translateX(-102%); }
+.main-nav .btn-nav-solid::after { right: 0; background: var(--mega-hover-gold); transform: translateX(102%); }
+@media (hover: hover) {
+  .main-nav .btn-nav-solid:hover { background: var(--accent); color: #fff !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+  .main-nav .btn-nav-solid:hover::before,
+  .main-nav .btn-nav-solid:hover::after { transform: translateX(0); }
+}
+.main-nav .btn-nav-solid:focus-visible { background: var(--accent); color: #fff !important; outline: 2px solid var(--text-strong); outline-offset: 2px; }
+.main-nav .btn-nav-solid:focus-visible::before,
+.main-nav .btn-nav-solid:focus-visible::after { transform: translateX(0); }
 
 /* --- Theme toggle: glow + halka rotate (SHOP header shudhu) --- */
 /* .theme-toggle-btn admin topbar-eo ache — tai selector-e
@@ -3409,7 +3518,14 @@ img, video { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .admin-sidebar, .admin-sidebar-overlay { transition: none; }
   .whatsapp-float.whatsapp-float--scroll { transition: none; }
+  .whatsapp-float { transition: none; }
+  .whatsapp-float:hover,
+  .whatsapp-float.whatsapp-float--scroll.is-visible:hover { transform: none; box-shadow: 0 6px 18px rgba(37,211,102,0.45); }
   .side-cart { transition: none; }
+  .btn-card:hover { transform: none; }
+  .mini-cart-overlay, .mini-cart-drawer { transition: none; }
+  .main-nav .btn-nav-solid::before, .main-nav .btn-nav-solid::after { transition: none; }
+  .main-nav .btn-nav-solid:hover { box-shadow: none; }
 }
 
 /* =========================================================

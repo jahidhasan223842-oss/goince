@@ -574,6 +574,17 @@ app.use(async (req, res, next) => {
   // never queries the DB.
   res.locals.userPhotoUrl = req.session.userPhotoUrl || null;
   res.locals.cartCount = (req.session.cart || []).reduce((sum, item) => sum + item.quantity, 0);
+  // Mini-cart drawer (fix/mini-cart-drawer-hover): the shop footer
+  // partial is on every shop page, so the drawer needs the cart LINES
+  // + subtotal without a new query or route — the session cart already
+  // carries name/price/image/quantity/variantLabel/cartKey (set at
+  // add-to-cart), and checkout computes its subtotal from the same
+  // session data. Admin pages never render the shop footer, so skip
+  // them. (No DB hit here: cartCount above is session-only too.)
+  if (!req.path.startsWith('/admin')) {
+    res.locals.miniCart = req.session.cart || [];
+    res.locals.miniCartSubtotal = res.locals.miniCart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
+  }
 
   // Shop phone + site settings Database theke real-time e neya, jate Admin Panel
   // theke change korle shathe shathe (server restart chara-i) effect hoy

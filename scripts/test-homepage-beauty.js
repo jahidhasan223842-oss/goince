@@ -214,11 +214,15 @@ function ruleBody(source, selectorRe) {
   check('card: overflow hidden so the zoom never spills out', !!cardBase && /overflow:\s*hidden/.test(cardBase[0]));
   check('card: transition covers transform + box-shadow', !!cardBase && /transition:\s*transform[^;]*, box-shadow/.test(cardBase[0]));
   const btnHover = ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/);
-  check('card: Add to Cart button turns dark gold on hover', !!btnHover && /background:\s*var\(--mega-hover-gold\)/.test(btnHover) && /color:\s*#fff/.test(btnHover));
+  // UPDATED (fix/mini-cart-drawer-hover): Add to Cart hover is now
+  // success green + a -2px lift, not dark gold.
+  check('card: Add to Cart button turns success green on hover and lifts -2px', !!btnHover && /background:\s*var\(--success\)/.test(btnHover) && /color:\s*#fff/.test(btnHover) && /transform:\s*translateY\(-2px\)/.test(btnHover));
   check('card: old navy -> navy-2 button hover is gone', !/\.btn-card:hover\s*\{\s*background:\s*var\(--navy-2\)/.test(cssNoComments));
   check('card: :focus-within lifts the card like hover (keyboard)', !!ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/) && /translateY\(-10px\)/.test(ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/)));
-  check('card: button :focus-visible turns gold + outline', !!ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/)));
-  check('card: button :active turns gold (touch feedback)', !!ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/)));
+  // UPDATED (fix/mini-cart-drawer-hover): :focus-visible matches the
+  // new green hover; :active is the darker green #176327.
+  check('card: button :focus-visible turns green + outline', !!ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/) && /background:\s*var\(--success\)/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:focus-visible\s*\{[^}]*\}/)));
+  check('card: button :active turns darker green #176327 (touch feedback)', !!ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/) && /background:\s*#176327/.test(ruleBody(cssTopLevel, /\.product-card \.btn-card:active\s*\{[^}]*\}/)));
 
   // ---------- 3. Product photos shown whole (contain) ----------
   const imgRule = ruleBody(cssTopLevel, /\.product-card img\s*\{[^}]*\}/);
