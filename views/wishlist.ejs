@@ -3,7 +3,44 @@
 <h1 class="page-title">My Wishlist</h1>
 
 <% if (items.length === 0) { %>
-  <p>Your wishlist is empty. <a href="/">Start shopping</a></p>
+  <% /* ---------- Professional empty state
+        (fix/floating-cart-wishlist) ----------
+        Age ek line lekha ("Your wishlist is empty. Start shopping")
+        ar niche bishal khali jayga chilo — ekhon asol empty state:
+        heart icon, sundor heading, ek line lekha, ar "Start Shopping"
+        button; tar niche "You may also like" — homepage-er Best
+        Sellers (suggestions, routes/shop.js theke), eki card markup
+        + eki button (variant/option hole "Choose Option →", na hole
+        Add to Cart), jate page-ta kokhono dead end na hoy. */ %>
+  <div class="wishlist-empty">
+    <div class="wishlist-empty-icon" aria-hidden="true">♥</div>
+    <h2>Your wishlist is empty</h2>
+    <p>Products you save will show up here. Tap the heart on any product to keep it for later.</p>
+    <a href="/" class="btn-primary">Start Shopping →</a>
+  </div>
+  <% if (typeof suggestions !== 'undefined' && suggestions && suggestions.length > 0) { %>
+    <div class="section-heading"><h2>💡 You may also like</h2></div>
+    <div class="product-grid product-grid--fill">
+      <% suggestions.forEach(p => { %>
+        <div class="product-card">
+          <a href="/product/<%= p.id %>">
+            <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
+            <h3><%= p.name %></h3>
+          </a>
+          <div class="product-card-foot">
+            <p class="price">৳<%= p.price %></p>
+            <% if (p.stock > 0) { %>
+              <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
+                <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
+              <% } else { %>
+                <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
 <% } else { %>
   <div class="product-grid">
     <% items.forEach(p => { %>

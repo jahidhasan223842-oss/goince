@@ -661,7 +661,26 @@ router.get('/wishlist', async (req, res) => {
     'SELECT products.* FROM wishlist JOIN products ON wishlist.product_id = products.id WHERE wishlist.user_id = ? ORDER BY wishlist.created_at DESC',
     [req.session.userId]
   );
-  res.render('wishlist', { items, siteName: 'Goince' });
+  // "You may also like" (fix/floating-cart-wishlist): the wishlist
+  // page was a dead end when empty. Show the same Best Sellers the
+  // homepage shows (top 4 by sold, in stock, visible) under the
+  // empty state, with the same card buttons — variant/option
+  // products get "Choose Option →", the rest Add to Cart.
+  let suggestions = [];
+  let variantProductIds = new Set(), optionProductIds = new Set();
+  try {
+    const [rows] = await db.query(
+      `SELECT products.*, COALESCE(SUM(order_items.quantity), 0) AS sold
+       FROM products LEFT JOIN order_items ON order_items.product_id = products.id
+       WHERE products.stock > 0 AND ${VISIBLE_PRODUCT_SQL}
+       GROUP BY products.id ORDER BY sold DESC, products.created_at DESC LIMIT 4`);
+    suggestions = rows;
+    const [vrows] = await db.query('SELECT DISTINCT product_id FROM product_variants');
+    const [orows] = await db.query('SELECT DISTINCT product_id FROM product_options');
+    variantProductIds = new Set(vrows.map(r => r.product_id));
+    optionProductIds = new Set(orows.map(r => r.product_id));
+  } catch (e) { suggestions = []; }
+  res.render('wishlist', { items, suggestions, variantProductIds: [...variantProductIds], optionProductIds: [...optionProductIds], siteName: 'Goince' });
 });
 
 // ---------- ADD TO WISHLIST (product page theke direct) ----------
