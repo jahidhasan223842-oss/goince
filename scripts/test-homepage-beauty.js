@@ -69,6 +69,10 @@
 //      / 1.06x); the photo zooms 1.08x inside overflow: hidden; the
 //      "Add to Cart" / "Choose Option" button turns dark gold
 //      (#966e00) + white on CARD hover (not only its own hover).
+//      HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27):
+//      donal changed his mind — the button now turns gold ONLY on
+//      its OWN hover; the bottom zone (.product-card-foot) gets a
+//      warm background on card hover instead.
 //   3. PHOTOS: object-fit: cover -> contain on a consistent soft
 //      neutral background (var(--bg)), same fixed 180px frame so
 //      the grid stays uniform. Photo files untouched.
@@ -76,6 +80,10 @@
 //      titles reserve 2 lines, so price rows align too); the form
 //      rule now says margin: 0 + margin-top: auto (the override
 //      is fixed, not worked around).
+//      HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27):
+//      the button/form now live in .product-card-foot, which does
+//      the pushing (margin-top: auto); the form rule is plain
+//      margin: 0 again.
 //   5. WHATSAPP: the guard now re-checks on window load, on
 //      document.fonts.ready, on every layout-size change via a
 //      ResizeObserver on documentElement, on pageshow, and once
@@ -182,13 +190,12 @@ function ruleBody(source, selectorRe) {
   const pillFocus = ruleBody(cssTopLevel, /\.category-bar > a:not\(\.active\):focus-visible,[\s\S]*?\{[^}]*\}/);
   check('pills: :focus-visible matches hover (gold + lift + outline)', !!pillFocus && /background:\s*var\(--mega-hover-gold\)/.test(pillFocus) && /transform:\s*translateY\(-4px\)/.test(pillFocus) && /outline:/.test(pillFocus));
   check('pills: hover is gated behind @media (hover: hover) — no stuck hover on touch', hoverBlocks.includes('.category-bar > a:not(.active):hover'));
-  // HONEST UPDATE (fix/product-hover-gallery, 2026-11-27): the pill
-  // dropdown child links no longer use the plain bg-hover tint —
-  // donal said the children in the screenshot had no effect, so they
-  // now get the mega-menu dark-gold hover (same as the mega menu
-  // items). The check now asserts the new gold hover instead.
+  // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): donal
+  // wants the children even more beautiful + more lift — the hover
+  // is now a dark-gold GRADIENT with -6px lift + scale 1.02 +
+  // deeper shadow (was solid #966e00 + -3px).
   const pillChildHoverOld = hoverBlocks.match(/\.category-bar \.cat-pill-menu a:hover\s*\{[^}]*\}/);
-  check('pills: dropdown menu links now have the dark-gold hover (was bg-hover — changed in fix/product-hover-gallery)', !!pillChildHoverOld && /background:\s*var\(--mega-hover-gold\)/.test(pillChildHoverOld) && /color:\s*#fff/.test(pillChildHoverOld));
+  check('pills: dropdown menu links now have the dark-gold gradient hover (was solid gold — changed in fix/pills-band-ripple-card)', !!pillChildHoverOld && /background:\s*var\(--gold-gradient\)/.test(pillChildHoverOld) && /color:\s*#fff/.test(pillChildHoverOld) && /transform:\s*translateY\(-6px\) scale\(1\.02\)/.test(pillChildHoverOld));
   check('pills: still flat pills (no round category-cards strip added)', indexEjs.includes('class="category-bar"') && !indexEjs.includes('cat-strip') && !indexEjs.includes('cat-round'));
 
   // HONEST UPDATE (fix/product-hover-gallery, 2026-11-27): donal said
@@ -226,9 +233,14 @@ function ruleBody(source, selectorRe) {
   const h3Rule = ruleBody(cssTopLevel, /\.product-card h3\s*\{[^}]*\}/);
   check('buttons: titles clamped to 2 lines', !!h3Rule && /-webkit-line-clamp:\s*2/.test(h3Rule) && /overflow:\s*hidden/.test(h3Rule));
   check('buttons: 1-line titles reserve 2 lines (min-height 2.8em, line-height 1.4)', !!h3Rule && /min-height:\s*2\.8em/.test(h3Rule) && /line-height:\s*1\.4/.test(h3Rule));
-  check('buttons: button/form pushed to the bottom (margin-top: auto)', css.includes('.product-card > a.btn-card, .product-card > form { margin-top: auto; }'));
+  // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): the
+  // button/form no longer sit directly in the card — they live in
+  // the new .product-card-foot wrapper (price + button zone), which
+  // does the pushing (margin-top: auto) and gets the warm hover
+  // background. The old selector is gone by design.
+  check('buttons: button/form pushed to the bottom via the foot (margin-top: auto on .product-card > .product-card-foot)', css.includes('.product-card > .product-card-foot { margin-top: auto; }'));
   const formRule = ruleBody(cssTopLevel, /\.product-card form\s*\{[^}]*\}/);
-  check('buttons: ROOT CAUSE fixed — .product-card form keeps margin-top: auto (was overridden to 0 by the later margin: 0 rule)', !!formRule && /margin:\s*0/.test(formRule) && /margin-top:\s*auto/.test(formRule));
+  check('buttons: form rule is plain margin: 0 now (the foot does the pushing)', !!formRule && /margin:\s*0/.test(formRule) && !/margin-top:\s*auto/.test(formRule));
 
   // ---------- 5. WhatsApp guard re-checks (source) ----------
   check('whatsapp: re-checks on window load', /addEventListener\('load',\s*update\)/.test(footerEjs));

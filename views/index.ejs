@@ -141,6 +141,8 @@
         <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
         <h3><%= p.name %></h3>
         <% if (p.avg_rating) { %><p class="card-rating">⭐ <%= Number(p.avg_rating).toFixed(1) %> (<%= p.review_count %>)</p><% } %>
+      </a>
+      <div class="product-card-foot">
         <div class="price-row">
           <p class="price">৳<%= p.price %></p>
           <% if (discountPercent) { %>
@@ -149,14 +151,14 @@
           <% } %>
         </div>
         <% if (p.stock > 0 && p.stock <= 5) { %><p class="card-stock-low">⚠️ Only <%= p.stock %> left!</p><% } else if (p.stock === 0) { %><p class="card-stock-out">Out of stock</p><% } %>
-      </a>
-      <% if (p.stock > 0) { %>
-        <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
-          <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
-        <% } else { %>
-          <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+        <% if (p.stock > 0) { %>
+          <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
+            <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
+          <% } else { %>
+            <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+          <% } %>
         <% } %>
-      <% } %>
+      </div>
     </div>
   <% }) %>
 </div>
@@ -169,15 +171,17 @@
         <a href="/product/<%= p.id %>">
           <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
           <h3><%= p.name %></h3>
-          <p class="price">৳<%= p.price %></p>
         </a>
-        <% if (p.stock > 0) { %>
-          <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
-            <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
-          <% } else { %>
-            <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+        <div class="product-card-foot">
+          <p class="price">৳<%= p.price %></p>
+          <% if (p.stock > 0) { %>
+            <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
+              <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
+            <% } else { %>
+              <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+            <% } %>
           <% } %>
-        <% } %>
+        </div>
       </div>
     <% }) %>
   </div>
@@ -218,7 +222,7 @@
       var serverMap = {};
       try { serverMap = JSON.parse(grid.getAttribute('data-products') || '{}'); } catch (e) { serverMap = {}; }
       grid.innerHTML = items.map(function (it) {
-        var card = '<div class="product-card"><a href="/product/' + it.id + '"><img src="/uploads/' + it.image + '" alt="" loading="lazy" onerror="this.src=\'/uploads/no-image.png\'"><h3>' + it.name.replace(/</g, '&lt;') + '</h3><p class="price">৳' + it.price + '</p></a>';
+        var card = '<div class="product-card"><a href="/product/' + it.id + '"><img src="/uploads/' + it.image + '" alt="" loading="lazy" onerror="this.src=\'/uploads/no-image.png\'"><h3>' + it.name.replace(/</g, '&lt;') + '</h3></a><div class="product-card-foot"><p class="price">৳' + it.price + '</p>';
         // Saved flags primary; na thakle server map fallback.
         var flags = (typeof it.hasOptions === 'boolean' && typeof it.stock === 'number')
           ? { hasOptions: it.hasOptions, stock: it.stock }
@@ -232,7 +236,7 @@
         } else if (!flags) {
           card += '<a href="/product/' + it.id + '" class="btn-card">Choose Option →</a>';
         }
-        return card + '</div>';
+        return card + '</div></div>';
       }).join('');
       document.getElementById('recently-viewed').hidden = false;
     } catch (e) {}

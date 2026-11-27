@@ -52,6 +52,11 @@
 //      and the button turns dark gold + white on CARD hover (not
 //      only its own hover). :focus-within matches. Both themes;
 //      @media (hover: hover); reduced-motion disables lift/zoom.
+//      HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27):
+//      donal changed his mind — the button now turns gold ONLY on
+//      its OWN hover (the card-hover button rule is removed); the
+//      bottom zone (.product-card-foot) gets a warm background on
+//      card hover instead. Lift + ring + zoom are unchanged.
 //   3. GALLERY (new public/js/product-gallery.js, cache-busted via
 //      lib/assets.js, included in the footer like mega-menu.js):
 //      fixed 4/3 stage (mobile + desktop), whole photo via
@@ -71,6 +76,11 @@
 //      (no nth-child / per-item rules). Same treatment for the
 //      mobile drawer sub/sub-sub links (gold bg + white text, no
 //      lift — drawer rows are full-width).
+//      HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27):
+//      donal wants the children even more beautiful + more lift —
+//      the hover is now a dark-gold GRADIENT with -6px lift +
+//      scale 1.02 + deeper shadow (was solid #966e00 + -3px);
+//      the drawer links get the same gradient (still no lift).
 //
 // NOT in scope: the ¥3999 tag baked INTO the BINBOND watch photo
 // (no CSS can remove text inside the image file — donal must upload
@@ -211,28 +221,38 @@ const baseLocals = {
   check('card: old -6px / 1.06x hover is gone', !/\.product-card:hover\s*\{\s*transform:\s*translateY\(-6px\)/.test(cssNoComments));
   const imgZoom = hoverBlocks.match(/\.product-card:hover img\s*\{[^}]*\}/);
   check('card: photo zooms 1.08x on hover (was 1.06x)', !!imgZoom && /transform:\s*scale\(1\.08\)/.test(imgZoom));
-  const cardBtnHover = hoverBlocks.match(/\.product-card:hover \.btn-card\s*\{[^}]*\}/);
-  check('card: button turns dark gold on CARD hover (the reported gap — was button-only :hover)', !!cardBtnHover && /background:\s*var\(--mega-hover-gold\)/.test(cardBtnHover) && /color:\s*#fff/.test(cardBtnHover));
+  // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): donal
+  // changed his mind — the button must turn gold ONLY on its OWN
+  // hover, not on card hover (it keeps its normal navy while only
+  // the card is hovered). The PR #69 card-hover button rule is
+  // removed by design; the warm foot background replaces it.
+  check('card: button does NOT turn gold on CARD hover anymore (removed in fix/pills-band-ripple-card)', !/\.product-card:hover \.btn-card/.test(cssNoComments));
   const cardFocus = ruleBody(cssTopLevel, /\.product-card:focus-within\s*\{[^}]*\}/);
   check('card: :focus-within lifts -10px + gold ring like hover (keyboard)', !!cardFocus && /translateY\(-10px\)/.test(cardFocus) && /0 0 0 2px var\(--mega-hover-gold\)/.test(cardFocus));
-  check('card: :focus-within golds the button too', !!ruleBody(cssTopLevel, /\.product-card:focus-within \.btn-card\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.product-card:focus-within \.btn-card\s*\{[^}]*\}/)));
+  // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): same —
+  // :focus-within no longer golds the button; it keeps lift + ring.
+  check('card: :focus-within does NOT gold the button anymore', !/\.product-card:focus-within \.btn-card/.test(cssNoComments));
   check('card: button own :hover still gold (unchanged)', !!ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.btn-card:hover\s*\{[^}]*\}/)));
   check('card: hover gated behind @media (hover: hover) — no stuck hover on touch', hoverBlocks.includes('.product-card:hover'));
   check('card: reduced-motion disables lift + zoom (ring reset, colour only)', /\.product-card:hover, \.product-card:focus-within \{ transform: none;/.test(reducedMotionBlocks) && /\.product-card:hover img \{ transform: none;/.test(reducedMotionBlocks));
 
   // ---------- 2. Pill-dropdown child links hover (CSS) ----------
+  // HONEST UPDATE (fix/pills-band-ripple-card, 2026-11-27): donal
+  // wants the children even more beautiful + more lift — the hover
+  // is now a dark-gold GRADIENT with -6px lift + scale 1.02 +
+  // deeper shadow (was solid #966e00 + -3px).
   const pillChildHover = hoverBlocks.match(/\.category-bar \.cat-pill-menu a:hover\s*\{[^}]*\}/);
-  check('pill-children: generic hover rule exists (dark gold)', !!pillChildHover && /background:\s*var\(--mega-hover-gold\)/.test(pillChildHover));
+  check('pill-children: generic hover rule exists (dark-gold gradient)', !!pillChildHover && /background:\s*var\(--gold-gradient\)/.test(pillChildHover));
   check('pill-children: hover text is white', !!pillChildHover && /color:\s*#fff/.test(pillChildHover));
-  check('pill-children: hover lifts -3px with a shadow', !!pillChildHover && /transform:\s*translateY\(-3px\)/.test(pillChildHover) && /box-shadow:/.test(pillChildHover));
+  check('pill-children: hover lifts -6px with scale 1.02 + deeper shadow (was -3px)', !!pillChildHover && /transform:\s*translateY\(-6px\) scale\(1\.02\)/.test(pillChildHover) && /box-shadow:\s*0 8px 18px/.test(pillChildHover));
   check('pill-children: hover whitens the count span', hoverBlocks.includes('.category-bar .cat-pill-menu a:hover .cat-count'));
   check('pill-children: rule is GENERIC — no nth-child / per-item selector in the hover rule', !!pillChildHover && !/nth-child|nth-of-type/.test(pillChildHover));
   check('pill-children: old plain bg-hover tint is gone', !/\.category-bar \.cat-pill-menu a:hover\s*\{\s*background:\s*var\(--bg-hover\)/.test(cssNoComments));
-  check('pill-children: :focus-visible matches hover (gold + lift + outline)', !!ruleBody(cssTopLevel, /\.category-bar \.cat-pill-menu a:focus-visible\s*\{[^}]*\}/) && /background:\s*var\(--mega-hover-gold\)/.test(ruleBody(cssTopLevel, /\.category-bar \.cat-pill-menu a:focus-visible\s*\{[^}]*\}/)));
+  check('pill-children: :focus-visible matches hover (gradient + lift + outline)', !!ruleBody(cssTopLevel, /\.category-bar \.cat-pill-menu a:focus-visible\s*\{[^}]*\}/) && /background:\s*var\(--gold-gradient\)/.test(ruleBody(cssTopLevel, /\.category-bar \.cat-pill-menu a:focus-visible\s*\{[^}]*\}/)));
   check('pill-children: hover gated behind @media (hover: hover)', hoverBlocks.includes('.category-bar .cat-pill-menu a:hover'));
   check('pill-children: reduced-motion disables the lift (colour only)', /\.category-bar \.cat-pill-menu a:hover[^{]*\{[^}]*transform:\s*none/.test(reducedMotionBlocks));
   const drawerSubHover = mobileBlocks.match(/\.shop-drawer-sub a:hover, \.shop-drawer-sub-sub a:hover\s*\{[^}]*\}/);
-  check('drawer: sub + sub-sub links get the same dark-gold hover', !!drawerSubHover && /background:\s*var\(--mega-hover-gold\)/.test(drawerSubHover) && /color:\s*#fff/.test(drawerSubHover));
+  check('drawer: sub + sub-sub links get the same dark-gold gradient hover', !!drawerSubHover && /background:\s*var\(--gold-gradient\)/.test(drawerSubHover) && /color:\s*#fff/.test(drawerSubHover));
   check('drawer: sub links :focus-visible matches hover', mobileBlocks.includes('.shop-drawer-sub a:focus-visible'));
   check('drawer: old plain bg-hover tint on sub links is gone', !/\.shop-drawer-sub a:hover, \.shop-drawer-sub-sub a:hover\s*\{\s*background:\s*var\(--bg-hover\)/.test(cssNoComments));
 

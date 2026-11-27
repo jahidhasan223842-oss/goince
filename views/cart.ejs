@@ -88,8 +88,10 @@
         <a href="/product/<%= p.id %>">
           <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
           <h3><%= p.name %></h3>
-          <p class="price">৳<%= p.price %></p>
         </a>
+        <div class="product-card-foot">
+          <p class="price">৳<%= p.price %></p>
+        </div>
       </div>
     <% }) %>
   </div>
