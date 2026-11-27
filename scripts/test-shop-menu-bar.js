@@ -190,7 +190,7 @@ function ruleBody(source, selectorRe) {
   // ---------- 4. Mobile header code review ----------
   check('mobile: drawer close is a 44px tap target (was 40px)', /shop-drawer-close\s*\{[^}]*width:\s*44px; height:\s*44px/.test(mobileBlocks));
   check('mobile: hamburger is 44px', /shop-menu-btn\s*\{[^}]*width:\s*44px; height:\s*44px/.test(mobileBlocks));
-  check('mobile: cart icon is 44px', /shop-cart-btn\s*\{[^}]*width:\s*44px; height:\s*44px/.test(mobileBlocks));
+  check('mobile: no cart icon in the top row (removed in fix/header-cart-side-tab; cart lives on the side tab)', !/shop-cart-btn/.test(mobileBlocks) && !/shop-cart-btn/.test(cssNoComments));
   check('mobile: search icon is 44px', /shop-search-btn\s*\{[^}]*width:\s*44px; height:\s*44px/.test(mobileBlocks));
   check('mobile: drawer sub-toggle is 44px', /shop-drawer-sub-toggle\s*\{[^}]*width:\s*44px; height:\s*44px/.test(mobileBlocks));
   check('mobile: search submit is at least 44px tall', /\.search-form button\s*\{\s*min-height:\s*44px/.test(mobileBlocks));
@@ -222,10 +222,10 @@ function ruleBody(source, selectorRe) {
   }
   if (html) {
     // Visual order in the header: search input, then the nav links
-    // Home, Categories button, Cart, Login, Sign Up. (The mobile
-    // cart icon's aria-label="Cart" sits earlier in the markup, so
-    // the check uses the nav anchors, not bare words.)
-    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'href="/cart">Cart', 'href="/login" class="btn-nav-outline">Login</a>', 'href="/signup" class="btn-nav-solid">Sign Up</a>'];
+    // Home, Categories button, Login, Sign Up. (fix/header-cart-
+    // side-tab: the Cart link is gone from the top nav; the drawer
+    // Cart entry stays, below.)
+    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'href="/login" class="btn-nav-outline">Login</a>', 'href="/signup" class="btn-nav-solid">Sign Up</a>'];
     let lastIdx = -1;
     let inOrder = true;
     for (const piece of order) {
@@ -233,7 +233,7 @@ function ruleBody(source, selectorRe) {
       if (i < 0 || i < lastIdx) { inOrder = false; break; }
       lastIdx = i;
     }
-    check('header render: search, Home, Categories, Cart, Login, Sign Up in order', inOrder && html.includes('class="logo"'));
+    check('header render: search, Home, Categories, Login, Sign Up in order (NO Cart link)', inOrder && html.includes('class="logo"'));
     check('header render: theme toggle present', html.includes('toggleGoinceTheme()'));
     check('header render: mega panel has exactly 2 columns for 2 top categories', (html.match(/class="mega-col"/g) || []).length === 2);
     check('header render: category titles + counts present', html.includes('Home Appliances') && html.includes('(3)') && html.includes('Winter Collection') && html.includes('(1)'));
