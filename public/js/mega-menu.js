@@ -15,8 +15,45 @@
   function setOpen(open) {
     panel.classList.toggle('open', open);
     buttons.forEach(function (b) { b.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+    // Panel bondho hole sob column collapse hoye jay (niche
+    // collapseAllCols) — porer bar khulle panel abar compact thake.
+    if (!open) collapseAllCols();
   }
   function isOpen() { return panel.classList.contains('open'); }
+
+  // Mega menu column toggle (fix/shop-mega-menu-compact): protita top
+  // category-r title-er pashe chhoto ▾ button — chaple oi category-r
+  // child list khulbe/bondho hobe. Title nije link-i thake (click-e
+  // category page-e jay); toggle shudhu expand/collapse kore.
+  // Children surute COLLAPSED thake (CSS-e .mega-col-list display:
+  // none), jate panel kholar somoy compact thake. Button native
+  // <button>, tai Enter/Space-eo click hoy.
+  function collapseAllCols() {
+    panel.querySelectorAll('.mega-col.open').forEach(function (col) { col.classList.remove('open'); });
+    panel.querySelectorAll('.mega-col-toggle').forEach(function (t) {
+      t.setAttribute('aria-expanded', 'false');
+      var label = t.getAttribute('aria-label') || '';
+      t.setAttribute('aria-label', label.replace('Hide sub-categories', 'Show sub-categories'));
+    });
+  }
+  panel.querySelectorAll('.mega-col-toggle').forEach(function (toggle) {
+    toggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var col = toggle.closest('.mega-col');
+      if (!col) return;
+      var open = col.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var label = toggle.getAttribute('aria-label') || '';
+      toggle.setAttribute('aria-label', open
+        ? label.replace('Show sub-categories', 'Hide sub-categories')
+        : label.replace('Hide sub-categories', 'Show sub-categories'));
+    });
+  });
+  // Hover-e khola panel mouse sorale CSS-ei bondho hoy (JS setOpen
+  // chole na) — tai mouseleave-eo column-gulo collapse kore dewa
+  // hoy, na hole porer bar hover-e panel ager expanded obosthay
+  // khulto.
+  wrap.addEventListener('mouseleave', function () { collapseAllCols(); });
   // Click-e khola hole panel "latched" thake (mouse soraleo khula thake).
   // Hover-e khola thakle click korle bondho hobe na — latch kore khula rakhbe;
   // latch kora obosthay abar click korlei shudhu bondho hobe.

@@ -160,7 +160,14 @@ function ruleBody(source, selectorRe) {
   check('mega menu: grid is flex + wrap (no auto-fit stretch)', !!gridRule && /display:\s*flex/.test(gridRule) && /flex-wrap:\s*wrap/.test(gridRule));
   check('mega menu: grid has no grid-template-columns auto-fit left', !!gridRule && !/grid-template-columns/.test(gridRule));
   const colRule = ruleBody(cssTopLevel, /\.mega-col\s*\{[^}]*\}/);
-  check('mega menu: columns bounded 200–280px', !!colRule && /min-width:\s*200px/.test(colRule) && /max-width:\s*280px/.test(colRule));
+  // HONEST UPDATE (fix/shop-mega-menu-compact, 2026-11-27): the old
+  // assertion required min-width: 200px on .mega-col — but that
+  // 200px min-width WAS the root cause of the oversized panel
+  // (max-content sized the grid to 200px/column while flex-basis
+  // 220px wrapped the 2nd column to a new row, leaving half the
+  // panel empty). Columns are now content-sized (flex: 0 0 auto +
+  // width: max-content) and still capped at 280px.
+  check('mega menu: columns content-sized and capped at 280px (no 200px min-width — it caused the empty panel)', !!colRule && /flex:\s*0 0 auto/.test(colRule) && /width:\s*max-content/.test(colRule) && /max-width:\s*280px/.test(colRule) && !/min-width:\s*200px/.test(colRule));
   check('mega menu: panel still centred at >=769px (right-edge guard)', /left:\s*50%/.test(desktop769Blocks) && /translateX\(-50%\)/.test(desktop769Blocks));
   check('mega menu: max-height + vertical scroll kept', !!panelRule && /max-height:\s*calc\(100vh - 90px\)/.test(panelRule) && /overflow-y:\s*auto/.test(panelRule));
   check('mega menu: titles still readable (panel title colour rule)', !!ruleBody(cssTopLevel, /\.mega-menu-panel a\.mega-col-title\s*\{[^}]*\}/));

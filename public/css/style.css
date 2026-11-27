@@ -12,6 +12,12 @@
   --accent: #f0a500;
   --accent-hover: #d99400;
   --accent-text: #9c6600;
+  /* Mega menu item hover (fix/shop-mega-menu-compact): garo sonali
+     (dark goldenrod poribar) background + sada lekha — sada 4.64:1
+     contrast (WCAG AA), andhar navy panel-eo ar sada panel-eo pora
+     jay. Header link-er ujjol gold #f0a500 ekhane na; admin-er
+     purono mustard #8a6d1f-o na. */
+  --mega-hover-gold: #966e00;
   --danger: #d62839;
   --success: #1f7a30;
   --info: #1976d2;
@@ -2300,35 +2306,106 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .mega-menu-wrap { position: static; }
   .mega-menu-panel { left: 50%; transform: translateX(-50%); }
 }
-/* Panel content-er map moto choto (fix/shop-menu-bar): grid + 1fr
-   column stretch korto bole 860px chaoda panel-e 2-ta category
-   thakleo ordhek panel khali thakto (niche ar dan dike faka).
-   Ekhon flex + wrap: protita top category ekta column
-   (200–280px), panel-er chaoda column-gulor jogfol (max 860px);
-   beshi category hole wrap kore porer row-e jay. max-width
-   min(860px, 100vw - 32px) + majhkhane bosano (left:50% +
-   translateX(-50%), uporer media query) thakay kono desktop
-   width-ei dan dike katbe na. */
+/* Panel content-er map moto choto (fix/shop-menu-bar +
+   fix/shop-mega-menu-compact): PR #65-e flex + wrap kora
+   hoyechilo, kintu panel tarporo ~460px chaoda hoye ekta
+   column-e content ar dan dike faka thakto — ROOT CAUSE:
+   column chhilo flex: 1 1 220px + min-width: 200px. Panel-er
+   chaoda width: max-content diye mape — max-content-e protita
+   column 200px (min-width clamp) dhore, tai grid 200+24+200 =
+   424px; kintu layout-er somoy column-gulo flex-basis 220px
+   chay (220+24+220 = 464px > 424px), tai ditiyo column wrap
+   kore nicher row-e pore jeto — panel chaoda, content ekta
+   soru column. Ekhon column flex: 0 0 auto + width:
+   max-content: column tar content-er chaoda (title + toggle),
+   panel-er chaoda column-gulor jogfol + gap + padding — ar
+   faka jayga nei. Beshi category hole wrap kore porer row-e
+   jay. max-width min(860px, 100vw - 32px) + majhkhane bosano
+   (left:50% + translateX(-50%), uporer media query) thakay
+   kono desktop width-ei dan dike katbe na. */
 .mega-menu-grid { display: flex; flex-wrap: wrap; gap: 8px 24px; }
-.mega-col { flex: 1 1 220px; min-width: 200px; max-width: 280px; padding: 6px 0; }
+.mega-col { flex: 0 0 auto; width: max-content; max-width: 280px; padding: 6px 0; }
 .mega-col-head { display: flex; align-items: center; gap: 4px; }
-.mega-col-title { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-strong); font-size: 15px; padding: 4px 0; margin: 0 !important; }
+.mega-col-title { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-strong); font-size: 15px; padding: 6px 10px; margin: 0 !important; border-radius: 8px; transition: transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease; }
 /* .main-nav a { color: #fff }-er specificity (class+element) .mega-col-title
    (shudhu class) theke beshi, tai title sada panel-e sada hoye adrishya hoye
    jeto — panel-er vitore scope kore specificity barano holo. */
 .mega-menu-panel a.mega-col-title { color: var(--text-strong); }
-.mega-col-title:hover { color: var(--accent-text); }
 .mega-col-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; flex-shrink: 0; }
 .mega-col-list, .mega-sub-list { list-style: none; }
-.mega-col-list { margin-top: 2px; }
-.mega-col-list a { display: block; padding: 4px 0 4px 40px; font-size: 14px; color: var(--text); margin: 0 !important; }
+/* Child list surute COLLAPSED (fix/shop-mega-menu-compact): panel
+   kholar somoy shudhu title-gulo + footer dekha jay; toggle chaple
+   .mega-col.open hoy ar list slide/fade kore khole. */
+.mega-col-list { display: none; margin-top: 2px; }
+.mega-col.open .mega-col-list { display: block; animation: mega-col-list-in .18s ease-out; }
+@keyframes mega-col-list-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mega-col-list a { display: block; padding: 4px 10px 4px 40px; font-size: 14px; color: var(--text); margin: 0 !important; border-radius: 8px; transition: transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease; }
 .mega-col-list > li > a { padding-left: 40px; }
 .mega-sub-list a { padding-left: 56px; font-size: 13px; color: var(--text-muted); }
-.mega-col-list a:hover, .mega-sub-list a:hover { color: var(--accent-text); }
 .mega-count { color: var(--text-muted); font-weight: 400; font-size: 12px; }
 .mega-menu-footer { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; text-align: center; }
-.mega-menu-footer a { color: var(--accent-text); font-weight: 700; font-size: 14px; margin: 0 !important; }
+.mega-menu-footer a { display: inline-block; padding: 6px 14px; border-radius: 8px; color: var(--accent-text); font-weight: 700; font-size: 14px; margin: 0 !important; transition: transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease; }
 .mega-menu-empty { color: var(--text-muted); font-size: 14px; padding: 8px 0; }
+
+/* =========================================================
+   MEGA MENU ITEM HOVER — DARK GOLD LIFT
+   (fix/shop-mega-menu-compact)
+   Donal: title-ta (Home Appliances (3)) hover-e onek ta upore
+   uthbe, ar garo sonali (dark gold) rong thakbe. Hover kora
+   item-ta panel theke sposhto vese othe: lift -6px + govir
+   chhaya + garo sonali background (var(--mega-hover-gold)
+   #966e00) + sada lekha. Header link-er ujjol gold (#f0a500)
+   ekhane na; admin-er purono mustard #8a6d1f-o na. Hover
+   @media (hover: hover)-er vitore — touch-e tap-er por stuck
+   hover hobe na. Keyboard-e :focus-visible-e eki rong + lift.
+   ========================================================= */
+@media (hover: hover) {
+  .mega-menu-panel a.mega-col-title:hover,
+  .mega-menu-panel .mega-col-list a:hover,
+  .mega-menu-panel .mega-sub-list a:hover,
+  .mega-menu-footer a:hover,
+  .mega-col-toggle:hover {
+    background: var(--mega-hover-gold);
+    color: #fff;
+    transform: translateY(-6px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  }
+  /* Count span-tao sada hobe — na hole sonali box-er upore
+     dhusor dekhabe. */
+  .mega-menu-panel a.mega-col-title:hover .mega-count,
+  .mega-menu-panel .mega-col-list a:hover .mega-count,
+  .mega-menu-panel .mega-sub-list a:hover .mega-count { color: rgba(255, 255, 255, 0.85); }
+}
+.mega-menu-panel a.mega-col-title:focus-visible,
+.mega-menu-panel .mega-col-list a:focus-visible,
+.mega-menu-panel .mega-sub-list a:focus-visible,
+.mega-menu-footer a:focus-visible,
+.mega-col-toggle:focus-visible {
+  background: var(--mega-hover-gold);
+  color: #fff;
+  transform: translateY(-6px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  /* Outline panel-er background-er biporit rong-e (text-strong:
+     andhar panel-e sada, sada panel-e navy) — sonali box-er
+     baire offset diye boshe, dui theme-ei dekha jay. */
+  outline: 2px solid var(--text-strong);
+  outline-offset: 2px;
+}
+.mega-menu-panel a.mega-col-title:focus-visible .mega-count,
+.mega-menu-panel .mega-col-list a:focus-visible .mega-count,
+.mega-menu-panel .mega-sub-list a:focus-visible .mega-count { color: rgba(255, 255, 255, 0.85); }
+
+/* --- Column toggle: title-er pashe chhoto ▾ button --- */
+/* Toggle nije button — title link theke alada. Khola thakle
+   caret 180° ghure ▴ hoy. Hover-e toggle-eo eki garo sonali
+   lift (uporer rule). */
+.mega-col-toggle { flex-shrink: 0; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: 11px; line-height: 1; padding: 5px 7px; cursor: pointer; transition: transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.mega-col-toggle .mega-col-caret { display: inline-block; transition: transform .18s ease; }
+.mega-col.open .mega-col-toggle .mega-col-caret { transform: rotate(180deg); }
+.mega-col-toggle:focus-visible { outline-offset: 2px; }
 
 /* =========================================================
    SHOP HEADER HOVER (fix/shop-header-hover)
@@ -2505,6 +2582,8 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .btn-nav-outline, .btn-nav-solid, .search-form button,
   .site-header .theme-toggle-btn, .logo, .logo-mark,
   .mega-menu-panel, .cat-pill-menu,
+  .mega-col-title, .mega-col-list a, .mega-sub-list a,
+  .mega-menu-footer a, .mega-col-toggle, .mega-col-toggle .mega-col-caret,
   .shop-menu-btn, .shop-search-btn, .shop-cart-btn,
   .shop-drawer-link, .shop-drawer-cat-btn, .shop-drawer-cat-link,
   .shop-drawer-sub-toggle, .shop-drawer-theme,
@@ -2512,7 +2591,16 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
     transition: none;
   }
   .mega-menu-panel .mega-col, .mega-menu-panel .mega-menu-footer,
+  .mega-col.open .mega-col-list,
   .cat-pill-menu > ul > li { animation: none; }
+  .mega-menu-panel a.mega-col-title:hover, .mega-menu-panel a.mega-col-title:focus-visible,
+  .mega-menu-panel .mega-col-list a:hover, .mega-menu-panel .mega-col-list a:focus-visible,
+  .mega-menu-panel .mega-sub-list a:hover, .mega-menu-panel .mega-sub-list a:focus-visible,
+  .mega-menu-footer a:hover, .mega-menu-footer a:focus-visible,
+  .mega-col-toggle:hover, .mega-col-toggle:focus-visible {
+    transform: none;
+    box-shadow: none;
+  }
   .main-nav > a:hover, .main-nav > a:focus-visible,
   .main-nav > .mega-menu-wrap > .mega-menu-btn:hover,
   .main-nav > .mega-menu-wrap > .mega-menu-btn:focus-visible,

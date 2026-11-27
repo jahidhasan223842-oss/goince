@@ -104,9 +104,18 @@
                   <div class="mega-col" data-cat-id="<%= cat.id %>">
                     <div class="mega-col-head">
                       <a class="mega-col-title" href="/?category=<%= cat.id %>"><% if (cat.image_url) { %><img src="<%= cat.image_url %>" alt="" class="mega-col-thumb"><% } %><span><%= cat.name %></span><span class="mega-count">(<%= cat.totalProductCount %>)</span></a>
+                      <% /* Column toggle (fix/shop-mega-menu-compact): title-er
+                            pashe chhoto ▾ button — chaple oi category-r
+                            child list khulbe/bondho hobe. Title nije link-i
+                            thake (click-e category page-e jay); toggle
+                            shudhu expand/collapse kore. Child nei emon
+                            category-te toggle thake na. */ %>
+                      <% if (cat.children && cat.children.length) { %>
+                        <button type="button" class="mega-col-toggle" aria-expanded="false" aria-controls="mega-col-list-<%= cat.id %>" aria-label="Show sub-categories of <%= cat.name %>"><span class="mega-col-caret" aria-hidden="true">▾</span></button>
+                      <% } %>
                     </div>
                     <% if (cat.children && cat.children.length) { %>
-                      <ul class="mega-col-list">
+                      <ul class="mega-col-list" id="mega-col-list-<%= cat.id %>">
                         <% cat.children.forEach(function (sub) { %>
                           <li>
                             <a href="/?category=<%= sub.id %>"><%= sub.name %> <span class="mega-count">(<%= sub.totalProductCount %>)</span></a>
