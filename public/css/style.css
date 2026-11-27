@@ -838,6 +838,37 @@ a { text-decoration: none; color: inherit; }
   transform: none;
 }
 
+/* ---------- Floating side-cart tab — right edge, mid-page
+   (fix/floating-cart-wishlist) ----------
+   donal asked for the cart option on the RIGHT EDGE of the shop,
+   like many e-commerce sites: a small fixed tab, vertically
+   centred (top: 50% + margin-top: -28px — NOT bottom-right, the
+   WhatsApp float lives there). Gold pill (var(--accent)) with a
+   navy cart icon reads on both light and dark themes; the count
+   badge is the same red as the header cart badge. Hover slides
+   it 4px out from the edge with a deeper shadow (.25s spring,
+   same language as the card hover). position: fixed + right: 0 —
+   the tab is fully inside the viewport and a fixed element never
+   widens the page, so it cannot cause horizontal overflow.
+   56px is a proper tap target on phones too. z-index 600 sits
+   below the drawer (900) and the WhatsApp float (999), above page
+   content; on very short viewports the WhatsApp overlap guard
+   (footer.ejs) hides the WhatsApp button if the two ever meet. */
+.side-cart { position: fixed; top: 50%; right: 0; z-index: 600; width: 56px; height: 56px; margin-top: -28px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--navy); border-radius: 28px 0 0 28px; box-shadow: -2px 4px 14px rgba(0, 0, 0, 0.25); font-size: 24px; line-height: 1; text-decoration: none; transition: transform .25s cubic-bezier(.22, 1.25, .36, 1), box-shadow .25s ease; }
+.side-cart:hover { transform: translateX(-4px); box-shadow: -4px 8px 20px rgba(0, 0, 0, 0.32); }
+.side-cart:focus-visible { outline: 2px solid var(--text-strong); outline-offset: 2px; }
+.side-cart-badge { position: absolute; top: -6px; left: -6px; min-width: 22px; height: 22px; padding: 0 5px; display: flex; align-items: center; justify-content: center; background: var(--danger-solid); color: #fff; border-radius: 11px; font-size: 12px; font-weight: 700; line-height: 1; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
+
+/* ---------- Wishlist empty state (fix/floating-cart-wishlist) ----------
+   The wishlist page was a bare one-liner ("Your wishlist is empty.
+   Start shopping") over a huge empty area. Now a proper empty
+   state: a heart in a soft circle, a friendly heading, one line of
+   text, and a prominent Start Shopping button to /. */
+.wishlist-empty { text-align: center; padding: 48px 16px 40px; }
+.wishlist-empty-icon { width: 72px; height: 72px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--card-foot-hover); color: var(--mega-hover-gold); font-size: 34px; line-height: 1; }
+.wishlist-empty h2 { font-size: 22px; margin: 0 0 8px; }
+.wishlist-empty p { color: var(--text-muted); margin: 0 0 20px; }
+
 /* Advanced admin analytics dashboard — preserves existing admin components. */
 .analytics-header { display:flex; justify-content:space-between; align-items:flex-end; gap:18px; margin-bottom:22px; flex-wrap:wrap; }
 .analytics-header h1 { margin:3px 0 6px; font-size:clamp(26px,3vw,34px); letter-spacing:-.7px; }
@@ -3327,6 +3358,7 @@ img, video { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .admin-sidebar, .admin-sidebar-overlay { transition: none; }
   .whatsapp-float.whatsapp-float--scroll { transition: none; }
+  .side-cart { transition: none; }
 }
 
 /* =========================================================

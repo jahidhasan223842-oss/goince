@@ -83,7 +83,7 @@
       <a href="/cart" class="shop-cart-btn" aria-label="Cart">🛒<% if (cartCount > 0) { %><span class="badge"><%= cartCount %></span><% } %></a>
       <form action="/" method="GET" class="search-form" id="shop-search-row" autocomplete="off">
         <div class="search-box">
-          <input type="text" name="search" id="search-input" placeholder="Search products..." value="<%= typeof search !== 'undefined' ? search : '' %>">
+          <input type="text" name="search" id="search-input" placeholder="Search products..." value="<%= (typeof search !== 'undefined' && search) ? search : '' %>">
           <div id="search-suggestions" class="search-suggestions" hidden></div>
         </div>
         <button type="submit">Search</button>

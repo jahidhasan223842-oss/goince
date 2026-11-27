@@ -1,4 +1,22 @@
   </main>
+  <% /* ---------- Floating side-cart tab — right edge, mid-page
+        (fix/floating-cart-wishlist) ----------
+        donal asked (2026-11-27, two wishlist screenshots, second one
+        red-boxed at the RIGHT EDGE): can the cart option be placed
+        here, like on many sites? — a small fixed tab on the right
+        edge with a cart icon + the live item count; clicking it goes
+        to /cart. It is a plain LINK to /cart, not a slide-in
+        mini-cart drawer (that can be a later step if he asks).
+        Mid-page (top: 50%), NOT bottom-right — the WhatsApp float
+        already lives there. Badge reuses the exact same res.locals
+        cartCount the header cart badge uses (same session cart, same
+        number, no second count source) and follows the header's
+        convention: shown only when the cart is not empty. Gold pill
+        with a navy cart icon reads on both themes; hover slides it
+        a few px out from the edge. position: fixed + right: 0 keeps
+        it fully inside the viewport (fixed elements never widen the
+        page); 56px is a proper tap target. */ %>
+  <a href="/cart" class="side-cart" aria-label="View cart" title="View cart"><span aria-hidden="true">🛒</span><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="side-cart-badge"><%= cartCount %></span><% } %></a>
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
@@ -64,6 +82,16 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       var input = document.getElementById('search-input');
       var box = document.getElementById('search-suggestions');
       if (!input || !box) return;
+      // "null" guard (fix/floating-cart-wishlist): donal's screenshot
+      // showed the literal text "null" sitting in the search box on
+      // /wishlist. No code path sets it — the server renders null as
+      // '' (EJS prints null/undefined empty) and no JS assigns the
+      // input's value — so it most likely arrived as a stale form
+      // value restored by the browser (bfcache / back-forward
+      // navigation). Whatever restored it, a search box must never
+      // show the word "null": clear it on load, and the header EJS
+      // guard is hardened to a truthy check too.
+      if (input.value === 'null' || input.value === 'undefined') input.value = '';
       var timer = null;
       input.addEventListener('input', function () {
         clearTimeout(timer);
@@ -105,12 +133,11 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       // - sob width: guarded control-er sathe overlap korle lukano
       //   thake — homepage Sort, cart "Proceed to Checkout",
       //   product-card-er "Add to Cart" / "Choose Option" button
-      //   (.product-card .btn-card) ar product page-er Add to Cart
-      //   (.add-to-cart-form button / .product-info .btn-primary).
-      //   Desktop-e (1920px) dan dik-er shesh product card-er Add
-      //   to Cart button-er upore circle-ta boshe jeto — ekhon
-      //   overlap hole button lukay, scroll korle control sore
-      //   gelei abar ase. Overlap-ta float-er asol rect-er sathe
+      //   (.product-card .btn-card), product page-er Add to Cart
+      //   (.add-to-cart-form button / .product-info .btn-primary),
+      //   ar dan pranter floating side-cart tab (.side-cart — khub
+      //   chhoto viewport-e majhkhane thaka tab-er satheo jeno na
+      //   lege jay). Overlap-ta float-er asol rect-er sathe
       //   miliye dekha hoy (ager bottom-band onuman noy), tai jekono
       //   scroll position-ei kaj kore. Check shudhu scroll/resize-e
       //   noy — load, font ready, ResizeObserver (jekono layout
@@ -122,7 +149,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       var mq = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null;
       if (!mq) return;
       var THRESHOLD = 300;
-      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary';
+      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary, .side-cart';
       var raf = window.requestAnimationFrame || function (fn) { fn(); };
       var ticking = false;
       function overlapsFloat(el) {
