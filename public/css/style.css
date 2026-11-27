@@ -23,10 +23,13 @@
      jate sada page theke sposhto alada lage. Dark mode-e govir
      navy-blue tint. */
   --pills-band: #e7f0f8;
-  /* Product card-er nicher zone (fix/pills-band-ripple-card): card
-     hover-e shudhu border-e rong + price/button zone-e norom gorom
-     (champagne/cream) background — chobi/title-e kichu hoy na. */
-  --card-foot-hover: #fdf3d8;
+  /* Product card-er nicher zone (fix/pills-band-ripple-card, rong
+     bodle fix/card-hover-transition): card hover-e shudhu border-e
+     rong + price/button zone-e norom MINT SOBUJ background (halka
+     mint #e3f2e6). donal prothome sonali bad dite bolechilo, pore
+     NEEL-O bad dite bollo ("নীল color বাদে দাও") — tai sonali-o na,
+     neel-o na: mint sobuj. Pills band neel-i thake (bodlay ni). */
+  --card-foot-hover: #e3f2e6;
   /* Garo sonali GRADIENT (fix/pills-band-ripple-card): pill dropdown-er
      child + drawer sub link hover-e — govir sonali #966e00 theke ektu
      ujjol sonali #ab8a00 porjonto; ujjol accent #f0a500 na, admin-er
@@ -70,9 +73,10 @@
   --shadow-md: rgba(0,0,0,0.5);
   --admin-bg: #0f0f18;
   /* Dark mode-e pills band: govir navy-blue tint; card foot hover:
-     govir gorom tint (halka champagne-er bodle). */
+     govir sobuj tint #1c2b22 (mint-er dark poribar — neel band-er
+     sathe milano na, sonali/champagne-er bodle). */
   --pills-band: #1e2c47;
-  --card-foot-hover: #2a2118;
+  --card-foot-hover: #1c2b22;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -212,7 +216,7 @@ a { text-decoration: none; color: inherit; }
    faka jayga nei, tai aste mouse namaleo dropdown bondho hoy na. */
 .cat-pill-menu { position: absolute; top: calc(100% - 1px); left: 0; min-width: 220px; max-width: calc(100vw - 32px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow-md); padding: 8px; z-index: 300; transform-origin: top left; visibility: hidden; opacity: 0; pointer-events: none; translate: 0 -6px; scale: .98; transition: opacity .2s ease, translate .2s ease, scale .2s ease, visibility 0s linear .2s; }
 .cat-pill-menu ul { list-style: none; }
-.category-bar .cat-pill-menu a { display: block; padding: 7px 10px; font-size: 14px; color: var(--text); background: none; border: none; border-radius: 8px; margin: 0; transition: transform .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease; }
+.category-bar .cat-pill-menu a { display: block; padding: 7px 10px; font-size: 14px; color: var(--text); background: none; border: none; border-radius: 8px; margin: 0; transition: transform .25s cubic-bezier(.22, 1.25, .36, 1), background-color .25s ease, color .25s ease, box-shadow .25s ease; }
 .category-bar .cat-pill-menu .cat-pill-sub a { padding-left: 24px; font-size: 13px; color: var(--text-muted); }
 /* ---------- Pill dropdown-er child link hover — garo sonali GRADIENT
    + aro besi lift (fix/pills-band-ripple-card) ----------
@@ -261,7 +265,7 @@ a { text-decoration: none; color: inherit; }
    puro row jure boro hoy; incomplete last row justify-content: center-e
    majhkhane boshe (uporer .product-grid-ei ache). */
 .product-grid--fill .product-card { max-width: none; }
-.product-card { background: var(--surface); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px var(--shadow-sm); transition: transform .22s ease, box-shadow .22s ease; display: flex; flex-direction: column; }
+.product-card { background: var(--surface); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px var(--shadow-sm); transition: transform .25s cubic-bezier(.22, 1.25, .36, 1), box-shadow .25s ease; display: flex; flex-direction: column; }
 /* Card-er nicher zone (price + button) — .product-card-foot: button /
    form ekhane thake, tai card-er nicher dike dhakka deyar
    (margin-top: auto) kaj-ta foot-i kore — age `.product-card >
@@ -270,7 +274,7 @@ a { text-decoration: none; color: inherit; }
    jate hover-er warm background card-er ekdom nicher pranto porjonto
    jay (button-er margin collapse kore background theme jeto na). */
 .product-card > .product-card-foot { margin-top: auto; }
-.product-card-foot { padding: 0 0 14px; transition: background-color .22s ease; }
+.product-card-foot { padding: 0 0 14px; transition: background-color .25s ease; }
 .product-card-foot .btn-card { margin-bottom: 0; }
 /* ---------- Product card hover + whole photo + aligned buttons
    (fix/homepage-beauty, strengthened fix/product-hover-gallery) ----------
@@ -303,10 +307,25 @@ a { text-decoration: none; color: inherit; }
    upor mouse nile button savabik navy-i thake); (b) card hover-e
    SHUDHU border-e rong — 2px garo sonali ring-i thake, puro card-e
    rong deya hoy na; (c) card hover-e nicher zone (price + button,
-   .product-card-foot) norom gorom background pay
-   (var(--card-foot-hover): halka champagne #fdf3d8 / dark-e govir
-   gorom #2a2118) — chobi ar title text bodlay na; (d) -10px lift,
-   govir chhaya, 1.08x zoom ager motoi thake. */
+   .product-card-foot) norom MINT SOBUJ background pay
+   (var(--card-foot-hover): halka mint #e3f2e6 / dark-e govir sobuj
+   tint #1c2b22 — PR #71-er halka champagne #fdf3d8 / govir gorom
+   #2a2118-er bodle; donal prothome sonali bad dite bolechilo, pore
+   neel-o bad dite bollo ("নীল color বাদে দাও") — tai sonali-o na,
+   neel-o na; 2px garo sonali ring/border ager motoi thake, pills
+   band neel-i thake) — chobi ar title text bodlay na; (d) -10px lift,
+   govir chhaya, 1.08x zoom ager motoi thake.
+   Card hover TRANSITION (fix/card-hover-transition — donal-er report:
+   "hover hoye but transition hoye na"): card/foot/chobi-r transition
+   ageo chilo kintu alada alada somoy-e (.22s / .25s / .18s, shudhu
+   ease) — ekhon shob .25s-e ek kora holo, lift-e site-er premium
+   spring ease (cubic-bezier(.22, 1.25, .36, 1)), rong-e plain ease.
+   Shudhu .btn-card-ei kono transition chilo na (setai asol bug) —
+   base rule-e transition jog kora holo, tai navy -> sonali du dik-ei
+   fade hoy. Pill dropdown child + drawer sub link-er transition-o
+   .18s -> .25s-e ana holo; tobe gradient background-ta nije fade hoy
+   na — CSS-e gradient (background-image) transition kora jay na,
+   tai gradient-ta sathe sathei ashe, lift/chhaya fade hoy. */
 .product-card img { width: 100%; height: 180px; object-fit: contain; background: var(--bg); transition: transform .25s ease; }
 .product-card h3 { padding: 10px 12px 0; font-size: 16px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; }
 @media (hover: hover) {
@@ -2369,10 +2388,15 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 .card-rating { padding: 0 12px; font-size: 13px; color: var(--accent-text); font-weight: 600; }
 .card-stock-low { padding: 0 12px 4px; font-size: 13px; color: var(--danger); font-weight: 600; }
 .card-stock-out { padding: 0 12px 4px; font-size: 13px; color: var(--text-muted); }
-.btn-card { display: block; margin: 0 12px 14px; text-align: center; background: var(--navy); color: #fff; padding: 9px 12px; border-radius: 6px; font-weight: 600; border: none; width: calc(100% - 24px); cursor: pointer; font-size: 14px; }
+.btn-card { display: block; margin: 0 12px 14px; text-align: center; background: var(--navy); color: #fff; padding: 9px 12px; border-radius: 6px; font-weight: 600; border: none; width: calc(100% - 24px); cursor: pointer; font-size: 14px; transition: background-color .25s ease, color .25s ease, border-color .25s ease, transform .25s ease, box-shadow .25s ease; }
 /* "Add to Cart" / "Choose Option" hover: ageo navy -> navy-2 chilo —
    pray dekha jeto na. Ekhon mega menu-r garo sonali (#966e00) + sada
-   lekha (fix/homepage-beauty). */
+   lekha (fix/homepage-beauty). TRANSITION BUG (fix/card-hover-transition):
+   base rule-e kono transition chilo na — tai :hover-e navy -> sonali
+   rong-ta sathe sathe bodle jeto, kono fade hoto na (donal-er report:
+   "hover hoye but transition hoye na"). Transition BASE rule-ei thakte
+   hobe — shudhu :hover-e dile vitore dhokar somoy fade hoto kintu
+   mouse sorale sathe sathe chole jeto. Ekhon du dik-ei .25s-e fade hoy. */
 .btn-card:hover { background: var(--mega-hover-gold); color: #fff; }
 .product-card form { margin: 0; }
 .why-shop { margin: 10px 0 40px; }
@@ -3362,7 +3386,7 @@ img, video { max-width: 100%; }
      child/grandchild jotoi thakuk shobar khetrei eki. Drawer-er row
      full-width bole lift deya hoy ni — shudhu rong + count saada.
      Gradient ager solid #966e00-er bodle (PR #69-e solid chilo). */
-  .shop-drawer-sub a, .shop-drawer-sub-sub a { transition: background-color .18s ease, color .18s ease; }
+  .shop-drawer-sub a, .shop-drawer-sub-sub a { transition: background-color .25s ease, color .25s ease; }
   .shop-drawer-sub a:hover, .shop-drawer-sub-sub a:hover { background: var(--gold-gradient); color: #fff; }
   .shop-drawer-sub a:hover .mega-count, .shop-drawer-sub-sub a:hover .mega-count { color: rgba(255, 255, 255, 0.85); }
   .shop-drawer-sub a:focus-visible, .shop-drawer-sub-sub a:focus-visible { background: var(--gold-gradient); color: #fff; outline: 2px solid var(--text-strong); outline-offset: -2px; }

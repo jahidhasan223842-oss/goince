@@ -50,16 +50,18 @@
 //      coloured; (c) the bottom zone of the card (price + button,
 //      new .product-card-foot wrapper in views/index.ejs,
 //      views/product.ejs, views/cart.ejs and the Recently Viewed
-//      renderer) gets a soft warm background on card hover
-//      (light champagne #fdf3d8, dark deep warm #2a2118) — the
+//      renderer) gets a soft background on card hover (PR #72:
+//      soft mint green #e3f2e6 light, deep green tint #1c2b22 dark
+//      — neither gold nor blue; PR #71 had champagne #fdf3d8 /
+//      deep warm #2a2118) — the
 //      photo and the title text are unchanged; (d) the -10px lift,
 //      deep shadow and 1.08x photo zoom from PR #69 are kept.
-//      :focus-within keeps lift + ring + warm foot.
+//      :focus-within keeps lift + ring + mint foot.
 //      The wishlist card is the one deliberate exception: its
 //      bottom zone is an absolutely-positioned .wishlist-actions
 //      row (position: relative + padding-bottom: 45px), so it has
 //      no .product-card-foot — it still gets the ring + lift +
-//      zoom on hover, just no warm zone.
+//      zoom on hover, just no mint zone.
 //
 // No live MySQL needed: CSS/EJS source checks + a direct EJS
 // render of the homepage + the REAL click-ripple IIFE run in a
@@ -317,16 +319,16 @@ function ruleBody(source, selectorRe) {
   check('card: base button is still dark navy (normal colour on card hover)', !!btnBase && /background:\s*var\(--navy\)/.test(btnBase[0]));
   // Bottom zone.
   const footHover = hoverBlocks.match(/\.product-card:hover \.product-card-foot\s*\{[^}]*\}/);
-  check('card: bottom zone gets the warm background on card hover', !!footHover && /background:\s*var\(--card-foot-hover\)/.test(footHover));
+  check('card: bottom zone gets the mint background on card hover', !!footHover && /background:\s*var\(--card-foot-hover\)/.test(footHover));
   const footFocus = ruleBody(cssTopLevel, /\.product-card:focus-within \.product-card-foot\s*\{[^}]*\}/);
-  check('card: :focus-within warms the bottom zone too (keyboard)', !!footFocus && /background:\s*var\(--card-foot-hover\)/.test(footFocus));
+  check('card: :focus-within gives the bottom zone the mint background too (keyboard)', !!footFocus && /background:\s*var\(--card-foot-hover\)/.test(footFocus));
   const footVar = ruleBody(cssTopLevel, /:root\s*\{[^}]*--card-foot-hover:[^}]*\}/);
-  check('card: light-mode foot is soft champagne #fdf3d8', !!footVar && /--card-foot-hover:\s*#fdf3d8/.test(footVar));
-  check('card: dark-mode foot is a deep warm tint #2a2118', !!darkVars && /--card-foot-hover:\s*#2a2118/.test(darkVars));
+  check('card: light-mode foot is soft mint green #e3f2e6 (PR #72 — neither gold nor blue)', !!footVar && /--card-foot-hover:\s*#e3f2e6/.test(footVar));
+  check('card: dark-mode foot is a deep green tint #1c2b22 (PR #72 — neither gold nor blue)', !!darkVars && /--card-foot-hover:\s*#1c2b22/.test(darkVars));
   const footPush = ruleBody(cssTopLevel, /\.product-card > \.product-card-foot\s*\{[^}]*\}/);
   check('card: foot pushes the button to the bottom (margin-top: auto)', !!footPush && /margin-top:\s*auto/.test(footPush));
   const footBase = cssTopLevel.match(/^\.product-card-foot \{[^}]*\}/m);
-  check('card: foot has bottom padding 14px so the warm bg reaches the card edge', !!footBase && /padding:\s*0 0 14px/.test(footBase[0]));
+  check('card: foot has bottom padding 14px so the mint bg reaches the card edge', !!footBase && /padding:\s*0 0 14px/.test(footBase[0]));
   check('card: foot button has no bottom margin (no double space, no margin collapse)', /\.product-card-foot \.btn-card\s*\{\s*margin-bottom:\s*0;/.test(cssTopLevel));
   const formRule = ruleBody(cssTopLevel, /\.product-card form\s*\{[^}]*\}/);
   check('card: form rule is plain margin: 0 now (the foot does the pushing)', !!formRule && /margin:\s*0/.test(formRule) && !/margin-top:\s*auto/.test(formRule));
