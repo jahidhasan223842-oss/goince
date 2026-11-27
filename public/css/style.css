@@ -839,7 +839,7 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* ---------- Floating side-cart tab — right edge, mid-page
-   (fix/floating-cart-wishlist) ----------
+   (fix/floating-cart-wishlist, fixed fix/header-cart-side-tab) ----------
    donal asked for the cart option on the RIGHT EDGE of the shop,
    like many e-commerce sites: a small fixed tab, vertically
    centred (top: 50% + margin-top: -28px — NOT bottom-right, the
@@ -847,16 +847,33 @@ a { text-decoration: none; color: inherit; }
    navy cart icon reads on both light and dark themes; the count
    badge is the same red as the header cart badge. Hover slides
    it 4px out from the edge with a deeper shadow (.25s spring,
-   same language as the card hover). position: fixed + right: 0 —
-   the tab is fully inside the viewport and a fixed element never
-   widens the page, so it cannot cause horizontal overflow.
-   56px is a proper tap target on phones too. z-index 600 sits
-   below the drawer (900) and the WhatsApp float (999), above page
-   content; on very short viewports the WhatsApp overlap guard
-   (footer.ejs) hides the WhatsApp button if the two ever meet. */
-.side-cart { position: fixed; top: 50%; right: 0; z-index: 600; width: 56px; height: 56px; margin-top: -28px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--navy); border-radius: 28px 0 0 28px; box-shadow: -2px 4px 14px rgba(0, 0, 0, 0.25); font-size: 24px; line-height: 1; text-decoration: none; transition: transform .25s cubic-bezier(.22, 1.25, .36, 1), box-shadow .25s ease; }
+   same language as the card hover). position: fixed + right: 12px
+   — the tab is a FULL rounded pill (border-radius: 28px on all
+   four corners) sitting 12px inside the viewport, never cut by
+   the screen edge.
+   ROOT CAUSE (live, 2026-11-27 15:30 — PR #74-er design nijei
+   chhilo ordhek-pill: right: 0 + border-radius: 28px 0 0 28px —
+   dan dikta viewport-er kinaray soman (flat) chhilo, tai dekhte
+   ordhek D-shape lagto, jeno pill-ta katar pore viewport-er
+   baire chole geche; ar icon chhilo 🛒 emoji — emoji-te color
+   kaj kore na, tai sonali pill-er upor fyakashe nil-dhusor
+   basket dekhte bojha jeto na. Ekhon: puropuri gol pill + garo
+   navy inline SVG cart icon (fill: currentColor — .side-cart-er
+   color: var(--navy) theke ase), tai duita theme-ei porishkar.
+   Badge (top: -6px, left: -6px) pill 12px vitore thakay puropuri
+   viewport-er vitorei thake, kokhono clip hoy na. 56px is a
+   proper tap target on phones too. z-index 600 sits below the
+   drawer (900) and the WhatsApp float (999), above page content;
+   on very short viewports the WhatsApp overlap guard
+   (footer.ejs) hides the WhatsApp button if the two ever meet.
+   .side-cart--hidden: nijer overlap guard (footer.ejs) tab-ta
+   lukay jokhon kono product button-er sathe lege jay — WhatsApp
+   guard-er motoi fade + pointer-events none. */
+.side-cart { position: fixed; top: 50%; right: 12px; z-index: 600; width: 56px; height: 56px; margin-top: -28px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--navy); border-radius: 28px; box-shadow: -2px 4px 14px rgba(0, 0, 0, 0.25); line-height: 1; text-decoration: none; transition: transform .25s cubic-bezier(.22, 1.25, .36, 1), box-shadow .25s ease, opacity .25s ease, visibility .25s ease; }
+.side-cart svg { width: 26px; height: 26px; display: block; fill: currentColor; }
 .side-cart:hover { transform: translateX(-4px); box-shadow: -4px 8px 20px rgba(0, 0, 0, 0.32); }
 .side-cart:focus-visible { outline: 2px solid var(--text-strong); outline-offset: 2px; }
+.side-cart--hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .side-cart-badge { position: absolute; top: -6px; left: -6px; min-width: 22px; height: 22px; padding: 0 5px; display: flex; align-items: center; justify-content: center; background: var(--danger-solid); color: #fff; border-radius: 11px; font-size: 12px; font-weight: 700; line-height: 1; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
 
 /* ---------- Wishlist empty state (fix/floating-cart-wishlist) ----------
@@ -2797,16 +2814,6 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .search-form button:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
 }
 
-/* --- Cart badge: hover-e chhoto pop --- */
-/* .badge global (admin-eo bebohar hoy) — display/transition shudhu
-   shop header-er badge-e. Emoji icon-e color kaj kore na, tai
-   badge-er scale-i hover feedback. */
-.main-nav .badge, .shop-cart-btn .badge { display: inline-block; transition: transform .2s ease; }
-@media (hover: hover) {
-  .main-nav > a:hover .badge,
-  .shop-cart-btn:hover .badge { transform: scale(1.2); }
-}
-
 /* --- Theme toggle: glow + halka rotate (SHOP header shudhu) --- */
 /* .theme-toggle-btn admin topbar-eo ache — tai selector-e
    .site-header scope kora holo, admin-er hover ekdom bodlabe na.
@@ -2874,10 +2881,9 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
 /* Drawer-er accordion behaviour bodlano hoy ni — shudhu hover-e
    rong + bam dike gold dag, tap-e (:active) feedback. */
 @media (max-width: 768px) {
-  .shop-menu-btn, .shop-search-btn, .shop-cart-btn { transition: background .15s ease, color .15s ease, transform .15s ease; }
+  .shop-menu-btn, .shop-search-btn { transition: background .15s ease, color .15s ease, transform .15s ease; }
   .shop-menu-btn:hover, .shop-search-btn:hover { background: rgba(255, 255, 255, 0.12); color: var(--accent); }
-  .shop-cart-btn:hover { background: rgba(255, 255, 255, 0.12); color: var(--accent); }
-  .shop-menu-btn:active, .shop-search-btn:active, .shop-cart-btn:active { transform: scale(.94); }
+  .shop-menu-btn:active, .shop-search-btn:active { transform: scale(.94); }
   .shop-drawer-link, .shop-drawer-cat-btn { transition: background .15s ease, color .15s ease, box-shadow .15s ease; }
   .shop-drawer-link:hover, .shop-drawer-cat-btn:hover { background: var(--bg-hover); color: var(--accent-text); box-shadow: inset 3px 0 0 var(--accent); }
   .shop-drawer-link:active, .shop-drawer-cat-btn:active { background: var(--bg-hover); color: var(--accent-text); }
@@ -2901,15 +2907,14 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .mega-menu-panel, .cat-pill-menu,
   .mega-col-title, .mega-col-list a, .mega-sub-list a,
   .mega-menu-footer a, .mega-col-toggle, .mega-col-toggle .mega-col-caret,
-  .shop-menu-btn, .shop-search-btn, .shop-cart-btn,
+  .shop-menu-btn, .shop-search-btn,
   .shop-drawer-link, .shop-drawer-cat-btn, .shop-drawer-cat-link,
   .shop-drawer-sub-toggle, .shop-drawer-theme,
   .category-bar > a, .category-bar .cat-pill-wrap > a,
   .category-bar .cat-pill-menu a,
   .shop-drawer-sub a, .shop-drawer-sub-sub a,
   .product-card, .product-card img, .product-card .btn-card, .product-card-foot,
-  .gallery-stage #main-product-image, .gallery-arrow, .gallery-zoom-btn,
-  .main-nav .badge, .shop-cart-btn .badge {
+  .gallery-stage #main-product-image, .gallery-arrow, .gallery-zoom-btn {
     transition: none;
   }
   .mega-menu-panel .mega-col, .mega-menu-panel .mega-menu-footer,
@@ -2928,7 +2933,7 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .main-nav > .mega-menu-wrap > .mega-menu-btn:focus-visible,
   .btn-nav-outline:hover, .btn-nav-solid:hover,
   .search-form button:hover,
-  .shop-menu-btn:active, .shop-search-btn:active, .shop-cart-btn:active {
+  .shop-menu-btn:active, .shop-search-btn:active {
     transform: none;
     box-shadow: none;
   }
@@ -3372,7 +3377,7 @@ img, video { max-width: 100%; }
    ========================================================= */
 
 /* Desktop-e lukano thake (mobile-e nicher media query khule dey). */
-.shop-menu-btn, .shop-cart-btn, .shop-search-btn, .shop-drawer, .shop-drawer-overlay { display: none; }
+.shop-menu-btn, .shop-search-btn, .shop-drawer, .shop-drawer-overlay { display: none; }
 /* Letter fallback: desktop pill-e chhobi na thakle shudhu nam dekhay. */
 .cat-letter { display: none; }
 
@@ -3386,15 +3391,9 @@ img, video { max-width: 100%; }
     border-radius: 8px; font-size: 20px; line-height: 1; cursor: pointer;
   }
   .shop-menu-btn:hover { background: rgba(255,255,255,0.12); }
-  .shop-cart-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 44px; height: 44px; flex-shrink: 0;
-    color: #fff; font-size: 22px; position: relative;
-  }
-  .shop-cart-btn .badge { position: absolute; top: 0; right: -2px; margin-left: 0; }
-  /* Search icon: cart icon-er motoi bare icon (44px touch target).
-     Chaple search row khule (mega-menu.js), tokhon icon ✕ hoye jay.
-     margin-left: auto — search + cart dan dike ek sathe thake. */
+  /* Search icon: bare icon (44px touch target). Chaple search row
+     khule (mega-menu.js), tokhon icon ✕ hoye jay. margin-left: auto
+     — search dan dike ek sathe thake. */
   .shop-search-btn {
     display: inline-flex; align-items: center; justify-content: center;
     width: 44px; height: 44px; flex-shrink: 0; margin-left: auto;

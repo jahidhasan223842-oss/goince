@@ -1,6 +1,6 @@
   </main>
   <% /* ---------- Floating side-cart tab — right edge, mid-page
-        (fix/floating-cart-wishlist) ----------
+        (fix/floating-cart-wishlist, fixed fix/header-cart-side-tab) ----------
         donal asked (2026-11-27, two wishlist screenshots, second one
         red-boxed at the RIGHT EDGE): can the cart option be placed
         here, like on many sites? — a small fixed tab on the right
@@ -12,11 +12,14 @@
         cartCount the header cart badge uses (same session cart, same
         number, no second count source) and follows the header's
         convention: shown only when the cart is not empty. Gold pill
-        with a navy cart icon reads on both themes; hover slides it
-        a few px out from the edge. position: fixed + right: 0 keeps
-        it fully inside the viewport (fixed elements never widen the
-        page); 56px is a proper tap target. */ %>
-  <a href="/cart" class="side-cart" aria-label="View cart" title="View cart"><span aria-hidden="true">🛒</span><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="side-cart-badge"><%= cartCount %></span><% } %></a>
+        (var(--accent)) with a dark navy inline SVG cart icon —
+        emoji noy, tai color kaj kore ar duita theme-ei porishkar
+        bojha jay. Puropuri gol pill (border-radius: 28px), right:
+        12px — viewport-er 12px vitore, kokhono kinaray kata pore
+        na; hover slides it a few px out from the edge. 56px is a
+        proper tap target. Nijer overlap guard (niche) tab-ta lukay
+        jokhon kono product button-er sathe lege jay. */ %>
+  <a href="/cart" class="side-cart" aria-label="View cart" title="View cart"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="side-cart-badge"><%= cartCount %></span><% } %></a>
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
@@ -200,6 +203,64 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       // (ResizeObserver — chobi load, deri-te asa content, viewport
       // bodol), bfcache theke firle (pageshow), ar prothom paint-er
       // pore rAF-e ekbar. Scroll/resize listener ager motoi ache.
+      if (window.addEventListener) {
+        window.addEventListener('load', update);
+        window.addEventListener('pageshow', update);
+      }
+      if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+        document.fonts.ready.then(function () { update(); });
+      }
+      if (window.ResizeObserver && document.documentElement) {
+        var ro = new window.ResizeObserver(function () { onScroll(); });
+        ro.observe(document.documentElement);
+      }
+      raf(function () { update(); });
+      update();
+    })();
+  </script>
+
+  <script>
+    // Side-cart tab overlap guard (fix/header-cart-side-tab): tab-ta
+    // fixed, majhkhane dan dike thake — scroll korle dan diker
+    // product card-er "Add to Cart" / "Choose Option" button-er dan
+    // pranto-er niche chole aste pare (live-e dekha geche, Best
+    // Sellers row-e). WhatsApp guard-er motoi asol rect intersection
+    // diye mapa hoy: overlap hole tab lukay (.side-cart--hidden —
+    // fade + pointer-events none), na hole abar dekha jay. Check
+    // scroll/resize-e noy — load, font ready, ResizeObserver,
+    // pageshow ar prothom paint-er pore rAF-eo chole. JS na cholle
+    // tab ager motoi sob somoy visible thake.
+    (function () {
+      var tab = document.querySelector('.side-cart');
+      if (!tab) return;
+      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary';
+      var raf = window.requestAnimationFrame || function (fn) { fn(); };
+      var ticking = false;
+      function overlapsTab(el) {
+        var r = el.getBoundingClientRect();
+        var t = tab.getBoundingClientRect();
+        if (!r || !t) return false;
+        if (r.bottom <= 0 || r.top >= window.innerHeight) return false;
+        var pad = 4;
+        return r.left < t.right + pad && r.right > t.left - pad &&
+               r.top < t.bottom + pad && r.bottom > t.top - pad;
+      }
+      function update() {
+        ticking = false;
+        var hide = false;
+        var guarded = document.querySelectorAll(GUARDED);
+        for (var i = 0; i < guarded.length; i++) {
+          if (overlapsTab(guarded[i])) { hide = true; break; }
+        }
+        tab.classList.toggle('side-cart--hidden', hide);
+        tab.setAttribute('aria-hidden', hide ? 'true' : 'false');
+        if (hide) { tab.setAttribute('tabindex', '-1'); } else { tab.removeAttribute('tabindex'); }
+      }
+      function onScroll() {
+        if (!ticking) { ticking = true; raf(update); }
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onScroll, { passive: true });
       if (window.addEventListener) {
         window.addEventListener('load', update);
         window.addEventListener('pageshow', update);

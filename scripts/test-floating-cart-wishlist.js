@@ -158,11 +158,11 @@ function searchInputValue(html) {
   const sideCart = ruleBody(cssTopLevel, '.side-cart');
   check('css: .side-cart rule exists', !!sideCart);
   if (sideCart) {
-    check('css: side-cart is fixed at the right edge, vertically centred (top: 50%, right: 0)', /position:\s*fixed/.test(sideCart) && /top:\s*50%/.test(sideCart) && /right:\s*0/.test(sideCart), sideCart.slice(0, 120));
+    check('css: side-cart is fixed at the right edge, vertically centred (top: 50%, right: 12px — fully rounded pill, not a half-tab)', /position:\s*fixed/.test(sideCart) && /top:\s*50%/.test(sideCart) && /right:\s*12px/.test(sideCart), sideCart.slice(0, 120));
     check('css: side-cart is NOT bottom-right (no bottom: rule)', !/bottom:/.test(sideCart));
-    check('css: side-cart is a 56px tab (proper tap target) with the rounded LEFT side only', /width:\s*56px/.test(sideCart) && /height:\s*56px/.test(sideCart) && /border-radius:\s*28px 0 0 28px/.test(sideCart));
+    check('css: side-cart is a 56px tab (proper tap target) with a FULLY rounded pill (border-radius: 28px on all corners)', /width:\s*56px/.test(sideCart) && /height:\s*56px/.test(sideCart) && /border-radius:\s*28px;/.test(sideCart) && !/28px 0 0 28px/.test(sideCart));
     check('css: side-cart is gold (var(--accent)) with navy icon — reads on both themes', /background:\s*var\(--accent\)/.test(sideCart) && /color:\s*var\(--navy\)/.test(sideCart));
-    check('css: side-cart keeps fully inside the viewport (right: 0, no negative offset on the tab itself)', !/right:\s*-/.test(sideCart) && !/left:\s*-/.test(sideCart));
+    check('css: side-cart sits fully inside the viewport (right: 12px, no negative offset on the tab itself)', !/right:\s*-/.test(sideCart) && !/left:\s*-/.test(sideCart) && /right:\s*12px/.test(sideCart));
     check('css: side-cart hover slides it out from the edge + deeper shadow (.25s spring)', /\.side-cart:hover\s*\{[^}]*translateX\(-4px\)/.test(cssTopLevel) && /cubic-bezier\(\.22,\s*1\.25,\s*\.36,\s*1\)/.test(sideCart));
     check('css: side-cart has a :focus-visible outline', /\.side-cart:focus-visible/.test(cssTopLevel));
   }

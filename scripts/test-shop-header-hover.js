@@ -6,7 +6,7 @@
 // admin panel, but beautiful, with extra effects so it looks good.
 //
 // What was built (SHOP ONLY — the admin panel is untouched):
-//   1. NAV HOVER: Home / Categories / Cart (+ Wishlist, My Account,
+//   1. NAV HOVER: Home / Categories (+ Wishlist, My Account,
 //      Logout, Login, Sign Up) turn gold (var(--accent)) on hover,
 //      lift translateY(-2px), and grow a gold underline sliding in
 //      from the left (::after scaleX 0 -> 1). The header is navy in
@@ -30,8 +30,12 @@
 //   3. PILL DROPDOWNS: same fade/slide/scale entrance (25ms/item
 //      stagger, last 150ms) on hover and :focus-within. Mobile
 //      (<=768px) still never opens them (tap navigates instead).
-//   4. CART BADGE: hovering the Cart link (desktop) or cart icon
-//      (mobile) pops the count badge (scale 1.2).
+//   4. CART BADGE — REMOVED (fix/header-cart-side-tab): the header
+//      Cart link (desktop) and cart icon (mobile) are gone, so the
+//      header badge-pop rules are gone too. The count badge now
+//      lives on the floating side-cart tab (footer) and on the
+//      drawer Cart link; this suite asserts the old header rules
+//      are really gone (see section 7).
 //   5. THEME TOGGLE (shop header only, scoped .site-header so the
 //      admin toggle is untouched): hover gives a gold glow + gentle
 //      12deg rotate. The icon is an emoji text node (theme.js sets
@@ -39,7 +43,7 @@
 //      is the visible effect, colour cannot recolour an emoji.
 //   6. LOGO: very subtle hover — brightness 1.08 + 1px lift, the
 //      mark scales 1.08. Nothing flashy.
-//   7. MOBILE + TOUCH: hamburger / search / cart icon buttons get
+//   7. MOBILE + TOUCH: hamburger / search icon buttons get
 //      hover wash + :active scale(.94); drawer links change colour
 //      + grow a gold left bar on hover, :active feedback on tap.
 //      Drawer accordion behaviour unchanged.
@@ -123,7 +127,7 @@ function ruleBody(source, selectorRe) {
   console.log('Shop header hover (fix/shop-header-hover) checks:');
 
   // ---------- 1. Nav link hover: colour + lift ----------
-  check('nav hover: Home/Cart links turn gold on hover',
+  check('nav hover: Home links turn gold on hover',
     /\.main-nav\s*>\s*a:hover[^{]*\{[^}]*color:\s*var\(--accent\)/.test(hoverBlocks),
     'no gold hover colour on .main-nav > a');
   check('nav hover: links lift translateY(-2px) on hover',
@@ -262,14 +266,15 @@ function ruleBody(source, selectorRe) {
     /cat-pill-wrap:hover\s+\.cat-pill-menu,\s*\.cat-pill-wrap:focus-within\s+\.cat-pill-menu\s*\{[^}]*display:\s*none/.test(mobileBlocks),
     'mobile pill menu no longer blocked');
 
-  // ---------- 7. Cart badge pop ----------
-  check('cart badge: hover pops the count badge (scale 1.2)',
-    /\.main-nav\s*>\s*a:hover\s+\.badge[^{]*\{[^}]*transform:\s*scale\(1\.2\)/.test(hoverBlocks)
-    && /\.shop-cart-btn:hover\s+\.badge[^{]*\{[^}]*transform:\s*scale\(1\.2\)/.test(hoverBlocks),
-    'no badge pop on cart hover');
-  check('cart badge: badge has a transform transition (scoped to shop header)',
-    /\.main-nav\s+\.badge,\s*\.shop-cart-btn\s+\.badge\s*\{[^}]*transition:\s*transform/.test(cssTopLevel),
-    'no badge transition');
+  // ---------- 7. Cart badge pop — REMOVED with the header Cart link ----------
+  // (fix/header-cart-side-tab): the header Cart link + mobile cart
+  // icon are gone, so the header badge-pop rules must be gone too.
+  // The count badge now lives on the floating side-cart tab (footer)
+  // and on the drawer Cart link — asserted in
+  // test-header-cart-side-tab.js and test-floating-cart-wishlist.js.
+  check('cart badge: no header cart badge rules remain (Cart link removed)',
+    !/shop-cart-btn/.test(cssNoComments) && !/\.main-nav\s+\.badge/.test(cssTopLevel),
+    'dead header cart badge rule still present');
 
   // ---------- 8. Theme toggle glow + rotate (shop header only) ----------
   const toggleHover = ruleBody(hoverBlocks, /\.site-header\s+\.theme-toggle-btn:hover\s*\{[^}]*\}/);
@@ -295,7 +300,7 @@ function ruleBody(source, selectorRe) {
   // ---------- 10. Mobile top row + drawer ----------
   check('mobile: icon buttons get hover wash + tap scale(.94)',
     /\.shop-menu-btn:hover,\s*\.shop-search-btn:hover\s*\{[^}]*background:\s*rgba\(255,\s*255,\s*255,\s*0\.12\)/.test(mobileBlocks)
-    && /\.shop-menu-btn:active,\s*\.shop-search-btn:active,\s*\.shop-cart-btn:active\s*\{[^}]*transform:\s*scale\(\.94\)/.test(mobileBlocks),
+    && /\.shop-menu-btn:active,\s*\.shop-search-btn:active\s*\{[^}]*transform:\s*scale\(\.94\)/.test(mobileBlocks),
     'no mobile icon button feedback');
   check('mobile: drawer links change colour + grow a gold left bar on hover',
     /\.shop-drawer-link:hover,\s*\.shop-drawer-cat-btn:hover\s*\{[^}]*color:\s*var\(--accent-text\)/.test(mobileBlocks)
@@ -347,7 +352,7 @@ function ruleBody(source, selectorRe) {
     check('shop header renders (EJS)', false, String(e && e.message));
   }
   if (html) {
-    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'href="/cart">Cart', 'href="/login" class="btn-nav-outline">Login</a>', 'href="/signup" class="btn-nav-solid">Sign Up</a>'];
+    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'href="/login" class="btn-nav-outline">Login</a>', 'href="/signup" class="btn-nav-solid">Sign Up</a>'];
     let lastIdx = -1;
     let inOrder = true;
     for (const piece of order) {
@@ -355,9 +360,10 @@ function ruleBody(source, selectorRe) {
       if (i < 0 || i < lastIdx) { inOrder = false; break; }
       lastIdx = i;
     }
-    check('header render: logo, search, Home, Categories, Cart, Login, Sign Up in order', inOrder && html.includes('class="logo"'));
+    check('header render: logo, search, Home, Categories, Login, Sign Up in order (NO Cart link)', inOrder && html.includes('class="logo"'));
+    check('header render: no desktop Cart link in the nav (fix/header-cart-side-tab)', !html.includes('href="/cart">Cart'));
     check('header render: theme toggle present', html.includes('toggleGoinceTheme()'));
-    check('header render: cart badge shows the count (2)', html.includes('<span class="badge">2</span>'));
+    check('header render: drawer Cart badge shows the count (2)', html.includes('<span class="badge">2</span>'));
     check('header render: mega panel has exactly 2 columns for 2 top categories', (html.match(/class="mega-col"/g) || []).length === 2);
   }
 
@@ -383,7 +389,6 @@ function ruleBody(source, selectorRe) {
   }
   function runActiveScenario(pathname, search) {
     const home = makeLink('/');
-    const cart = makeLink('/cart');
     const login = makeLink('/login');
     const signup = makeLink('/signup');
     const wrap = { tagName: 'DIV', getAttribute() { return null; }, classList: { add() {}, contains() { return false; } } };
@@ -394,7 +399,10 @@ function ruleBody(source, selectorRe) {
         contains(c) { return megaBtn._classes.has(c); },
       },
     };
-    const nav = { children: [home, wrap, cart, login, signup] };
+    // (fix/header-cart-side-tab): the nav has NO Cart link any more —
+    // the stubbed nav mirrors the real one: Home, Categories wrap,
+    // Login, Sign Up.
+    const nav = { children: [home, wrap, login, signup] };
     const sandbox = {
       document: {
         querySelector(sel) { return sel === '.main-nav' ? nav : null; },
@@ -404,7 +412,7 @@ function ruleBody(source, selectorRe) {
     };
     sandbox.window.location = sandbox.window.location;
     vm.runInNewContext(actCode, sandbox);
-    return { home, cart, login, signup, megaBtn };
+    return { home, login, signup, megaBtn };
   }
 
   // Homepage: Home active, Categories not.
@@ -413,13 +421,14 @@ function ruleBody(source, selectorRe) {
   // Category page: Categories active, Home NOT.
   sc = runActiveScenario('/', '?category=8');
   check('active link behaviour: ?category= marks Categories active, Home not', sc.megaBtn.classList.contains('active') && !sc.home.classList.contains('active'));
-  // Cart page: Cart active, Home not.
+  // Cart page: NO link active any more (the Cart link was removed in
+  // fix/header-cart-side-tab — the IIFE just finds no /cart link).
   sc = runActiveScenario('/cart', '');
-  check('active link behaviour: /cart marks Cart active', sc.cart.classList.contains('active') && !sc.home.classList.contains('active'));
+  check('active link behaviour: /cart marks nothing active (Cart link removed)', !sc.home.classList.contains('active') && !sc.megaBtn.classList.contains('active'));
   // Product page: nothing active.
   sc = runActiveScenario('/product/binbond-watch', '');
   check('active link behaviour: /product/... marks nothing active',
-    !sc.home.classList.contains('active') && !sc.cart.classList.contains('active') && !sc.megaBtn.classList.contains('active'));
+    !sc.home.classList.contains('active') && !sc.megaBtn.classList.contains('active'));
 
   console.log(`\n${passes.length} passed, ${failures.length} failed.`);
   if (failures.length) { console.log('Failures: ' + failures.join(', ')); process.exit(1); }
