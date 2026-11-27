@@ -141,7 +141,28 @@
   update();
 })();
 
-// Mobile search (≤768px): 🔍 icon chaple search row khulbe/bondho hobe.
+// Active nav link (fix/shop-header-hover): bortoman page-er link-e
+// halka gold underline thake (CSS-e .main-nav > a.active::after) —
+// kothay achi bojha jay. Server header-e kono active class pathay
+// na, tai JS-e pathname miliye bosano hoy. Home (/) shudhu exact
+// /-tei active; ?category= thakle Home na, Categories button
+// active hoy. /product/... er moto page-e kono link-e active pore na.
+(function () {
+  var nav = document.querySelector('.main-nav');
+  if (!nav) return;
+  var path = window.location.pathname;
+  var isCategoryPage = /[?&]category=/.test(window.location.search);
+  Array.prototype.forEach.call(nav.children, function (child) {
+    if (child.tagName !== 'A') return;
+    var href = child.getAttribute('href');
+    if (!href) return;
+    if (href === path && !(href === '/' && isCategoryPage)) child.classList.add('active');
+  });
+  if (isCategoryPage) {
+    var megaBtn = document.getElementById('mega-menu-btn');
+    if (megaBtn) megaBtn.classList.add('active');
+  }
+})();
 // Desktop-e (769px+) search bar sob somoy dekha jay, tai ei toggle
 // tokhon lukano thake (CSS) — JS kichhu kore na. Khulle input-e focus
 // jay, Esc chaple bondho hoy. Suggestions/Enter/submit-er logic footer-er

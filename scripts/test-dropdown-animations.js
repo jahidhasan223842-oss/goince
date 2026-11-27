@@ -206,7 +206,12 @@ function rulesWith(source, selector) {
   check('stagger animation applies to top-nav links and dropdown links via .open only (.2s)',
     /\.admin-topnav-menu\.open \.admin-topnav-menu-link,\s*\.admin-dropdown-menu\.open a\s*\{\s*animation:\s*admin-menu-item-in \.2s ease-out backwards;/.test(css),
     'stagger animation rule missing');
-  const delays = [...css.matchAll(/animation-delay:\s*(\d+)ms;/g)].map((m) => Number(m[1]));
+  // Admin stagger delays ONLY (fix/shop-header-hover, PR #66: the
+  // shop mega menu + pill dropdowns now have their own delays —
+  // 30ms steps on .mega-col, 25ms steps on pill items — so the
+  // collection must be scoped to the admin selectors, not the whole
+  // file; the check itself is unchanged: 7 admin delays, 30..210ms.
+  const delays = [...css.matchAll(/(?:admin-topnav-menu-link|admin-dropdown-menu)[^{]*\{[^}]*animation-delay:\s*(\d+)ms;/g)].map((m) => Number(m[1]));
   check('stagger delays increase in 30ms steps and the last is under 250ms',
     delays.length === 7
     && delays.every((d, i) => d === (i + 1) * 30)
@@ -273,12 +278,17 @@ function rulesWith(source, selector) {
     && !/\b(width|height|margin|padding|top|left)\s*:/.test(kfBlock),
     'keyframes animate a layout property');
 
-  // ---- 7. SHOP UNTOUCHED: no animation leaked into the shop header/mega menu ----
-  check('shop header and mega menu have no dropdown-animation rules',
+  // ---- 7. SHOP: admin animation must not leak in — but the shop
+  // now HAS its own entrance motion (fix/shop-header-hover, PR #66:
+  // mega panel + pill dropdowns use the shop's OWN keyframes
+  // shop-menu-item-in, fade/slide/scale). The guard stays: no
+  // admin-menu-item-in anywhere in the shop header or mega menu.
+  check('shop mega menu uses its own keyframes, not the admin ones',
     !shopHeaderEjs.includes('admin-menu-item-in')
-    && !/\.mega-menu-panel[^{]*\{[^}]*animation:/.test(cssTopLevel)
-    && !/\.mega-menu-panel[^{]*\{[^}]*admin-menu-item-in/.test(css),
-    'animation leaked into the shop');
+    && !/\.mega-menu-panel[^{]*\{[^}]*admin-menu-item-in/.test(css)
+    && !/\.cat-pill-menu[^{]*\{[^}]*admin-menu-item-in/.test(css)
+    && /@keyframes shop-menu-item-in/.test(css),
+    'admin animation leaked into the shop');
 
   // ---- 8. HEADER RENDER: same menus/links, nothing removed or reordered ----
   const rendered = await renderFile(headerPath, { siteName: 'Goince' });
