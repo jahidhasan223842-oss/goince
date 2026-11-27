@@ -59,6 +59,7 @@ router.post('/signup', async (req, res) => {
       );
       req.session.userId = result.insertId;
       req.session.userName = customerDisplayName({ name, email });
+      req.session.userEmail = email;
       req.session.userPhotoUrl = null;
       res.redirect('/');
     } catch (dbErr) {
@@ -115,6 +116,7 @@ router.post('/login', async (req, res) => {
       }
       req.session.userId = user.id;
       req.session.userName = customerDisplayName(user);
+      req.session.userEmail = user.email;
       req.session.userPhotoUrl = user.photo_url || null;
 
       // "Remember Me" checked -> stay logged in for 30 days; otherwise the
@@ -382,6 +384,10 @@ router.post('/account/profile/email', requireCustomer, async (req, res) => {
     const [taken] = await db.query('SELECT id FROM users WHERE email = ? AND id != ?', [result.email, req.session.userId]);
     if (taken.length > 0) return res.redirect('/account/profile?err=emailtaken');
     await db.query('UPDATE users SET email = ? WHERE id = ?', [result.email, req.session.userId]);
+    // Header-er profile dropdown-e email dekhay — session-eo bodle dewa
+    // holo (fix/header-account-menu), na hole purono email-i dekhate
+    // thakto jotokkhon na abar login kore.
+    req.session.userEmail = result.email;
     return res.redirect('/account/profile?saved=email');
   } catch (err) {
     console.error('Customer email change error:', err);

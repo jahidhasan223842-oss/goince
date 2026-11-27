@@ -200,6 +200,70 @@
     if (megaBtn) megaBtn.classList.add('active');
   }
 })();
+// Shop profile dropdown (fix/header-account-menu): logged-in header-er
+// dan konar profile pill — click-e khule/latch kore. Hover-e khole na
+// (mega menu-r moto dual mechanism noy — click-i ekmatro kholar rasta,
+// tai close niye kono dwidha nei, admin-er PR #64 bug-er moto kichhu
+// hobe na). Esc chaple bondho + focus button-e fire; baire click korle
+// bondho; Tab kore menu-r baire gele bondho; Categories mega menu
+// khulle eta bondho hoy, ar eta khulle mega menu bondho hoy — duita
+// menu kokhono ekshathe khula thake na.
+(function () {
+  var wrap = document.querySelector('.shop-profile-wrap');
+  if (!wrap) return;
+  var btn = document.getElementById('shop-profile-btn');
+  var menu = document.getElementById('shop-profile-menu');
+  if (!btn || !menu) return;
+
+  function setOpen(open) {
+    menu.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  function isOpen() { return menu.classList.contains('open'); }
+
+  // Mega menu-r panel khula thakle bondho kore dewa — mega menu-r
+  // `latched` flag mega IIFE-r private, kintu seta ekhane dorkar nei:
+  // panel-er .open class soralei panel bondho; porer click-e mega IIFE
+  // isOpen() false dekhe abar khulbe.
+  function closeMegaMenu() {
+    var panel = document.getElementById('mega-menu-panel');
+    var megaBtn = document.getElementById('mega-menu-btn');
+    if (panel) panel.classList.remove('open');
+    if (megaBtn) megaBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (isOpen()) {
+      setOpen(false);
+    } else {
+      closeMegaMenu();
+      setOpen(true);
+    }
+  });
+  // Baire click korle bondho.
+  document.addEventListener('click', function (e) {
+    if (isOpen() && !wrap.contains(e.target)) setOpen(false);
+  });
+  // Esc chaple bondho, focus button-e firbe.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isOpen()) {
+      setOpen(false);
+      btn.focus();
+    }
+  });
+  // Focus puro menu-r baire chole gele bondho (Tab kore beriye gele).
+  wrap.addEventListener('focusout', function (e) {
+    if (!wrap.contains(e.relatedTarget)) setOpen(false);
+  });
+  // Categories mega menu khulle profile menu bondho hobe — mega menu
+  // button click-e (latch) ar hover-e khole, duita jaygatei.
+  var megaBtn = document.getElementById('mega-menu-btn');
+  var megaWrap = document.querySelector('.mega-menu-wrap');
+  if (megaBtn) megaBtn.addEventListener('click', function () { setOpen(false); });
+  if (megaWrap) megaWrap.addEventListener('mouseenter', function () { setOpen(false); });
+})();
+
 // Desktop-e (769px+) search bar sob somoy dekha jay, tai ei toggle
 // tokhon lukano thake (CSS) — JS kichhu kore na. Khulle input-e focus
 // jay, Esc chaple bondho hoy. Suggestions/Enter/submit-er logic footer-er

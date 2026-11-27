@@ -146,19 +146,54 @@
               point ekhon dan pranter floating side-cart tab. Footer-er
               Quick Links-er Cart ar drawer-er Cart entry ager motoi
               ache — ogulo "upre" noy, tai sorano hoy ni. */ %>
-        <% if (userName) { %>
-          <a href="/wishlist">Wishlist</a>
-          <% /* Customer profile (fix/customer-profile-section): the
-                header shows the customer's photo (small circle) next
-                to their name, falling back to an initial-letter circle
-                when no photo is set. Links to the profile hub. */ %>
-          <a href="/account/profile" class="shop-account-link"><% const _uPhoto = (typeof userPhotoUrl !== 'undefined' && userPhotoUrl) ? String(userPhotoUrl) : null; %><% if (_uPhoto) { %><span class="shop-user-avatar" aria-hidden="true"><img src="<%= _uPhoto %>" alt=""></span><% } else { %><span class="shop-user-avatar" aria-hidden="true"><%= String(userName).trim().charAt(0).toUpperCase() %></span><% } %><span><%= userName %></span></a>
-          <a href="/logout">Logout</a>
-        <% } else { %>
-          <a href="/login" class="btn-nav-outline">Login</a>
-          <a href="/signup" class="btn-nav-solid">Sign Up</a>
-        <% } %>
+        <% /* Theme toggle (day/night) — account control-er AGE (thik
+              bam pashe): logged out-e "Login / Sign Up" button-er age,
+              logged in-e profile pill-er age — account control shob
+              somoy header-er ekdom dan konay shesh element.
+              DECIDED (fix/header-account-menu): (a) admin panel-er
+              PR #62-er motoi niyom (toggle profile-er age, profile
+              sheshe) — admin + shop ek-i system mone hoy; (b) toggle
+              shob somoy ek tap-e pawa jay, dropdown-er vitore lukano
+              thakle logged-out visitor khujei peto na; (c) search-er
+              pashe ba logo-r kachhe bosale search chapa hoye jeto ar
+              pattern vangto. */ %>
         <button type="button" class="theme-toggle-btn" onclick="toggleGoinceTheme()" title="ডার্ক মোড">🌙</button>
+        <% if (userName) { %>
+          <% const _uPhoto = (typeof userPhotoUrl !== 'undefined' && userPhotoUrl) ? String(userPhotoUrl) : null; %>
+          <% const _uEmail = (typeof userEmail !== 'undefined' && userEmail) ? String(userEmail) : ''; %>
+          <% /* Customer profile dropdown (fix/header-account-menu):
+                dan konar profile pill (avatar + nam + chevron) — chaple
+                dropdown khole (click-e latch, mega-menu.js-er IIFE).
+                Age alada alada Wishlist link / avatar link / Logout
+                text chhilo; ekhon shob menu-r vitore. Avatar na thakle
+                initial-letter circle (PR #73-er motoi). */ %>
+          <div class="shop-profile-wrap">
+            <button type="button" class="shop-profile-btn" id="shop-profile-btn" aria-haspopup="true" aria-expanded="false" aria-controls="shop-profile-menu">
+              <% if (_uPhoto) { %><span class="shop-user-avatar" aria-hidden="true"><img src="<%= _uPhoto %>" alt=""></span><% } else { %><span class="shop-user-avatar" aria-hidden="true"><%= String(userName).trim().charAt(0).toUpperCase() %></span><% } %><span class="shop-profile-name"><%= userName %></span><span class="shop-profile-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="shop-profile-menu" id="shop-profile-menu">
+              <div class="shop-profile-head">
+                <% if (_uPhoto) { %><span class="shop-user-avatar" aria-hidden="true"><img src="<%= _uPhoto %>" alt=""></span><% } else { %><span class="shop-user-avatar" aria-hidden="true"><%= String(userName).trim().charAt(0).toUpperCase() %></span><% } %>
+                <div class="shop-profile-head-text">
+                  <div class="shop-profile-head-name"><%= userName %></div>
+                  <% if (_uEmail) { %><div class="shop-profile-head-email"><%= _uEmail %></div><% } %>
+                </div>
+              </div>
+              <a href="/account/profile" class="shop-profile-link">👤 My Profile</a>
+              <a href="/account" class="shop-profile-link">📦 My Orders</a>
+              <a href="/wishlist" class="shop-profile-link">♥️ Wishlist</a>
+              <a href="/track-order" class="shop-profile-link">📦 Track Order</a>
+              <div class="shop-profile-divider" aria-hidden="true"></div>
+              <a href="/logout" class="shop-profile-link">🚪 Logout</a>
+            </div>
+          </div>
+        <% } else { %>
+          <% /* Login + Sign Up EK button-e (fix/header-account-menu):
+                "Login / Sign Up" — login page-ei "New here? Create an
+                account" ache, tai ek button duitar kaj kore. Age alada
+                Login (outline) + Sign Up (solid) chhilo. */ %>
+          <a href="/login" class="btn-nav-solid">Login / Sign Up</a>
+        <% } %>
       </nav>
     </div>
   </header>
