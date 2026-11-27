@@ -3,6 +3,12 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
+const upload = require('../config/upload');
+const { cropProfilePhoto, validateProfileDetails, validateEmailChange } = require('../lib/admin-profile');
+const { customerDisplayName, formatMemberSince } = require('../lib/customer-profile');
+const { isEmailConfigured } = require('../config/email');
+const fs = require('fs');
+const path = require('path');
 
 function requireCustomer(req, res, next) {
   if (req.session.userId) return next();
@@ -52,7 +58,8 @@ router.post('/signup', async (req, res) => {
         [name, email, hashedPassword, phone || null]
       );
       req.session.userId = result.insertId;
-      req.session.userName = name;
+      req.session.userName = customerDisplayName({ name, email });
+      req.session.userPhotoUrl = null;
       res.redirect('/');
     } catch (dbErr) {
       // Race condition: 2 jon ekshathe same email diye signup korte gele eta dhorbe
@@ -107,7 +114,8 @@ router.post('/login', async (req, res) => {
         return res.render('auth/login', { error: 'Something went wrong, please try again.', siteName: 'Goince' });
       }
       req.session.userId = user.id;
-      req.session.userName = user.name;
+      req.session.userName = customerDisplayName(user);
+      req.session.userPhotoUrl = user.photo_url || null;
 
       // "Remember Me" checked -> stay logged in for 30 days; otherwise the
       // session ends when the browser is closed (a normal session cookie)
@@ -257,69 +265,202 @@ router.get('/account/orders/:id', requireCustomer, async (req, res) => {
   }
 });
 
-// ==================== PROFILE / ADDRESS MANAGEMENT ====================
+// ==================== MY PROFILE (the customer hub) ====================
+// One page for everything a logged-in customer needs: photo, details,
+// email change, password change, order stats + quick links (orders,
+// wishlist, track order, logout). All saves use the redirect-back
+// pattern (like the admin profile), so a refresh never re-submits.
+// The email is read-only in the details form — it changes only in the
+// Change Email section below, with the current password (admin PR #61
+// pattern). The name is users.name (NOT NULL, required at signup); a
+// blank name on save keeps the stored name — the email-local-part
+// fallback is a display rule only, never baked into the DB (the admin
+// PR #62 lesson).
 
 router.get('/account/profile', requireCustomer, async (req, res) => {
   const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-  res.render('auth/profile', { user, error: null, message: null, siteName: 'Goince' });
+  if (!user) return res.redirect('/login');
+  // Order stats — total spent uses the same rule as the admin customer
+  // detail page: cancelled orders contribute ৳0.
+  let ordersCount = 0;
+  let totalSpent = 0;
+  try {
+    const [[stats]] = await db.query(
+      `SELECT COUNT(*) AS ordersCount,
+              COALESCE(SUM(CASE WHEN status != 'Cancelled' THEN total_amount ELSE 0 END), 0) AS totalSpent
+       FROM orders WHERE user_id = ?`,
+      [req.session.userId]
+    );
+    ordersCount = stats ? Number(stats.ordersCount) || 0 : 0;
+    totalSpent = stats ? Number(stats.totalSpent) || 0 : 0;
+  } catch (e) { /* stats stay 0 — the profile still loads */ }
+  const photoUrl = (user.photo_url && String(user.photo_url).startsWith('/uploads/'))
+    ? String(user.photo_url) : null;
+  res.render('auth/profile', {
+    user,
+    displayName: customerDisplayName(user),
+    // Raw stored name (fix/whmcs-one-line-topbar, admin side): the form
+    // pre-fills with what is actually stored — never the fallback.
+    rawName: user.name || '',
+    photoUrl,
+    memberSince: formatMemberSince(user.created_at),
+    ordersCount,
+    totalSpent,
+    emailConfigured: isEmailConfigured(),
+    profileOk: req.query.saved === 'details' || req.query.saved === 'photo'
+      || req.query.saved === 'removed' || req.query.saved === 'email',
+    profileMessage: req.query.saved === 'details' ? 'Profile details saved.' :
+      req.query.saved === 'photo' ? 'Profile photo saved.' :
+      req.query.saved === 'removed' ? 'Profile photo removed.' :
+      req.query.saved === 'email' ? 'Email changed successfully — use the new address to sign in next time.' :
+      req.query.err === 'name' ? 'Display name must be 1–60 characters.' :
+      req.query.err === 'phone' ? 'Enter a valid Bangladeshi mobile number (01XXXXXXXXX) or leave it blank.' :
+      req.query.err === 'email' ? 'Enter a valid email address.' :
+      req.query.err === 'emailmatch' ? 'The two new email addresses do not match.' :
+      req.query.err === 'emailsame' ? 'The new email is the same as your current one.' :
+      req.query.err === 'emailtaken' ? 'Another account already uses that email address.' :
+      req.query.err === 'emailpw' ? 'Current password is wrong — email was not changed.' :
+      req.query.err === 'photo' ? 'Choose a photo file (jpg, png or webp, up to 5 MB).' :
+      req.query.err === 'crop' ? 'The photo could not be cropped — try another photo.' :
+      req.query.err === 'noaccount' ? 'No account found — please sign in again.' : null,
+    pwOk: req.query.pw === 'ok',
+    pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
+      req.query.pw === 'wrong' ? 'Current password is wrong — password was not changed.' :
+      req.query.pw === 'mismatch' ? 'New passwords do not match — password was not changed.' :
+      req.query.pw === 'short' ? 'New password must be at least 6 characters.' :
+      req.query.pw === 'noaccount' ? 'No account found — please sign in again.' : null,
+    siteName: 'Goince'
+  });
 });
 
+// ---------- PROFILE DETAILS ----------
+// Name 1–60 chars (blank keeps the stored name), phone optional but
+// validated with the shared BD rule (lib/bd-phone.js, same as checkout
+// and the admin profile), address kept as-is. The email is NOT updated
+// here — it is read-only in this section.
 router.post('/account/profile', requireCustomer, async (req, res) => {
   try {
-    let { name, email, phone, address } = req.body;
-    name = (name || '').trim();
-    email = (email || '').trim().toLowerCase();
-    phone = (phone || '').trim();
-
+    const result = validateProfileDetails({ displayName: req.body.name, phone: req.body.phone });
+    if (!result.ok) return res.redirect('/account/profile?err=' + result.errors[0]);
     const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-
-    if (!name || !email) {
-      return res.render('auth/profile', { user, error: 'Name and Email are required.', message: null, siteName: 'Goince' });
-    }
-    if (!isValidEmail(email)) {
-      return res.render('auth/profile', { user, error: 'Please enter a valid email address.', message: null, siteName: 'Goince' });
-    }
-
-    const [existing] = await db.query('SELECT id FROM users WHERE email = ? AND id != ?', [email, req.session.userId]);
-    if (existing.length > 0) {
-      return res.render('auth/profile', { user, error: 'Another account already exists with this email.', message: null, siteName: 'Goince' });
-    }
-
+    if (!user) return res.redirect('/account/profile?err=noaccount');
+    // Blank name = no change (the stored name stays; the display falls
+    // back to the email local part only when the stored name is empty).
+    const name = result.displayName === null ? user.name : result.displayName;
+    const address = (req.body.address || '').trim() || null;
     await db.query(
-      'UPDATE users SET name=?, email=?, phone=?, address=? WHERE id=?',
-      [name, email, phone || null, address || null, req.session.userId]
+      'UPDATE users SET name=?, phone=?, address=? WHERE id=?',
+      [name, result.phone, address, req.session.userId]
     );
-    req.session.userName = name;
-
-    const [[updatedUser]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-    res.render('auth/profile', { user: updatedUser, error: null, message: 'Profile updated successfully!', siteName: 'Goince' });
+    req.session.userName = customerDisplayName({ name, email: user.email });
+    return res.redirect('/account/profile?saved=details');
   } catch (err) {
     console.error('Profile update error:', err);
     res.status(500).send('Profile update korte problem hoyeche.');
   }
 });
 
+// ---------- CHANGE EMAIL ----------
+// New email + confirm + current password (required — proving the
+// customer owns the account). Format/match/different checks live in
+// lib/admin-profile.js; the current-password check and the duplicate
+// check need the DB, so they live here. On success the DB row is
+// updated; the session name is unchanged (the header shows the name,
+// not the email).
+router.post('/account/profile/email', requireCustomer, async (req, res) => {
+  try {
+    const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    if (!user) return res.redirect('/account/profile?err=noaccount');
+    const result = validateEmailChange({
+      currentEmail: user.email,
+      newEmail: req.body.new_email,
+      confirmEmail: req.body.confirm_new_email,
+    });
+    if (!result.ok) return res.redirect('/account/profile?err=' + result.errors[0]);
+    const ok = await bcrypt.compare(req.body.current_password || '', user.password);
+    if (!ok) return res.redirect('/account/profile?err=emailpw');
+    const [taken] = await db.query('SELECT id FROM users WHERE email = ? AND id != ?', [result.email, req.session.userId]);
+    if (taken.length > 0) return res.redirect('/account/profile?err=emailtaken');
+    await db.query('UPDATE users SET email = ? WHERE id = ?', [result.email, req.session.userId]);
+    return res.redirect('/account/profile?saved=email');
+  } catch (err) {
+    console.error('Customer email change error:', err);
+    res.status(500).send('Email change korte problem hoyeche.');
+  }
+});
+
+// ---------- PROFILE PHOTO ----------
+// One image (jpg/png/webp, up to 5 MB — the shared upload filter),
+// cropped to a 256x256 WebP square with the browser-sent crop
+// fractions (lib/admin-profile.js clamps them to the image bounds; no
+// crop sent = centred square). The old photo file is deleted on
+// replace. The form action MUST carry ?_csrf= (see the photo form in
+// views/auth/profile.ejs) — the global CSRF middleware runs before
+// multer parses the multipart body, so a hidden _csrf body field is
+// invisible at check time (the admin PR #60 lesson: the plain-action
+// photo form 403'd every submit).
+router.post('/account/profile/photo', requireCustomer, (req, res) => {
+  upload.single('photo')(req, res, async (err) => {
+    if (err || !req.file) return res.redirect('/account/profile?err=photo');
+    try {
+      const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+      if (!user) { try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ } return res.redirect('/account/profile?err=noaccount'); }
+      const data = await fs.promises.readFile(req.file.path);
+      const cropped = await cropProfilePhoto(data, { x: req.body.crop_x, y: req.body.crop_y, size: req.body.crop_size });
+      const filename = 'customer-photo-' + user.id + '-' + Date.now() + '.webp';
+      await fs.promises.writeFile(path.join(__dirname, '..', 'public', 'uploads', filename), cropped.buffer);
+      try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+      const oldUrl = user.photo_url;
+      await db.query('UPDATE users SET photo_url = ? WHERE id = ?', ['/uploads/' + filename, user.id]);
+      req.session.userPhotoUrl = '/uploads/' + filename;
+      if (oldUrl && String(oldUrl).startsWith('/uploads/customer-photo-')) {
+        try { fs.unlinkSync(path.join(__dirname, '..', 'public', oldUrl)); } catch (e) { /* already gone */ }
+      }
+      return res.redirect('/account/profile?saved=photo');
+    } catch (e) {
+      try { if (req.file && req.file.path) fs.unlinkSync(req.file.path); } catch (e2) { /* ignore */ }
+      return res.redirect('/account/profile?err=crop');
+    }
+  });
+});
+
+// Remove the profile photo — back to the initial-letter avatar.
+router.post('/account/profile/photo/remove', requireCustomer, async (req, res) => {
+  const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+  if (!user) return res.redirect('/account/profile?err=noaccount');
+  const oldUrl = user.photo_url;
+  await db.query('UPDATE users SET photo_url = NULL WHERE id = ?', [req.session.userId]);
+  req.session.userPhotoUrl = null;
+  if (oldUrl && String(oldUrl).startsWith('/uploads/customer-photo-')) {
+    try { fs.unlinkSync(path.join(__dirname, '..', 'public', oldUrl)); } catch (e) { /* already gone */ }
+  }
+  return res.redirect('/account/profile?saved=removed');
+});
+
 // ---------- CHANGE PASSWORD (login thakle, purono password diye) ----------
+// Posts back to the profile hub with ?pw=… (redirect, not render) so a
+// refresh never re-submits the password form.
 router.post('/account/change-password', requireCustomer, async (req, res) => {
   try {
     const { current_password, new_password, confirm_new_password } = req.body;
     const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    if (!user) return res.redirect('/account/profile?pw=noaccount');
 
     const match = await bcrypt.compare(current_password || '', user.password);
     if (!match) {
-      return res.render('auth/profile', { user, error: 'Your current password is incorrect.', message: null, siteName: 'Goince' });
+      return res.redirect('/account/profile?pw=wrong');
     }
     if (!new_password || new_password.length < 6) {
-      return res.render('auth/profile', { user, error: 'New password must be at least 6 characters.', message: null, siteName: 'Goince' });
+      return res.redirect('/account/profile?pw=short');
     }
     if (new_password !== confirm_new_password) {
-      return res.render('auth/profile', { user, error: 'New passwords do not match.', message: null, siteName: 'Goince' });
+      return res.redirect('/account/profile?pw=mismatch');
     }
 
     const hashedPassword = await bcrypt.hash(new_password, 10);
     await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.session.userId]);
 
-    res.render('auth/profile', { user, error: null, message: 'Password changed successfully!', siteName: 'Goince' });
+    return res.redirect('/account/profile?pw=ok');
   } catch (err) {
     console.error('Change password error:', err);
     res.status(500).send('Password change korte problem hoyeche.');

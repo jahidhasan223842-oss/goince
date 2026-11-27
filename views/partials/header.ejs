@@ -142,7 +142,11 @@
         <a href="/cart">Cart <% if (cartCount > 0) { %><span class="badge"><%= cartCount %></span><% } %></a>
         <% if (userName) { %>
           <a href="/wishlist">Wishlist</a>
-          <a href="/account">My Account</a>
+          <% /* Customer profile (fix/customer-profile-section): the
+                header shows the customer's photo (small circle) next
+                to their name, falling back to an initial-letter circle
+                when no photo is set. Links to the profile hub. */ %>
+          <a href="/account/profile" class="shop-account-link"><% const _uPhoto = (typeof userPhotoUrl !== 'undefined' && userPhotoUrl) ? String(userPhotoUrl) : null; %><% if (_uPhoto) { %><span class="shop-user-avatar" aria-hidden="true"><img src="<%= _uPhoto %>" alt=""></span><% } else { %><span class="shop-user-avatar" aria-hidden="true"><%= String(userName).trim().charAt(0).toUpperCase() %></span><% } %><span><%= userName %></span></a>
           <a href="/logout">Logout</a>
         <% } else { %>
           <a href="/login" class="btn-nav-outline">Login</a>
@@ -200,8 +204,13 @@
       <a href="/cart" class="shop-drawer-link">🛒 Cart<% if (cartCount > 0) { %> <span class="badge"><%= cartCount %></span><% } %></a>
       <a href="/track-order" class="shop-drawer-link">📦 Track Order</a>
       <% if (userName) { %>
+        <% /* Customer profile (fix/customer-profile-section): the drawer
+              shows the customer's photo + name at the top of the
+              account block, same avatar as the desktop header. */ %>
+        <div class="shop-drawer-account"><% const _dPhoto = (typeof userPhotoUrl !== 'undefined' && userPhotoUrl) ? String(userPhotoUrl) : null; %><% if (_dPhoto) { %><span class="shop-user-avatar shop-drawer-avatar" aria-hidden="true"><img src="<%= _dPhoto %>" alt=""></span><% } else { %><span class="shop-user-avatar shop-drawer-avatar" aria-hidden="true"><%= String(userName).trim().charAt(0).toUpperCase() %></span><% } %><span class="shop-drawer-account-name"><%= userName %></span></div>
         <a href="/wishlist" class="shop-drawer-link">♥️ Wishlist</a>
-        <a href="/account" class="shop-drawer-link">👤 My Account</a>
+        <a href="/account/profile" class="shop-drawer-link">👤 My Profile</a>
+        <a href="/account" class="shop-drawer-link">📦 My Orders</a>
         <a href="/logout" class="shop-drawer-link">🚪 Logout</a>
       <% } else { %>
         <a href="/login" class="shop-drawer-link">🔑 Login</a>
