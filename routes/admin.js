@@ -2970,7 +2970,21 @@ router.get('/reviews', requireAdmin, requirePermission('reviews.manage'), async 
     params
   );
   const [[{ pending }]] = await db.query("SELECT COUNT(*) AS pending FROM reviews WHERE status = 'pending'");
-  res.render('admin/reviews', { reviews, pending, status: status || '', siteName: 'Goince' });
+  // D4 (feat/product-page): Product Q&A — shopper-er proshno gulo
+  // ekhanei ase (pending age, tarpor answered). Admin uttor dile
+  // tobei shop-e dekhabe; uttor na deoa proshno public-e othe na.
+  let questions = [];
+  let pendingQuestions = 0;
+  try {
+    const [qrows] = await db.query(
+      `SELECT q.*, p.name AS product_name FROM product_questions q
+       LEFT JOIN products p ON q.product_id = p.id
+       ORDER BY CASE WHEN q.status = 'pending' THEN 0 ELSE 1 END, q.created_at DESC LIMIT 200`
+    );
+    questions = qrows;
+    pendingQuestions = qrows.filter((q) => q.status === 'pending').length;
+  } catch (e) { questions = []; }
+  res.render('admin/reviews', { reviews, pending, status: status || '', questions, pendingQuestions, siteName: 'Goince' });
 });
 router.post('/reviews/:id/approve', requireAdmin, requirePermission('reviews.manage'), async (req, res) => {
   await db.query("UPDATE reviews SET status = 'approved' WHERE id = ?", [req.params.id]);
@@ -2982,6 +2996,25 @@ router.post('/reviews/:id/hide', requireAdmin, requirePermission('reviews.manage
 });
 router.post('/reviews/:id/delete', requireAdmin, requirePermission('reviews.manage'), async (req, res) => {
   await db.query('DELETE FROM reviews WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/reviews');
+});
+
+// ---------- PRODUCT Q&A MODERATION (D4, feat/product-page) ----------
+// Admin uttor likhle proshno-ta 'answered' hoy ar shop-er product
+// page-e dekhay; khali uttor dile kichu bodlay na. Delete korle
+// proshno-ta chirotore muche jay. Reviews-er motoi 'reviews.manage'
+// permission lage — alada kono notun permission noy.
+router.post('/questions/:id/answer', requireAdmin, requirePermission('reviews.manage'), async (req, res) => {
+  const answer = String(req.body.answer || '').trim();
+  if (!answer) return res.redirect('/admin/reviews');
+  await db.query(
+    "UPDATE product_questions SET answer = ?, status = 'answered', answered_at = NOW() WHERE id = ?",
+    [answer.slice(0, 2000), req.params.id]
+  );
+  res.redirect('/admin/reviews');
+});
+router.post('/questions/:id/delete', requireAdmin, requirePermission('reviews.manage'), async (req, res) => {
+  await db.query('DELETE FROM product_questions WHERE id = ?', [req.params.id]);
   res.redirect('/admin/reviews');
 });
 
