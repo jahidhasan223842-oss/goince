@@ -113,9 +113,15 @@ function check(name, ok, detail) {
     && /const secondImages = await firstGalleryImages\(\);/.test(shopRoutes)
     && /const secondImages = await firstGalleryImages\(related\.map/.test(shopRoutes)
     && (shopRoutes.match(/secondImages,/g) || []).length >= 2);
-  check('A5: card markup renders the alt image ONLY when a 2nd image exists (main grid + Best Sellers + Related)',
+  // UPDATED by feat/discovery-search (PR #85): product.ejs now has
+  // TWO alt-image spots — Related Products AND the new "Customers
+  // also viewed" section, which reuses the same card markup
+  // (secondImages[p.id] guard included). The behaviour the check
+  // protects — alt image ONLY when a 2nd image exists — is
+  // unchanged; only the count moved 1 -> 2.
+  check('A5: card markup renders the alt image ONLY when a 2nd image exists (main grid + Best Sellers + Related + Customers also viewed)',
     (indexEjs.match(/class="product-card-img-alt"/g) || []).length === 2
-    && (productEjs.match(/class="product-card-img-alt"/g) || []).length === 1
+    && (productEjs.match(/class="product-card-img-alt"/g) || []).length === 2
     && /secondImages\[p\.id\]/.test(indexEjs) && /secondImages\[p\.id\]/.test(productEjs));
   check('A5: alt-image CSS — absolute overlay on the main photo, opacity 0, fades in on card hover/focus-within (existing lift/ring/mint untouched)',
     /\.product-card-img-alt \{[^}]*position:\s*absolute[^}]*opacity:\s*0[^}]*transition: opacity \.25s ease/.test(cssNoComments)

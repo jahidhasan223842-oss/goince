@@ -459,6 +459,29 @@
   </div>
 <% } %>
 
+<% /* C3 (feat/discovery-search): "Customers also viewed" — ei
+      product-ta jara dekhechhe tara ar ki dekhechhe, ashol view
+      history theke (routes/shop.js). Kono co-view na thakle
+      section-ta ekebarei thake na; nijer product kokhono ase na. */ %>
+<% if (typeof alsoViewed !== 'undefined' && alsoViewed && alsoViewed.length > 0) { %>
+  <div class="section-heading"><h2>Customers also viewed</h2></div>
+  <div class="product-grid">
+    <% alsoViewed.forEach(p => { %>
+      <div class="product-card">
+        <a href="/product/<%= p.id %>">
+          <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
+          <% if (typeof secondImages !== 'undefined' && secondImages && secondImages[p.id]) { %><img class="product-card-img-alt" src="/uploads/<%= secondImages[p.id] %>" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><% } %>
+          <h3><%= p.name %></h3>
+        </a>
+        <div class="product-card-foot">
+          <p class="price">৳<%= p.price %></p>
+          <%- include('partials/delivery-badge', { p: p, deliveryInside: deliveryCharge, deliveryOutside: deliveryChargeOutside }) %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
 <script>
   function copyProductLink() {
     navigator.clipboard.writeText(location.href).then(function () { alert('Link copied!'); });

@@ -111,6 +111,27 @@
     <span>–</span>
     <input type="number" name="max_price" id="max_price" placeholder="Max ৳" aria-label="Maximum price" value="<%= typeof maxPrice !== 'undefined' ? maxPrice : '' %>" class="price-input">
     <button type="submit" class="btn-primary" style="padding:8px 14px;">Filter</button>
+    <% /* C1 faceted filters (feat/discovery-search, PR #85): brand /
+          rating / in-stock / discount — price-er pashe, eki form-e,
+          tai category/search/sort-er sathe compose kore. Shob
+          typeof-guard diye lekha, jate purono direct render-e
+          (test) egulo na thakleo na vange. */ %>
+    <label for="brand">Brand:</label>
+    <select name="brand" id="brand" onchange="this.form.submit()">
+      <option value="" <%= (typeof selectedBrand === 'undefined' || !selectedBrand) ? 'selected' : '' %>>All Brands</option>
+      <% if (typeof brands !== 'undefined' && brands) { brands.forEach(b => { %>
+        <option value="<%= b %>" <%= (typeof selectedBrand !== 'undefined' && selectedBrand === b) ? 'selected' : '' %>><%= b %></option>
+      <% }) } %>
+    </select>
+    <label for="rating">Rating:</label>
+    <select name="rating" id="rating" onchange="this.form.submit()">
+      <option value="" <%= (typeof minRating === 'undefined' || minRating === null || minRating === '') ? 'selected' : '' %>>Any rating</option>
+      <option value="4" <%= (typeof minRating !== 'undefined' && Number(minRating) === 4) ? 'selected' : '' %>>4★ &amp; up</option>
+      <option value="3" <%= (typeof minRating !== 'undefined' && Number(minRating) === 3) ? 'selected' : '' %>>3★ &amp; up</option>
+    </select>
+    <label class="filter-check"><input type="checkbox" name="in_stock" value="1" onchange="this.form.submit()" <%= (typeof inStockOnly !== 'undefined' && inStockOnly) ? 'checked' : '' %>> In stock only</label>
+    <label class="filter-check"><input type="checkbox" name="discount" value="1" onchange="this.form.submit()" <%= (typeof onDiscount !== 'undefined' && onDiscount) ? 'checked' : '' %>> On discount</label>
+    <% if (typeof hasActiveFilters !== 'undefined' && hasActiveFilters) { %><a href="<%= (typeof clearFiltersUrl !== 'undefined' && clearFiltersUrl) ? clearFiltersUrl : '/' %>" class="filter-clear">Clear filters ✕</a><% } %>
     <label for="sort">Sort by:</label>
     <select name="sort" id="sort" onchange="this.form.submit()">
       <option value="newest" <%= sort === 'newest' ? 'selected' : '' %>>Newest</option>
@@ -125,7 +146,19 @@
   <p class="cat-desc"><%= selectedCategoryObj.description %></p>
 <% } %>
 
+<% /* C2 (feat/discovery-search): exact search-e kichu na mille
+      fuzzy fallback-er note + "Did you mean" suggestion — click
+      korle corrected search-ta abar cholbe. */ %>
+<% if (typeof fuzzyApplied !== 'undefined' && fuzzyApplied && search) { %>
+  <p class="search-note">No exact matches for “<%= search %>” — showing the closest matches.</p>
+<% } %>
+<% if (typeof didYouMean !== 'undefined' && didYouMean) { %>
+  <p class="did-you-mean">Did you mean: <a href="/?search=<%= encodeURIComponent(didYouMean) %>"><%= didYouMean %></a>?</p>
+<% } %>
+
+<div id="product-grid-wrap">
 <div class="product-grid">
+  <!-- grid-items-start -->
   <% if (products.length === 0) { %>
     <p>No products found.</p>
   <% } %>
@@ -168,7 +201,19 @@
       </div>
     </div>
   <% }) %>
+  <!-- grid-items-end -->
 </div>
+</div>
+
+<% /* C4 (feat/discovery-search): "Load more" — porer page thaklei
+      dekhabe. JS na cholle sadharon link hisebe ?page= khule (full
+      page, server-er paginated list); JS cholle public/js/load-more.js
+      click-ta dhore oi page-er card-gulo reload charai bosiye dey. */ %>
+<% if (typeof pagination !== 'undefined' && pagination && pagination.hasMore) { %>
+  <div class="load-more-wrap">
+    <a href="<%= pagination.nextPageUrl %>" class="btn-primary" id="load-more-btn" data-next-url="<%= pagination.nextPageUrl %>">Load more</a>
+  </div>
+<% } %>
 
 <% if (typeof bestSellers !== 'undefined' && bestSellers && bestSellers.length > 0 && !selectedCategory && !search) { %>
   <div class="section-heading" data-reveal><h2>🔥 Best Sellers</h2></div>
