@@ -4,10 +4,13 @@ const router = express.Router();
 const ejs = require('ejs');
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const pp = require('../lib/product-page');
 const disc = require('../lib/discovery');
+const { DISTRICTS, AREAS } = require('../lib/bd-districts');
+const { composeAddress, parseStoredAddress, validateCheckoutFields } = require('../lib/checkout');
 const { marked } = require('marked');
 const { sendOrderConfirmation } = require('../config/email');
 const { notifyAdmins } = require('../config/push');
@@ -1369,7 +1372,77 @@ async function getCartShippingFlags(cart) {
   } catch (e) { return { allFreeShipping: false, codAllowed: true }; }
 }
 
+// ---------- CHECKOUT BATCH (feat/checkout, E3/E10) ----------
+// E3 — logged-in customer-er profile (/account/profile) theke
+// naam / phone / address ene checkout form pre-fill kora. Stored
+// address free-text bole parseStoredAddress diye district + area +
+// house-line-e vag kore deya hoy (E5 picker-e boshe). Pre-fill
+// kokhono checkout atkabe na: user na pele ba query fail korle
+// khali form ase — guest checkout ager motoi cholbe.
+const EMPTY_CHECKOUT_FORM = { customer_name: '', email: '', phone: '', district: '', area: '', address_line: '' };
+async function loadCheckoutPrefill(req) {
+  if (!req.session.userId) return { prefill: null, form: Object.assign({}, EMPTY_CHECKOUT_FORM) };
+  try {
+    const [[user]] = await db.query('SELECT name, email, phone, address FROM users WHERE id = ?', [req.session.userId]);
+    if (!user) return { prefill: null, form: Object.assign({}, EMPTY_CHECKOUT_FORM) };
+    const parsed = parseStoredAddress(user.address || '');
+    const form = {
+      customer_name: user.name || '', email: user.email || '', phone: user.phone || '',
+      district: parsed.district, area: parsed.area, address_line: parsed.addressLine,
+    };
+    return {
+      prefill: { name: user.name || '', email: user.email || '', phone: user.phone || '', address: user.address || '', district: parsed.district, area: parsed.area, addressLine: parsed.addressLine },
+      form,
+    };
+  } catch (e) { return { prefill: null, form: Object.assign({}, EMPTY_CHECKOUT_FORM) }; }
+}
+
+// E10 — post-purchase upsell: sobe kena product gulo BADE,
+// eki category-r stock-e thaka visible product (max 4); category
+// patla hole onno stock-e thaka product diye vorano hoy.
+// hasOptions thakle card-e "Choose Option →" ase (Add to Cart noy),
+// thik homepage-er card-er motoi.
+async function getUpsellProducts(orderedIds) {
+  const exclude = [...new Set(orderedIds || [])].map(Number).filter(Boolean);
+  let rows = [];
+  try {
+    let cats = [];
+    if (exclude.length) {
+      const [crows] = await db.query(
+        `SELECT DISTINCT category_id FROM products WHERE id IN (${exclude.map(() => '?').join(',')}) AND category_id IS NOT NULL`, exclude);
+      cats = crows.map((r) => r.category_id).filter((c) => c !== null && c !== undefined);
+    }
+    if (cats.length) {
+      const [r] = await db.query(
+        `SELECT p.* FROM products p WHERE p.category_id IN (${cats.map(() => '?').join(',')}) AND p.id NOT IN (${exclude.map(() => '?').join(',')}) AND p.stock > 0 AND ${VISIBLE_PRODUCT_SQL.replace(/products\./g, 'p.')} ORDER BY p.created_at DESC LIMIT 4`,
+        [...cats, ...exclude]);
+      rows = r;
+    }
+    if (rows.length < 4) {
+      const seen = [...exclude, ...rows.map((r) => r.id)];
+      const notIn = seen.length ? `AND id NOT IN (${seen.map(() => '?').join(',')})` : '';
+      const [fill] = await db.query(
+        `SELECT * FROM products WHERE stock > 0 ${notIn} AND ${VISIBLE_PRODUCT_SQL} ORDER BY created_at DESC LIMIT ?`,
+        [...seen, 4 - rows.length]);
+      rows = rows.concat(fill);
+    }
+    if (rows.length) {
+      const ids = rows.map((r) => r.id);
+      const [vrows] = await db.query(`SELECT DISTINCT product_id FROM product_variants WHERE product_id IN (${ids.map(() => '?').join(',')})`, ids);
+      const [orows] = await db.query(`SELECT DISTINCT product_id FROM product_options WHERE product_id IN (${ids.map(() => '?').join(',')})`, ids);
+      const withChoices = new Set([...vrows.map((r) => r.product_id), ...orows.map((r) => r.product_id)]);
+      rows.forEach((r) => { r.hasOptions = withChoices.has(r.id); });
+    }
+  } catch (e) { rows = []; }
+  return rows.slice(0, 4);
+}
+
 // ---------- CHECKOUT PAGE ----------
+// E2 — ONE-PAGE checkout: contact + address + delivery + payment +
+// review — ektai scrollable page, ektai form (views/checkout.ejs).
+// E3 — logged-in customer-er profile theke pre-fill (form local);
+// guest-er form khali thake. Delivery charge-er hisab ager motoi
+// (PR #82): sob item free_shipping hole ৳0, na hole zone charge.
 router.get('/checkout', async (req, res) => {
   const cart = req.session.cart || [];
   if (cart.length === 0) return res.redirect('/cart');
@@ -1383,7 +1456,8 @@ router.get('/checkout', async (req, res) => {
   const total = subtotal - discount + deliveryCharge;
   const paymentMethods = await getPaymentMethods();
   const gateway = await getGatewayConfig();
-  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: null, siteName: 'Goince' });
+  const { prefill, form } = await loadCheckoutPrefill(req);
+  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: null, prefill, form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince' });
 });
 
 // ---------- PLACE ORDER ----------
@@ -1391,11 +1465,16 @@ router.post('/checkout', async (req, res) => {
   const cart = req.session.cart || [];
   if (cart.length === 0) return res.redirect('/cart');
 
-  const { customer_name, email, phone, address, payment_method, transaction_id, delivery_area } = req.body;
+  const { customer_name, email, phone, address, payment_method, transaction_id, delivery_area, district, area, address_line } = req.body;
   const deliveryZones = await getDeliveryZones();
   const deliveryCharges = await getDeliveryCharges();
   const paymentMethods = await getPaymentMethods();
   const gateway = await getGatewayConfig();
+  // E5 — district + area + house-line theke ektai address line
+  // banano hoy (lib/checkout.js); district na dile purono
+  // free-text address-i use hoy (no-JS / purono form).
+  const fullAddress = composeAddress(req.body);
+  const { prefill } = await loadCheckoutPrefill(req);
   const zone = deliveryZones.find(z => z.slug === delivery_area) || deliveryZones[0];
   const defaultCharge = zone ? zone.charge : deliveryCharges.inside_dhaka;
   // Free-delivery flag error render-er AGE-i ber kora (feat/cart-buying,
@@ -1408,7 +1487,13 @@ router.post('/checkout', async (req, res) => {
     const _coupon = req.session.coupon || null;
     const _sub0 = cart.reduce((s, it) => s + it.price * it.quantity, 0);
     const _disc0 = _coupon ? (_sub0 * _coupon.discount_percent / 100) : 0;
-    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: errorDeliveryCharge, total: _sub0 - _disc0 + errorDeliveryCharge, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: msg, siteName: 'Goince' });
+    // Vul form-eo customer-er lekha shob field + pre-fill fire ase,
+    // jate abar shuru theke likhte na hoy.
+    const _form = {
+      customer_name: customer_name || '', email: email || '', phone: phone || '',
+      district: district || '', area: area || '', address_line: address_line || '',
+    };
+    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: errorDeliveryCharge, total: _sub0 - _disc0 + errorDeliveryCharge, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: msg, prefill, form: _form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince' });
   };
   // Gateway option: sudhu jodi gateway enable + configure kora thake
   const gatewayMethodName = 'Online Payment (Gateway)';
@@ -1426,7 +1511,11 @@ router.post('/checkout', async (req, res) => {
   if (selectedMethod === gatewayMethodName && !gateway.configured) {
     return renderCheckoutError('Online payment ekhono setup kora hoyni — Cash on Delivery ba bKash/Nagad diye order koro.');
   }
-  if (!customer_name || !address || !isValidBdPhone(phone)) {
+  // E4/E5 server mirror: naam + thikana (district thakle house-line
+  // soho) + BD phone — client-er inline validation-er motoi niyom.
+  // Ochena district (list-er baire) grohon kora hoy na.
+  const fieldErrors = validateCheckoutFields({ customer_name, email, phone, district, area, address_line, address: fullAddress });
+  if (!customer_name || !fullAddress || !isValidBdPhone(phone) || !fieldErrors.ok) {
     return renderCheckoutError('Sothik naam, thikana ar Bangladeshi mobile number (01XXXXXXXXX) dao.');
   }
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -1454,7 +1543,7 @@ router.post('/checkout', async (req, res) => {
     const [orderResult] = await connection.query(
       `INSERT INTO orders (user_id, customer_name, email, phone, address, payment_method, transaction_id, delivery_zone, delivery_charge, coupon_code, discount_amount, total_amount)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, customer_name, email || null, normalizedPhone, address, payment_method || 'Cash on Delivery', transaction_id || null, zone ? zone.name : null, deliveryCharge, coupon ? coupon.code : null, discount, total]
+      [userId, customer_name, email || null, normalizedPhone, fullAddress, payment_method || 'Cash on Delivery', transaction_id || null, zone ? zone.name : null, deliveryCharge, coupon ? coupon.code : null, discount, total]
     );
     const orderId = orderResult.insertId;
 
@@ -1496,7 +1585,7 @@ router.post('/checkout', async (req, res) => {
       id: orderId,
       customer_name,
       phone,
-      address,
+      address: fullAddress,
       items: cart,
       subtotal: subtotal.toFixed(2),
       discount: discount.toFixed(2),
@@ -1516,13 +1605,73 @@ router.post('/checkout', async (req, res) => {
       url: `/admin/orders/${orderId}`
     });
 
-    res.render('order-success', { orderId, siteName: 'Goince', cart, total });
+    // E9/E10 — order-success page: guest hole account-create box,
+    // ar sobar jonno upsell. lastOrderId session-e rakha hoy, jate
+    // E9 sudhu ei matro deya order diye account banate pare.
+    req.session.lastOrderId = orderId;
+    const upsell = await getUpsellProducts(cart.map((i) => i.id));
+    res.render('order-success', {
+      orderId, siteName: 'Goince', cart, total, upsell,
+      guestCheckout: !userId, accountError: null,
+      deliveryInside: deliveryCharges.inside_dhaka, deliveryOutside: deliveryCharges.outside_dhaka,
+    });
   } catch (err) {
     await connection.rollback();
     console.error(err);
     res.status(500).send('Order placing failed. Please try again.');
   } finally {
     connection.release();
+  }
+});
+
+// ---------- CREATE ACCOUNT AFTER PURCHASE (feat/checkout, E9) ----------
+// Thank-you page-er "Save your details for next time" form.
+// Guest order-er naam / phone / email diye account banay — kokhono
+// payment-er AGE sign-up chap deya hoy na. Sudhu ei session-e
+// deya order (req.session.lastOrderId) diyei cholbe, ar order-er
+// user_id khali thakte hobe; email age theke thakle ba password
+// choto hole order-success page-ei vul dekhay.
+router.post('/checkout/create-account', async (req, res) => {
+  const orderId = parseInt(req.body.order_id, 10);
+  const password = String(req.body.password || '');
+  const renderWithError = async (msg) => {
+    try {
+      const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+      if (!order) return res.redirect('/track-order');
+      const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+      const cart = items.map((it) => ({ id: it.product_id, name: it.product_name, price: Number(it.price), quantity: it.quantity }));
+      const upsell = await getUpsellProducts(cart.map((i) => i.id));
+      const charges = await getDeliveryCharges();
+      return res.render('order-success', {
+        orderId: order.id, siteName: 'Goince', cart, total: Number(order.total_amount), upsell,
+        guestCheckout: !order.user_id, accountError: msg,
+        deliveryInside: charges.inside_dhaka, deliveryOutside: charges.outside_dhaka,
+      });
+    } catch (e) { return res.redirect('/track-order'); }
+  };
+  if (!orderId || req.session.lastOrderId !== orderId) return res.redirect('/track-order');
+  if (password.length < 6) return renderWithError('Password must be at least 6 characters.');
+  try {
+    const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!order) return res.redirect('/track-order');
+    if (order.user_id) return renderWithError('This order already belongs to an account.');
+    if (!order.email) return renderWithError('This order has no email — please sign up from the Sign Up page.');
+    const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [order.email]);
+    if (existing.length > 0) return renderWithError('An account with this email already exists. Please log in.');
+    const hashed = await bcrypt.hash(password, 10);
+    const [result] = await db.query(
+      'INSERT INTO users (name, email, password, phone, address) VALUES (?, ?, ?, ?, ?)',
+      [order.customer_name, order.email, hashed, order.phone, order.address]
+    );
+    await db.query('UPDATE orders SET user_id = ? WHERE id = ?', [result.insertId, orderId]);
+    req.session.userId = result.insertId;
+    req.session.userName = order.customer_name;
+    req.session.userEmail = order.email;
+    req.session.lastOrderId = null;
+    return res.redirect('/account/profile?saved=account');
+  } catch (err) {
+    console.error(err);
+    return renderWithError('Something went wrong — please try again or sign up from the Sign Up page.');
   }
 });
 

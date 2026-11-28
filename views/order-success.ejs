@@ -17,6 +17,65 @@
   <p>Order-er status jante <a href="/track-order">Track Order</a> page-e Order ID ar phone number dao.</p>
   <a href="/track-order" class="btn-primary">Track Order</a>
   <a href="/" class="btn-primary">Continue Shopping</a>
+
+  <% /* E9 (feat/checkout) — account creation AFTER purchase, guest
+       order-e sudhu. Logged-in customer-e box-ta ekebarei ase na.
+       Payment-er age kokhono sign-up chap deya hoy na: ekhane
+       ekta password diye "Save your details for next time" chaplei
+       order-er naam / phone / email diye account toiri hoy, ar
+       order-ta oi account-er sathe jure jay. accountError thakle
+       box-ta dekhatei hobe (na hole vul-ta kothao dekha jeto na) —
+       tai condition-e error-o dhora hoy. */ %>
+  <% if ((typeof guestCheckout !== 'undefined' && guestCheckout) || (typeof accountError !== 'undefined' && accountError)) { %>
+    <div class="save-details-box">
+      <h3>Save your details for next time</h3>
+      <p>Next time checkout-e naam, phone ar thikana abar likhte hobe na — ekta password dao, account toiri hoye jabe.</p>
+      <% if (typeof accountError !== 'undefined' && accountError) { %>
+        <p class="error-msg"><%= accountError %></p>
+      <% } %>
+      <form action="/checkout/create-account" method="POST" class="save-details-form"><%- include('partials/csrf-field') %>
+        <input type="hidden" name="order_id" value="<%= orderId %>">
+        <label for="save-details-password">Choose a password (at least 6 characters)</label>
+        <input type="password" id="save-details-password" name="password" minlength="6" required placeholder="Your new password">
+        <button type="submit" class="btn-primary">Save your details for next time</button>
+      </form>
+      <p class="field-hint">Already have an account? <a href="/login">Log in</a> instead.</p>
+    </div>
+  <% } %>
+
+  <% /* E10 (feat/checkout) — post-purchase upsell: sobe kena
+       product bade eki category-r (ba onno) stock-e thaka product.
+       Add to Cart chaple PR #80-er AJAX flow-e drawer khole —
+       page reload hoy na, order-e kichu bodlay na (notun alada
+       cart-e jog hoy). Variant/option thakle "Choose Option →". */ %>
+  <% if (typeof upsell !== 'undefined' && upsell && upsell.length > 0) { %>
+    <div class="order-success-upsell">
+      <div class="section-heading"><h2>You may also like</h2></div>
+      <div class="product-grid">
+        <% upsell.forEach(p => { %>
+          <div class="product-card">
+            <a href="/product/<%= p.id %>">
+              <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
+              <h3><%= p.name %></h3>
+            </a>
+            <div class="product-card-foot">
+              <p class="price">৳<%= p.price %></p>
+              <%- include('partials/delivery-badge', { p: p, deliveryInside: (typeof deliveryInside !== 'undefined' && deliveryInside) || 60, deliveryOutside: (typeof deliveryOutside !== 'undefined' && deliveryOutside) || 120 }) %>
+              <% if (p.stock > 0) { %>
+                <% if (p.hasOptions) { %>
+                  <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
+                <% } else { %>
+                  <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+                <% } %>
+              <% } else { %>
+                <p class="card-stock-out">Out of stock</p>
+              <% } %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
 </div>
 
 <!-- Google Analytics: purchase event -->

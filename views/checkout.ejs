@@ -1,6 +1,14 @@
 <%- include('partials/header') %>
 
 <% const _tk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
+<% /* E2/E3/E5 (feat/checkout): _f is the form's values — either the
+     logged-in customer's profile pre-fill (GET /checkout) or what
+     they just typed (error re-render). Old renders that pass no
+     `form` local (older tests) get empty fields, never a crash. */ %>
+<% const _f = (typeof form !== 'undefined' && form) || {}; %>
+<% const _fv = (k) => (_f[k] == null ? '' : _f[k]); %>
+<% const _districts = (typeof bdDistricts !== 'undefined' && bdDistricts && bdDistricts.districts) || ['Dhaka']; %>
+<% const _areas = (_fv('district') && typeof bdDistricts !== 'undefined' && bdDistricts && bdDistricts.areas && bdDistricts.areas[_fv('district')]) || []; %>
 
 <h1 class="page-title">Checkout</h1>
 <%- include('partials/checkout-steps', { step: 2 }) %>
@@ -29,39 +37,85 @@
     </div>
   </div>
 
-  <form action="/checkout" method="POST" class="checkout-form"><%- include('partials/csrf-field') %>
+  <% /* E2 — ONE-PAGE checkout: contact + address + delivery +
+       payment + review on ONE scrollable page, in a SINGLE form
+       (no step 1/2/3 form pages). Guest checkout works as before;
+       COD + manual bKash/Nagad/Rocket + Transaction ID unchanged.
+       novalidate: the inline validation (public/js/checkout.js,
+       E4) is the gate — the server re-validates on POST, so no-JS
+       still works. */ %>
+  <form action="/checkout" method="POST" class="checkout-form" id="checkout-form" novalidate><%- include('partials/csrf-field') %>
     <% if (typeof error !== 'undefined' && error) { %>
       <p class="error-msg"><%= error %></p>
     <% } %>
+    <% if (typeof prefill !== 'undefined' && prefill) { %>
+      <p class="checkout-prefill-note">Signed in as <strong><%= prefill.name %></strong> — your details are filled in from your <a href="/account/profile">profile</a>. You can edit anything below.</p>
+    <% } %>
 
-    <div class="checkout-section">
-      <h4 class="checkout-section-title">👤 Contact & Delivery</h4>
+    <div class="checkout-section" id="checkout-section-contact">
+      <h4 class="checkout-section-title">1. Contact</h4>
 
-      <label>Full Name</label>
-      <input type="text" name="customer_name" required>
+      <label for="customer_name">Full Name</label>
+      <input type="text" id="customer_name" name="customer_name" value="<%= _fv('customer_name') %>" required>
+      <span class="field-msg" id="customer_name-msg" role="alert"></span>
 
-      <label>Email <span class="field-optional">(to receive order confirmation)</span></label>
-      <input type="email" name="email" placeholder="you@example.com">
+      <label for="email">Email <span class="field-optional">(to receive order confirmation)</span></label>
+      <input type="email" id="email" name="email" value="<%= _fv('email') %>" placeholder="you@example.com">
+      <span class="field-msg" id="email-msg" role="alert"></span>
 
-      <label>Phone Number</label>
-      <input type="tel" name="phone" required pattern="^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$" title="Bangladeshi mobile number dao — jemon 01XXXXXXXXX" placeholder="01XXXXXXXXX">
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" name="phone" value="<%= _fv('phone') %>" required pattern="^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$" title="Bangladeshi mobile number dao — jemon 01XXXXXXXXX" placeholder="01XXXXXXXXX">
+      <span class="field-msg" id="phone-msg" role="alert"></span>
+    </div>
 
-      <label>Delivery Address</label>
-      <textarea name="address" rows="3" required></textarea>
+    <div class="checkout-section" id="checkout-section-address">
+      <h4 class="checkout-section-title">2. Delivery Address</h4>
 
-      <p class="field-hint">📦 Order korar age phone-e confirm kora hobe. Zone onujayi delivery charge ar somoy bodle jabe.</p>
-      <label>Delivery Area</label>
+      <p class="field-hint">📦 Order korar age phone-e confirm kora hobe. District ar area bechhe dao — vul thikana-e delivery fail kom hobe.</p>
+      <div class="checkout-district-row">
+        <div>
+          <label for="district">District</label>
+          <select name="district" id="district" required>
+            <option value="">Select district</option>
+            <% _districts.forEach(d => { %>
+              <option value="<%= d %>"<%= _fv('district') === d ? ' selected' : '' %>><%= d %></option>
+            <% }) %>
+          </select>
+          <span class="field-msg" id="district-msg" role="alert"></span>
+        </div>
+        <div>
+          <label for="area">Area / Thana</label>
+          <select name="area" id="area" data-selected="<%= _fv('area') %>">
+            <option value="">Select district first</option>
+            <% _areas.forEach(a => { %>
+              <option value="<%= a %>"<%= _fv('area') === a ? ' selected' : '' %>><%= a %></option>
+            <% }) %>
+          </select>
+          <span class="field-msg" id="area-msg" role="alert"></span>
+        </div>
+      </div>
+
+      <label for="address_line">House / Road / Landmark</label>
+      <input type="text" id="address_line" name="address_line" value="<%= _fv('address_line') %>" required placeholder="e.g. House 12, Road 5, Dhanmondi">
+      <span class="field-msg" id="address_line-msg" role="alert"></span>
+    </div>
+
+    <div class="checkout-section" id="checkout-section-delivery">
+      <h4 class="checkout-section-title">3. Delivery</h4>
+
+      <label for="delivery_area">Delivery Area</label>
       <select name="delivery_area" id="delivery_area" onchange="updateTotal()">
         <% (typeof deliveryZones !== 'undefined' && deliveryZones.length ? deliveryZones : [{slug:'inside_dhaka',name:'Inside Dhaka',charge:deliveryCharges.inside_dhaka,delivery_time:'1–2 days'},{slug:'outside_dhaka',name:'Outside Dhaka',charge:deliveryCharges.outside_dhaka,delivery_time:'3–5 days'}]).forEach(z => { %>
           <option value="<%= z.slug %>" data-charge="<%= z.charge %>"><%= z.name %> (<%= _tk(z.charge) %><% if (z.delivery_time) { %> · <%= z.delivery_time %><% } %>)</option>
         <% }) %>
       </select>
+      <p class="field-hint">Zone onujayi delivery charge ar somoy bodle jabe.<%= (typeof allFreeShipping !== 'undefined' && allFreeShipping) ? ' Tomar cart-er sob product-e Free Delivery — delivery charge ৳0.' : '' %></p>
     </div>
 
-    <div class="checkout-section">
-      <h4 class="checkout-section-title">💳 Payment</h4>
+    <div class="checkout-section" id="checkout-section-payment">
+      <h4 class="checkout-section-title">4. Payment</h4>
 
-      <label>Payment Method</label>
+      <label for="payment_method">Payment Method</label>
       <select name="payment_method" id="payment_method" onchange="toggleTxnField()">
         <% if (!gateway || gateway.mode !== 'gateway' || !gateway.configured) { %>
           <% if (typeof codAllowed === 'undefined' || codAllowed) { %><option value="Cash on Delivery">Cash on Delivery</option><% } %>
@@ -90,14 +144,41 @@
       </div>
 
       <div id="txn-field" style="display:none;">
-        <label id="txn-label">Transaction ID</label>
+        <label id="txn-label" for="txn-input">Transaction ID</label>
         <input type="text" name="transaction_id" id="txn-input" placeholder="e.g. 8N7A2K9XYZ">
+        <span class="field-msg" id="transaction_id-msg" role="alert"></span>
       </div>
     </div>
 
+    <div class="checkout-section" id="checkout-section-review">
+      <h4 class="checkout-section-title">5. Review Your Order</h4>
+      <ul class="checkout-review-list">
+        <% cart.forEach(item => { %>
+          <li>
+            <span><%= item.name %><% if (item.variantLabel) { %> (<%= item.variantLabel %>)<% } %> × <%= item.quantity %></span>
+            <span><%= _tk(item.price * item.quantity) %></span>
+          </li>
+        <% }) %>
+      </ul>
+      <div class="summary-totals">
+        <p><span>Subtotal</span><span><%= _tk(subtotal) %></span></p>
+        <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-<%= _tk(discount) %></span></p><% } %>
+        <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %><%= _tk(deliveryCharge) %><% } %></span></p>
+      </div>
+      <h3 class="summary-grand-total"><span>Total</span><span id="review-total-display"><%= _tk(total) %></span></h3>
+      <p class="field-hint">🔄 24h return for defective or wrong products.</p>
+    </div>
+
     <button type="submit" class="btn-primary btn-place-order">Place Order — <span id="btn-total-display"><%= _tk(total) %></span></button>
+    <p class="field-hint" id="place-order-hint"></p>
   </form>
 </div>
+
+<script>
+  // E5 data for public/js/checkout.js (district -> area lists).
+  window.BD_DISTRICTS = <%- JSON.stringify((typeof bdDistricts !== 'undefined' && bdDistricts) || { districts: ['Dhaka'], areas: {} }) %>;
+</script>
+<script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/checkout.js') : '/js/checkout.js' %>"></script>
 
 <script>
   // Place Order button lock (feat/animations-delight, A3): submit
@@ -153,6 +234,8 @@
     if (deliveryEl) deliveryEl.textContent = fmtTk(charge);
     document.getElementById('total-display').textContent = fmtTk(total);
     document.getElementById('btn-total-display').textContent = fmtTk(total);
+    const reviewTotalEl = document.getElementById('review-total-display');
+    if (reviewTotalEl) reviewTotalEl.textContent = fmtTk(total);
   }
 
   function toggleTxnField() {
