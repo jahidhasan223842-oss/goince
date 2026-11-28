@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const pp = require('../lib/product-page');
+const disc = require('../lib/discovery');
 const { marked } = require('marked');
 const { sendOrderConfirmation } = require('../config/email');
 const { notifyAdmins } = require('../config/push');
@@ -188,47 +189,144 @@ router.get('/', async (req, res) => {
 
     const minPrice = parseFloat(req.query.min_price);
     const maxPrice = parseFloat(req.query.max_price);
-    let sql = `SELECT products.*,
-                 COUNT(reviews.id) AS review_count,
-                 AVG(reviews.rating) AS avg_rating
-               FROM products
-               LEFT JOIN reviews ON reviews.product_id = products.id AND reviews.status = 'approved'
-               WHERE 1=1 AND ${VISIBLE_PRODUCT_SQL}`;
+    // ---------- DISCOVERY & SEARCH (feat/discovery-search, PR #85) ----------
+    // C1 faceted filters — brand / rating / in-stock / discount, on top
+    // of the existing category + price + search + sort. Brand comes
+    // from the existing products.brand column, rating from the
+    // already-joined approved reviews, discount from
+    // compare_at_price > price — no new column anywhere.
+    const selectedBrand = String(req.query.brand || '').trim();
+    const minRating = parseFloat(req.query.rating);
+    const minRatingFilter = (!isNaN(minRating) && minRating >= 1 && minRating <= 5) ? minRating : null;
+    const inStockOnly = req.query.in_stock === '1';
+    const onDiscount = req.query.discount === '1';
+    const requestedPage = disc.parsePage(req.query.page);
+
+    const FROM_SQL = `FROM products
+               LEFT JOIN reviews ON reviews.product_id = products.id AND reviews.status = 'approved'`;
+    let whereSql = ` WHERE 1=1 AND ${VISIBLE_PRODUCT_SQL}`;
     const params = [];
     const selectedAudience = isSeasonalCategory && allowedAudiences.includes(requestedAudience) ? requestedAudience : '';
 
     if (categoryIdsToFilter.length > 0) {
-      sql += ` AND products.category_id IN (${categoryIdsToFilter.map(() => '?').join(',')})`;
+      whereSql += ` AND products.category_id IN (${categoryIdsToFilter.map(() => '?').join(',')})`;
       params.push(...categoryIdsToFilter);
     }
     if (selectedAudience) {
       const audienceMatches = ['men', 'women'].includes(selectedAudience)
         ? [selectedAudience, 'unisex', 'all']
         : [selectedAudience, 'all'];
-      sql += ` AND products.target_audience IN (${audienceMatches.map(() => '?').join(', ')})`;
+      whereSql += ` AND products.target_audience IN (${audienceMatches.map(() => '?').join(', ')})`;
       params.push(...audienceMatches);
     }
-    if (search) {
-      sql += ' AND (products.name LIKE ? OR products.tags LIKE ? OR products.brand LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-    if (!isNaN(minPrice)) { sql += ' AND products.price >= ?'; params.push(minPrice); }
-    if (!isNaN(maxPrice)) { sql += ' AND products.price <= ?'; params.push(maxPrice); }
+    if (!isNaN(minPrice)) { whereSql += ' AND products.price >= ?'; params.push(minPrice); }
+    if (!isNaN(maxPrice)) { whereSql += ' AND products.price <= ?'; params.push(maxPrice); }
+    if (selectedBrand) { whereSql += ' AND products.brand = ?'; params.push(selectedBrand); }
+    if (inStockOnly) { whereSql += ' AND products.stock > 0'; }
+    if (onDiscount) { whereSql += ' AND products.compare_at_price IS NOT NULL AND products.compare_at_price > products.price'; }
 
-    sql += ' GROUP BY products.id';
+    // Rating is an aggregate (AVG over the joined reviews), so it
+    // filters in HAVING after the GROUP BY, not in WHERE.
+    let havingSql = '';
+    const havingParams = [];
+    if (minRatingFilter !== null) {
+      havingSql = ' HAVING COALESCE(AVG(reviews.rating), 0) >= ?';
+      havingParams.push(minRatingFilter);
+    }
+
+    // Brand select-er option: catalogue-e asol-e jeshob brand ache
+    // (visible product theke) — kokhono banano brand noy.
+    let brands = [];
+    try {
+      const [brows] = await db.query(
+        `SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND TRIM(brand) != '' AND ${VISIBLE_PRODUCT_SQL} ORDER BY brand ASC`);
+      brands = brows.map((r) => r.brand);
+    } catch (e) { brands = []; }
+
+    // C2 typo-tolerant search: exact LIKE age, ager motoi. Exact
+    // 3-er kom result dilei fuzzy fallback (lib/discovery.js —
+    // Damerau-Levenshtein, name/tags/brand shobdo-r upore), ar
+    // "Did you mean" correction-tao eki catalogue theke. Fuzzy
+    // match-gulo exact-er PORE bose, exact-er bodle noy; search
+    // thakle final listing-ta id-set diye chole, tai filter /
+    // sort / pagination-er satheo thik moto compose kore.
+    let didYouMean = null;
+    let fuzzyApplied = false;
+    if (search) {
+      const [exactRows] = await db.query(
+        `SELECT id FROM products WHERE ${VISIBLE_PRODUCT_SQL} AND (products.name LIKE ? OR products.tags LIKE ? OR products.brand LIKE ?)`,
+        [`%${search}%`, `%${search}%`, `%${search}%`]
+      );
+      const exactIds = exactRows.map((r) => r.id);
+      let searchIds = exactIds;
+      // Catalogue (id/name/tags/brand) — fuzzy + did-you-mean, dujonei
+      // eki chhoto list theke; 5 product-er scale-e etai jothesto.
+      let catalogue = [];
+      try {
+        const [crows] = await db.query(
+          `SELECT id, name, tags, brand FROM products WHERE ${VISIBLE_PRODUCT_SQL}`);
+        catalogue = crows;
+      } catch (e) { catalogue = []; }
+      if (exactIds.length < disc.EXACT_RESULTS_TO_TRUST) {
+        const fuzzyIds = disc.fuzzySearchProducts(search, catalogue)
+          .map((m) => m.id).filter((id) => !exactIds.includes(id));
+        if (fuzzyIds.length > 0) {
+          searchIds = exactIds.concat(fuzzyIds);
+          fuzzyApplied = exactIds.length === 0;
+        }
+      }
+      // "Did you mean" PROTTEK search-e hisab hoy, shudhu fuzzy
+      // khetre noy: "wach" substring hisebe watch-gulo emnitei pay
+      // (exact 3-ta), tobu shopper pray nishchoi "watch"-i
+      // likhte cheyechhilo — suggestion-ta tokhono kaje lage.
+      // Exact shobdo correction-e null ase (kono line dekhay na).
+      didYouMean = disc.didYouMean(search, catalogue);
+      if (searchIds.length === 0) {
+        // Kichui mile ni — na exact, na fuzzy: khali list, kono
+        // suggestion-o noy (vul suggestion dekhano hobe na).
+        whereSql += ' AND 1=0';
+      } else {
+        whereSql += ` AND products.id IN (${searchIds.map(() => '?').join(',')})`;
+        params.push(...searchIds);
+      }
+    }
 
     // Sort option অনুযায়ী ORDER BY বদলানো
+    let orderSql = ' ORDER BY products.created_at DESC'; // newest (default)
     if (sort === 'price_low') {
-      sql += ' ORDER BY products.price ASC';
+      orderSql = ' ORDER BY products.price ASC';
     } else if (sort === 'price_high') {
-      sql += ' ORDER BY products.price DESC';
+      orderSql = ' ORDER BY products.price DESC';
     } else if (sort === 'popular') {
-      sql += ' ORDER BY review_count DESC, products.created_at DESC';
-    } else {
-      sql += ' ORDER BY products.created_at DESC'; // newest (default)
+      orderSql = ' ORDER BY review_count DESC, products.created_at DESC';
     }
 
-    const [products] = await db.query(sql, params);
+    // C4 server-side pagination, page size 12: age total gona hoy
+    // (GROUP BY + HAVING-er jonno subquery-te count), tarpor page
+    // clamp kore LIMIT/OFFSET diye sudhu oi page-er row ase.
+    const [[countRow]] = await db.query(
+      `SELECT COUNT(*) AS total FROM (SELECT products.id ${FROM_SQL}${whereSql} GROUP BY products.id${havingSql}) AS counted`,
+      [...params, ...havingParams]
+    );
+    const totalProducts = Number((countRow && countRow.total) || 0);
+    const totalPages = disc.totalPagesFor(totalProducts, disc.PAGE_SIZE);
+    const page = disc.clampPage(requestedPage, totalPages);
+    const offset = (page - 1) * disc.PAGE_SIZE;
+
+    const [products] = await db.query(
+      `SELECT products.*,
+                 COUNT(reviews.id) AS review_count,
+                 AVG(reviews.rating) AS avg_rating
+               ${FROM_SQL}${whereSql} GROUP BY products.id${havingSql}${orderSql} LIMIT ? OFFSET ?`,
+      [...params, ...havingParams, disc.PAGE_SIZE, offset]
+    );
+
+    // Load More / linkable page URL: bortoman filter+search+sort
+    // query dhore rakha hoy, shudhu page bodlay.
+    const nextPageUrl = disc.shopPageUrl(req.query, page + 1);
+    const hasMore = page < totalPages;
+    const hasActiveFilters = Boolean(selectedBrand || minRatingFilter !== null || inStockOnly || onDiscount || !isNaN(minPrice) || !isNaN(maxPrice));
+    const clearFiltersUrl = disc.shopPageUrl(req.query, 1, disc.FACET_KEYS);
     // Kon product-e variant/option ache — oigulote homepage theke direct
     // "Add to Cart" na diye "Choose option" dekhano hobe
     let variantProductIds = new Set(), optionProductIds = new Set();
@@ -251,9 +349,12 @@ router.get('/', async (req, res) => {
       recentlyViewedMap = Object.fromEntries(allRows.map((r) => [r.id, { stock: r.stock, hasOptions: variantProductIds.has(r.id) || optionProductIds.has(r.id), freeDelivery: !!r.free_shipping }]));
     } catch (e) { recentlyViewedMap = {}; }
 
-    // Best sellers: shobcheye beshi bikri hoya product (homepage hero-r niche)
+    // Best sellers: shobcheye beshi bikri hoya product (homepage hero-r niche).
+    // Paginated listing-er porer page-e (C4) Best Sellers dekhano
+    // hoy na — page 2+ sudhu oi page-er product list (hero
+    // section-ta ager motoi thake).
     let bestSellers = [];
-    if (!categoryId && !search) {
+    if (!categoryId && !search && page === 1) {
       try {
         const [rows] = await db.query(
           `SELECT products.*, COALESCE(SUM(order_items.quantity), 0) AS sold
@@ -285,7 +386,7 @@ router.get('/', async (req, res) => {
     // Card-er delivery badge (feat/cart-buying, B4): Free Delivery
     // na Delivery Charge — zone charge-gulo settings theke ase.
     const deliveryCharges = await getDeliveryCharges();
-    res.render('index', {
+    const indexLocals = {
       banners,
       secondImages,
       deliveryCharges,
@@ -296,6 +397,19 @@ router.get('/', async (req, res) => {
       minPrice: isNaN(minPrice) ? '' : minPrice,
       maxPrice: isNaN(maxPrice) ? '' : maxPrice,
       bestSellers,
+      // C1–C4 (feat/discovery-search): filter state + suggestion +
+      // pagination — view shobgulo typeof-guard diye pore, jate
+      // purono direct render-e (test) egulo na thakleo na vange.
+      brands,
+      selectedBrand,
+      minRating: minRatingFilter,
+      inStockOnly,
+      onDiscount,
+      didYouMean,
+      fuzzyApplied,
+      hasActiveFilters,
+      clearFiltersUrl,
+      pagination: { page, totalPages, total: totalProducts, hasMore, nextPageUrl },
       pageTitle: search
         ? `Search: ${search} - Goince`
         : (selected ? (selected.meta_title || `${selected.name} - Goince`) : 'Goince - Online Shop | Cash on Delivery in Bangladesh'),
@@ -315,7 +429,34 @@ router.get('/', async (req, res) => {
       search,
       sort,
       siteName: 'Goince'
-    });
+    };
+    // C4 AJAX "Load more" (PR #80-er cart AJAX-er motoi pattern):
+    // XHR hole puro page noy — sudhu oi page-er card-gulor HTML
+    // (grid-er marker comment dutor majher ongsho) + next-page
+    // info JSON-e jay, jate public/js/load-more.js page reload
+    // charai card append korte pare. Marker na mille 500 — vul
+    // HTML chupchap pathano hobe na. ejs.renderFile-e res.locals
+    // (siteSettings, menu, csrfToken, ...) nije theke ase na, tai
+    // res.render-er motoi merge kore deya hoy.
+    if (req.xhr) {
+      try {
+        const fullHtml = await ejs.renderFile(
+          path.join(__dirname, '..', 'views', 'index.ejs'),
+          { ...res.locals, ...indexLocals }
+        );
+        const startMarker = '<!-- grid-items-start -->';
+        const endMarker = '<!-- grid-items-end -->';
+        const start = fullHtml.indexOf(startMarker);
+        const end = fullHtml.indexOf(endMarker);
+        if (start < 0 || end < 0 || end <= start) throw new Error('product grid markers missing');
+        const html = fullHtml.slice(start + startMarker.length, end);
+        return res.json({ ok: true, html, hasMore, page, totalPages, total: totalProducts, nextPageUrl });
+      } catch (e) {
+        console.error('Load-more render failed:', e);
+        return res.status(500).json({ ok: false, error: 'Could not load more products.' });
+      }
+    }
+    res.render('index', indexLocals);
   } catch (err) {
     console.error(err);
     res.status(500).send('Something went wrong loading the homepage.');
@@ -570,6 +711,18 @@ router.get('/product/:id', async (req, res) => {
         'INSERT INTO product_views (product_id, session_key, viewed_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE viewed_at = NOW()',
         [product.id, sessionKey]
       );
+      // C3 (feat/discovery-search): "Customers also viewed"-er jonno
+      // view-ta STHAYI vabeo rakha hoy (product_view_history) —
+      // product_views-er row 10 minute por muche jay (live-viewer
+      // cleanup), tai sudhu ota diye co-viewed kokhono pawa jeto
+      // na. Table na thakle (purono deploy) insert-ta shudhu
+      // catch-e pore — page kokhono vangbe na.
+      try {
+        await db.query(
+          'INSERT INTO product_view_history (product_id, session_key, viewed_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE viewed_at = NOW()',
+          [product.id, sessionKey]
+        );
+      } catch (e) {}
       await db.query('DELETE FROM product_views WHERE viewed_at < NOW() - INTERVAL 10 MINUTE');
       const [[vrow]] = await db.query(
         'SELECT COUNT(DISTINCT session_key) AS c FROM product_views WHERE product_id = ? AND viewed_at >= NOW() - INTERVAL 5 MINUTE',
@@ -595,9 +748,30 @@ router.get('/product/:id', async (req, res) => {
       if (orows.length) recentPurchase = pp.recentPurchaseLine(orows[0], new Date());
     } catch (e) { recentPurchase = null; }
 
+    // C3 (feat/discovery-search) — "Customers also viewed": ei
+    // product-ta jara dekhechhe, tara ar ki ki dekhechhe — ashol
+    // view history (product_view_history) theke, co-view count
+    // onujayi sajano, max 4. Nijer product-ta baad (pv2 != ?),
+    // shudhu visible product, kono co-view na thakle khali list —
+    // view tokhon section-ta ekebarei dekhabe na (kokhono banano
+    // product / banano count noy).
+    let alsoViewed = [];
+    try {
+      const [avRows] = await db.query(
+        `SELECT p.*, COUNT(*) AS coview_count
+         FROM product_view_history pv2
+         JOIN product_view_history pv1 ON pv1.session_key = pv2.session_key
+         JOIN products p ON p.id = pv2.product_id
+         WHERE pv1.product_id = ? AND pv2.product_id != ? AND ${VISIBLE_PRODUCT_SQL.replace(/products\./g, 'p.')}
+         GROUP BY p.id ORDER BY coview_count DESC, p.created_at DESC LIMIT 4`,
+        [product.id, product.id]
+      );
+      alsoViewed = avRows;
+    } catch (e) { alsoViewed = []; }
+
     // Related-er 2nd chobi (feat/animations-delight, A5): shudhu
     // Related product gulor prothom gallery chobi.
-    const secondImages = await firstGalleryImages(related.map(r => r.id));
+    const secondImages = await firstGalleryImages(related.map(r => r.id).concat(alsoViewed.map(r => r.id)));
 
     // Long Description-e Admin jodi Markdown (#, ##, *, ** ityadi) use kore
     // thaken, eta ekhane real HTML-e convert kore dilam jate website-e
@@ -632,6 +806,7 @@ router.get('/product/:id', async (req, res) => {
       specs,
       discountPercent,
       related,
+      alsoViewed,
       secondImages,
       reviews,
       avgRating: avgRow.avgRating ? parseFloat(avgRow.avgRating).toFixed(1) : null,

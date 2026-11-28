@@ -4052,3 +4052,17 @@ img, video { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .low-stock-fill { transition: none; }
 }
+
+/* Discovery & search (feat/discovery-search, PR #85): filter
+   checkboxes + clear link, did-you-mean / no-exact-match lines,
+   Load more button. Existing vars only (navy/gold/surface) —
+   no new colour introduced. */
+.sort-form .filter-check { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--text); cursor: pointer; white-space: nowrap; }
+.sort-form .filter-check input { accent-color: var(--accent); }
+.filter-clear { font-size: 14px; color: var(--text-muted); text-decoration: underline; white-space: nowrap; }
+.filter-clear:hover { color: var(--text); }
+.did-you-mean { margin: 0 0 12px; font-size: 15px; }
+.did-you-mean a { font-weight: bold; }
+.search-note { margin: 0 0 8px; font-size: 14px; color: var(--text-muted); }
+.load-more-wrap { text-align: center; margin: 0 0 40px; }
+.load-more-wrap .btn-primary.is-loading { opacity: .65; pointer-events: none; }

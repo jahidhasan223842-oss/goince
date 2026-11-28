@@ -344,6 +344,23 @@ const SITE_SETTING_DEFAULTS = {
       UNIQUE KEY uq_product_view (product_id, session_key),
       INDEX idx_pv_recent (product_id, viewed_at)
     )`);
+    // Discovery & search (feat/discovery-search, PR #85) — C3
+    // "Customers also viewed"-er sthayi view history: product_views
+    // theke alada, karon product_views-er row 10 minute por muche
+    // jay (live-viewer cleanup) — co-viewed hisab-er jonno view
+    // ekhane theke jay. Ek session ek product-e ekbar-i (UNIQUE),
+    // notun view shudhu viewed_at update kore. Source of the
+    // schema is sql/discovery_search.sql.
+    await db.query(`CREATE TABLE IF NOT EXISTS product_view_history (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      session_key VARCHAR(100) NOT NULL,
+      viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+      UNIQUE KEY uq_pvh_product_session (product_id, session_key),
+      INDEX idx_pvh_session (session_key, viewed_at),
+      INDEX idx_pvh_product (product_id, viewed_at)
+    )`);
   } catch (err) {
     console.error('Auto-create product-page tables skipped (create them by hand with sql/product_page_batch.sql):', err.message);
   }
