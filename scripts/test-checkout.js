@@ -22,6 +22,11 @@
 //   E10 Post-purchase upsell on the thank-you page: related
 //       products with one-click add via the PR #80 AJAX flow.
 //
+//   PR #87 Review delivery line follows the zone (section 11):
+//       updateTotal refreshes review-delivery-display with the
+//       same charge as the summary line; all-free carts stay
+//       FREE 🚚 (৳0) in both lines.
+//
 // No live MySQL needed: source checks + direct EJS renders +
 // the REAL shop routes on a stubbed DB (express, like
 // test-cart-buying.js) + the REAL public/js/checkout.js in a
@@ -186,6 +191,11 @@ const checkoutLocals = {
     && checkoutEjs.includes('>5. Review Your Order</h4>'));
   check('E2 view: review section lists the cart items + totals (incl. review-total-display)',
     checkoutEjs.includes('class="checkout-review-list"') && checkoutEjs.includes('id="review-total-display"'));
+  check('PR #87 view: review Delivery Charge line carries id="review-delivery-display" (it was a bare server value, so no JS ever refreshed it)',
+    checkoutEjs.includes('id="review-delivery-display"'));
+  check('PR #87 js: updateTotal refreshes the review delivery line with the same charge as the summary line',
+    /const reviewDeliveryEl = document\.getElementById\('review-delivery-display'\);/.test(checkoutEjs)
+    && /if \(reviewDeliveryEl\) reviewDeliveryEl\.textContent = fmtTk\(charge\);/.test(checkoutEjs));
   check('E2 view: form is novalidate (inline validation gates, server re-validates — no-JS still submits)',
     /<form action="\/checkout" method="POST" class="checkout-form" id="checkout-form" novalidate>/.test(checkoutEjs));
   check('E3 view: fields pre-fill from the form local (name/email/phone/district/area/house-line values)',
@@ -306,6 +316,8 @@ const checkoutLocals = {
       && guestHtml.includes('name="transaction_id"'));
     check('render guest: review section shows the item + total ৳1,050',
       guestHtml.includes('BINBOND 2521 Watch') && guestHtml.includes('id="review-total-display">৳1,050<'));
+    check('render guest PR #87: review Delivery Charge renders with id="review-delivery-display" at ৳60 (Inside Dhaka default)',
+      guestHtml.includes('id="review-delivery-display">৳60<'));
     check('render guest: inlined BD_DISTRICTS carries the 64 districts for the picker JS',
       guestHtml.includes('window.BD_DISTRICTS = ') && guestHtml.includes('"districts":["Bagerhat"')
       && guestHtml.includes('Dhanmondi'));
@@ -801,6 +813,91 @@ const checkoutLocals = {
   formEl.fire('submit', okSubmit);
   check('dom js: submitting a valid form is NOT prevented (the PR #81 lock takes over from here)',
     okSubmit.prevented === false);
+
+  // ---------- 11. PR #87 — the REAL inline updateTotal from the
+  // rendered checkout page, run in a stubbed DOM: the Review
+  // section's Delivery Charge line must follow the zone exactly
+  // like the Order Summary line. Before this fix the review line
+  // was a bare server value with no id, so updateTotal never
+  // touched it: switching to Chattogram / Outside Dhaka moved the
+  // summary to ৳120 and both totals to ৳1,110 while the review
+  // line stayed ৳60. The free-delivery render has NO delivery
+  // spans at all (both lines statically read FREE 🚚 = ৳0), so
+  // updateTotal must survive their absence.
+  function updateTotalDomFrom(html, isFree) {
+    const m = html.match(/<script>\s*const subtotal =[\s\S]*?<\/script>/);
+    if (!m) return null;
+    const code = m[0].replace(/<\/?script>/g, '');
+    const mk = (text) => ({ textContent: text || '', value: '', options: [], selectedIndex: 0, dataset: {}, style: {} });
+    const els2 = {
+      'total-display': mk(isFree ? '৳990' : '৳1,050'),
+      'btn-total-display': mk(isFree ? '৳990' : '৳1,050'),
+      'review-total-display': mk(isFree ? '৳990' : '৳1,050'),
+    };
+    if (!isFree) {
+      els2['delivery-display'] = mk('৳60');
+      els2['review-delivery-display'] = mk('৳60');
+    }
+    const zone = mk('');
+    zone.options = [{ value: 'inside_dhaka', dataset: { charge: '60' } }, { value: 'outside_dhaka', dataset: { charge: '120' } }];
+    zone.value = 'inside_dhaka';
+    zone.selectedIndex = 0;
+    els2['delivery_area'] = zone;
+    const box = { document: { getElementById: (id) => els2[id] || null }, console };
+    vm.runInNewContext(code, box);
+    return { els: els2, zone, updateTotal: box.updateTotal };
+  }
+  const paid = guestHtml ? updateTotalDomFrom(guestHtml, false) : null;
+  check('PR #87 dom: the real inline updateTotal is extracted from the rendered page and runs in the stubbed DOM',
+    !!paid && typeof paid.updateTotal === 'function');
+  if (paid) {
+    check('PR #87 dom: initial render — review delivery ৳60 matches the summary, both totals ৳1,050',
+      paid.els['review-delivery-display'].textContent === '৳60'
+      && paid.els['delivery-display'].textContent === '৳60'
+      && paid.els['total-display'].textContent === '৳1,050'
+      && paid.els['review-total-display'].textContent === '৳1,050');
+    paid.zone.selectedIndex = 1;
+    paid.zone.value = 'outside_dhaka';
+    paid.updateTotal();
+    check('PR #87 dom: Outside Dhaka (Chattogram) → review delivery ৳120 = summary ৳120, both totals + button ৳1,110',
+      paid.els['review-delivery-display'].textContent === '৳120'
+      && paid.els['delivery-display'].textContent === '৳120'
+      && paid.els['total-display'].textContent === '৳1,110'
+      && paid.els['review-total-display'].textContent === '৳1,110'
+      && paid.els['btn-total-display'].textContent === '৳1,110');
+    paid.zone.selectedIndex = 0;
+    paid.zone.value = 'inside_dhaka';
+    paid.updateTotal();
+    check('PR #87 dom: back to Inside Dhaka → review delivery ৳60 again, totals ৳1,050 (no stale ৳120)',
+      paid.els['review-delivery-display'].textContent === '৳60'
+      && paid.els['delivery-display'].textContent === '৳60'
+      && paid.els['total-display'].textContent === '৳1,050'
+      && paid.els['review-total-display'].textContent === '৳1,050');
+  }
+  let freeHtml = '';
+  try {
+    freeHtml = await renderFile(checkoutPath, Object.assign({}, baseLocals, checkoutLocals, {
+      form: { customer_name: '', email: '', phone: '', district: '', area: '', address_line: '' },
+      prefill: null, isLoggedIn: false, allFreeShipping: true, deliveryCharge: 0, total: 990,
+    }));
+  } catch (e) { check('render: all-free-delivery checkout renders (EJS)', false, String(e && e.message)); }
+  if (freeHtml) {
+    check('PR #87 render free: summary AND review both read FREE 🚚 (charge ৳0) and carry no delivery-display ids',
+      (freeHtml.match(/FREE 🚚/g) || []).length === 2
+      && !freeHtml.includes('id="delivery-display"') && !freeHtml.includes('id="review-delivery-display"')
+      && freeHtml.includes('const freeShipping = true;'));
+    const free = updateTotalDomFrom(freeHtml, true);
+    let freeOk = !!free && typeof free.updateTotal === 'function';
+    if (free) {
+      free.zone.selectedIndex = 1;
+      free.zone.value = 'outside_dhaka';
+      try { free.updateTotal(); } catch (e) { freeOk = false; }
+    }
+    check('PR #87 dom free: switching zone on an all-free cart does not crash and keeps all totals at ৳990 (৳0 delivery)',
+      freeOk && free.els['total-display'].textContent === '৳990'
+      && free.els['review-total-display'].textContent === '৳990'
+      && free.els['btn-total-display'].textContent === '৳990');
+  }
 
   console.log(`\n${passes.length} passed, ${failures.length} failed.`);
   if (failures.length) {

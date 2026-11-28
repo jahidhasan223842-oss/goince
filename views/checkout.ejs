@@ -163,7 +163,7 @@
       <div class="summary-totals">
         <p><span>Subtotal</span><span><%= _tk(subtotal) %></span></p>
         <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-<%= _tk(discount) %></span></p><% } %>
-        <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %><%= _tk(deliveryCharge) %><% } %></span></p>
+        <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %><span id="review-delivery-display"><%= _tk(deliveryCharge) %></span><% } %></span></p>
       </div>
       <h3 class="summary-grand-total"><span>Total</span><span id="review-total-display"><%= _tk(total) %></span></h3>
       <p class="field-hint">🔄 24h return for defective or wrong products.</p>
@@ -232,6 +232,13 @@
 
     const deliveryEl = document.getElementById('delivery-display');
     if (deliveryEl) deliveryEl.textContent = fmtTk(charge);
+    // PR #87: the Review section (section 5) has its own Delivery
+    // Charge line — it used to keep the server-rendered ৳60 after a
+    // zone change because only the summary line above was refreshed.
+    // (All-free cart: no review-delivery-display exists — both lines
+    // statically read FREE, i.e. ৳0 — so the guard skips it.)
+    const reviewDeliveryEl = document.getElementById('review-delivery-display');
+    if (reviewDeliveryEl) reviewDeliveryEl.textContent = fmtTk(charge);
     document.getElementById('total-display').textContent = fmtTk(total);
     document.getElementById('btn-total-display').textContent = fmtTk(total);
     const reviewTotalEl = document.getElementById('review-total-display');
