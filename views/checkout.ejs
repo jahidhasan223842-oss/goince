@@ -27,6 +27,7 @@
     <div class="summary-totals">
       <p><span>Subtotal</span><span><span id="subtotal-display"><%= _tk(subtotal) %></span></span></p>
       <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-<%= _tk(discount) %></span></p><% } %>
+      <% if (typeof pointsDiscount !== 'undefined' && pointsDiscount > 0) { %><p class="summary-discount-row"><span>Points discount</span><span>-<%= _tk(pointsDiscount) %></span></p><% } %>
       <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %><span id="delivery-display"><%= _tk(deliveryCharge) %></span><% } %></span></p>
     </div>
     <h3 class="summary-grand-total"><span>Total</span><span><span id="total-display"><%= _tk(total) %></span></span></h3>
@@ -163,11 +164,26 @@
       <div class="summary-totals">
         <p><span>Subtotal</span><span><%= _tk(subtotal) %></span></p>
         <% if (discount > 0) { %><p class="summary-discount-row"><span>Discount (<%= coupon.code %>)</span><span>-<%= _tk(discount) %></span></p><% } %>
+        <% if (typeof pointsDiscount !== 'undefined' && pointsDiscount > 0) { %><p class="summary-discount-row"><span>Points discount</span><span>-<%= _tk(pointsDiscount) %></span></p><% } %>
         <p><span>Delivery Charge</span><span><% if (typeof allFreeShipping !== 'undefined' && allFreeShipping) { %>FREE 🚚<% } else { %><span id="review-delivery-display"><%= _tk(deliveryCharge) %></span><% } %></span></p>
       </div>
       <h3 class="summary-grand-total"><span>Total</span><span id="review-total-display"><%= _tk(total) %></span></h3>
       <p class="field-hint">🔄 24h return for defective or wrong products.</p>
     </div>
+
+    <% /* F4 (feat/retention): loyalty points redeem — logged-in
+         customer with a balance can spend points here. The server
+         clamps the value (balance / max-redeem cap / amount to pay),
+         so typing more than allowed is safe. */ %>
+    <% if (typeof isLoggedIn !== 'undefined' && isLoggedIn && typeof loyaltyEnabled !== 'undefined' && loyaltyEnabled && typeof pointsBalance !== 'undefined' && pointsBalance > 0) { %>
+    <div class="checkout-section" id="checkout-section-points">
+      <h4 class="checkout-section-title">🎁 Loyalty Points</h4>
+      <p class="field-hint" style="margin:0 0 8px;">You have <strong><%= pointsBalance %> points</strong><% if (typeof pointsValue !== 'undefined' && pointsValue > 0) { %> — worth <strong><%= _tk(pointsValue) %></strong> off<% } %>. Points are earned on delivered orders.</p>
+      <label for="redeem_points">Redeem points (optional)</label>
+      <input type="number" id="redeem_points" name="redeem_points" min="0" max="<%= pointsBalance %>" step="1" value="<%= (typeof redeemPointsInput !== 'undefined' && redeemPointsInput) || 0 %>" placeholder="0">
+      <p class="field-hint" id="redeem-hint"><%= (typeof pointsRedeemPoints !== 'undefined' && pointsRedeemPoints) || 100 %> points = ৳<%= (typeof pointsRedeemTaka !== 'undefined' && pointsRedeemTaka) || 10 %> off. The total updates as you type.</p>
+    </div>
+    <% } %>
 
     <button type="submit" class="btn-primary btn-place-order">Place Order — <span id="btn-total-display"><%= _tk(total) %></span></button>
     <p class="field-hint" id="place-order-hint"></p>
@@ -217,6 +233,21 @@
 <script>
   const subtotal = <%= subtotal %>;
   const discount = <%= discount %>;
+  // F4 (feat/retention): loyalty redeem — live preview while typing.
+  // Server re-clamps on POST, so this is display only.
+  const pointsBalance = <%= (typeof pointsBalance !== 'undefined' && pointsBalance) || 0 %>;
+  const pointsRedeemPoints = <%= (typeof pointsRedeemPoints !== 'undefined' && pointsRedeemPoints) || 100 %>;
+  const pointsRedeemTaka = <%= (typeof pointsRedeemTaka !== 'undefined' && pointsRedeemTaka) || 10 %>;
+  const pointsMaxRedeem = <%= (typeof pointsMaxRedeem !== 'undefined' && pointsMaxRedeem) || 500 %>;
+  function livePointsValue() {
+    var input = document.getElementById('redeem_points');
+    if (!input) return 0;
+    var typed = Math.max(0, Math.floor(Number(input.value) || 0));
+    typed = Math.min(typed, pointsBalance);
+    var value = Math.floor(typed / pointsRedeemPoints) * pointsRedeemTaka;
+    value = Math.min(value, pointsMaxRedeem, Math.max(0, subtotal - discount));
+    return Math.floor(value / pointsRedeemTaka) * pointsRedeemTaka;
+  }
 
   const freeShipping = <%= (typeof allFreeShipping !== 'undefined' && allFreeShipping) ? 'true' : 'false' %>;
   // One currency format on the shop: ৳990, no decimals — decimals only
@@ -228,7 +259,8 @@
   function updateTotal() {
     const select = document.getElementById('delivery_area');
     const charge = freeShipping ? 0 : parseFloat(select.options[select.selectedIndex].dataset.charge);
-    const total = subtotal - discount + charge;
+    const pointsValue = livePointsValue();
+    const total = subtotal - discount - pointsValue + charge;
 
     const deliveryEl = document.getElementById('delivery-display');
     if (deliveryEl) deliveryEl.textContent = fmtTk(charge);
@@ -244,6 +276,23 @@
     const reviewTotalEl = document.getElementById('review-total-display');
     if (reviewTotalEl) reviewTotalEl.textContent = fmtTk(total);
   }
+
+  // F4 (feat/retention): redeem input bodle total sathe sathe bodlay.
+  (function () {
+    var redeemInput = document.getElementById('redeem_points');
+    if (!redeemInput) return;
+    redeemInput.addEventListener('input', function () {
+      updateTotal();
+      var hint = document.getElementById('redeem-hint');
+      if (hint) {
+        var v = livePointsValue();
+        hint.textContent = v > 0
+          ? ('You will save ' + fmtTk(v) + ' on this order.')
+          : (pointsRedeemPoints + ' points = ৳' + pointsRedeemTaka + ' off. The total updates as you type.');
+      }
+    });
+    updateTotal();
+  })();
 
   function toggleTxnField() {
     const select = document.getElementById('payment_method');

@@ -12,8 +12,9 @@ const disc = require('../lib/discovery');
 const { DISTRICTS, AREAS } = require('../lib/bd-districts');
 const { composeAddress, parseStoredAddress, validateCheckoutFields } = require('../lib/checkout');
 const { marked } = require('marked');
-const { sendOrderConfirmation } = require('../config/email');
+const { sendOrderConfirmation, sendMail } = require('../config/email');
 const { notifyAdmins } = require('../config/push');
+const ret = require('../lib/retention');
 const { buildCategoryTree, ancestorChain, visibleSubtreeIds, isEffectivelyVisible } = require('../lib/categories');
 
 // ---------- PRODUCT-PAGE BATCH (feat/product-page, PR #83) ----------
@@ -931,18 +932,23 @@ router.post('/product/:id/question', async (req, res) => {
 });
 
 // ---------- NOTIFY ME (stock asle janano) ----------
+// F2 (feat/retention): email-o deoa jay — stock firle email-e janano
+// hoy (phone-only purono row-gulo ager motoi thake; SMS batch 9).
 router.post('/product/:id/notify-me', async (req, res) => {
   const phone = normalizeBdPhone(req.body.phone || '');
   if (!isValidBdPhone(req.body.phone || '')) {
     return res.redirect('/product/' + req.params.id + '?notify=invalid');
   }
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const emailOk = !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!emailOk) return res.redirect('/product/' + req.params.id + '?notify=invalid');
   try {
     const [[p]] = await db.query('SELECT id, stock FROM products WHERE id = ?', [req.params.id]);
     if (!p) return res.status(404).send('Product not found');
     if (p.stock > 0) return res.redirect('/product/' + req.params.id);
     await db.query(
-      'INSERT INTO stock_alerts (product_id, phone) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM stock_alerts WHERE product_id = ? AND phone = ? AND notified = 0)',
-      [req.params.id, phone, req.params.id, phone]
+      'INSERT INTO stock_alerts (product_id, phone, email) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM stock_alerts WHERE product_id = ? AND phone = ? AND notified = 0)',
+      [req.params.id, phone, email || null, req.params.id, phone]
     );
     res.redirect('/product/' + req.params.id + '?notify=ok');
   } catch (e) {
@@ -1359,6 +1365,70 @@ router.post('/cart/remove-coupon', (req, res) => {
   res.redirect('/cart');
 });
 
+// ---------- RETENTION (feat/retention, PR #88) ----------
+// F1 — abandoned-cart restore link: recovery email-er link ekhane
+// ase; ekbar-i kaj kore (restoreAbandonedCart recovered_at bosay),
+// tarpor /cart-e jay.
+router.get('/cart/restore/:token', async (req, res) => {
+  const cart = await ret.restoreAbandonedCart(db, req.params.token);
+  if (!cart) return res.redirect('/cart');
+  req.session.cart = cart;
+  res.redirect('/cart');
+});
+
+// F7 — newsletter signup (footer form). Email thik na hole ba DB
+// vul holeo shop cholbe — flash message-e janano hoy.
+router.post('/newsletter/subscribe', async (req, res) => {
+  const back = req.get('Referrer') || '/';
+  const r = await ret.subscribeNewsletter(db, req.body.email, req.session.userId || null, 'footer');
+  req.session.newsletterMsg = r.ok
+    ? 'Thanks for subscribing! You will get Goince offers by email.'
+    : 'Please enter a valid email address to subscribe.';
+  res.redirect(back);
+});
+
+// F8 — customer web push: subscribe / unsubscribe / public key.
+// Key na thakle ba push off thakle publicKey null ase — browser
+// tokhon subscribe kore na, kono error-o hoy na.
+router.get('/push-vapid-key', async (req, res) => {
+  try {
+    const cfg = await ret.getVapidConfig(db);
+    res.json({ publicKey: (cfg.enabled && cfg.publicKey) ? cfg.publicKey : null });
+  } catch (e) {
+    res.json({ publicKey: null });
+  }
+});
+
+router.post('/push-subscribe', async (req, res) => {
+  try {
+    const cfg = await ret.getVapidConfig(db);
+    if (!cfg.enabled || !cfg.publicKey || !cfg.privateKey) {
+      return res.status(503).json({ ok: false, error: 'Push notifications are not enabled yet.' });
+    }
+    const sub = req.body.subscription || req.body;
+    if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+      return res.status(400).json({ ok: false, error: 'Invalid push subscription.' });
+    }
+    await db.query(
+      'INSERT INTO customer_push_subscriptions (endpoint, p256dh, auth, user_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth), user_id = VALUES(user_id)',
+      [sub.endpoint, sub.keys.p256dh, sub.keys.auth, req.session.userId || null]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Customer push subscribe error:', e.message);
+    res.status(500).json({ ok: false, error: 'Could not save the push subscription.' });
+  }
+});
+
+router.post('/push-unsubscribe', async (req, res) => {
+  try {
+    const endpoint = (req.body && (req.body.endpoint || (req.body.subscription && req.body.subscription.endpoint))) || '';
+    if (endpoint) await db.query('DELETE FROM customer_push_subscriptions WHERE endpoint = ?', [endpoint]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Could not remove the push subscription.' });
+  }
+});
+
 // Cart-er product gulo free_shipping / cod_allowed kina
 async function getCartShippingFlags(cart) {
   const ids = [...new Set(cart.map(i => i.id))];
@@ -1457,7 +1527,24 @@ router.get('/checkout', async (req, res) => {
   const paymentMethods = await getPaymentMethods();
   const gateway = await getGatewayConfig();
   const { prefill, form } = await loadCheckoutPrefill(req);
-  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: null, prefill, form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince' });
+  // F1 (feat/retention): cart checkout-e pouchalo — abandoned-cart
+  // hisabe record kora (order na hole pore recovery email jete pare).
+  // F4: logged-in customer-er points balance + redeem value.
+  let retentionSettings = ret.RETENTION_DEFAULTS;
+  let pointsBalance = 0;
+  try {
+    retentionSettings = await ret.getRetentionSettings(db);
+    if (req.session.userId) pointsBalance = await ret.getPointsBalance(db, req.session.userId);
+    await ret.recordAbandonedCart(db, {
+      sessionKey: viewerSessionKey(req),
+      userId: req.session.userId || null,
+      email: (prefill && prefill.email) || form.email || null,
+      cart,
+    });
+  } catch (e) { /* retention never blocks checkout */ }
+  const loyaltyEnabled = ret.isOn(retentionSettings, 'loyalty_enabled');
+  const pointsValue = loyaltyEnabled ? ret.redeemValueForPoints(pointsBalance, retentionSettings.loyalty_redeem_points, retentionSettings.loyalty_redeem_taka) : 0;
+  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: null, prefill, form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince', pointsBalance, pointsValue, pointsDiscount: 0, loyaltyEnabled, pointsRedeemPoints: retentionSettings.loyalty_redeem_points, pointsRedeemTaka: retentionSettings.loyalty_redeem_taka, pointsMaxRedeem: retentionSettings.loyalty_max_redeem_taka });
 });
 
 // ---------- PLACE ORDER ----------
@@ -1483,6 +1570,16 @@ router.post('/checkout', async (req, res) => {
   // total dekhay, checkout page-er motoi.
   const flags = await getCartShippingFlags(cart);
   const errorDeliveryCharge = flags.allFreeShipping ? 0 : defaultCharge;
+  // F4 (feat/retention): loyalty settings + balance — error re-render-eo
+  // points box dekhabe, ar redeem hisab-e lagbe.
+  let retentionSettings = ret.RETENTION_DEFAULTS;
+  let pointsBalance = 0;
+  try {
+    retentionSettings = await ret.getRetentionSettings(db);
+    if (req.session.userId) pointsBalance = await ret.getPointsBalance(db, req.session.userId);
+  } catch (e) { /* retention never blocks checkout */ }
+  const loyaltyEnabled = ret.isOn(retentionSettings, 'loyalty_enabled');
+  const pointsValue = loyaltyEnabled ? ret.redeemValueForPoints(pointsBalance, retentionSettings.loyalty_redeem_points, retentionSettings.loyalty_redeem_taka) : 0;
   const renderCheckoutError = (msg) => {
     const _coupon = req.session.coupon || null;
     const _sub0 = cart.reduce((s, it) => s + it.price * it.quantity, 0);
@@ -1493,7 +1590,7 @@ router.post('/checkout', async (req, res) => {
       customer_name: customer_name || '', email: email || '', phone: phone || '',
       district: district || '', area: area || '', address_line: address_line || '',
     };
-    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: errorDeliveryCharge, total: _sub0 - _disc0 + errorDeliveryCharge, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: msg, prefill, form: _form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince' });
+    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: errorDeliveryCharge, total: _sub0 - _disc0 + errorDeliveryCharge, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: msg, prefill, form: _form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince', pointsBalance, pointsValue, pointsDiscount: 0, loyaltyEnabled, redeemPointsInput: Math.max(0, parseInt(req.body.redeem_points, 10) || 0), pointsRedeemPoints: retentionSettings.loyalty_redeem_points, pointsRedeemTaka: retentionSettings.loyalty_redeem_taka, pointsMaxRedeem: retentionSettings.loyalty_max_redeem_taka });
   };
   // Gateway option: sudhu jodi gateway enable + configure kora thake
   const gatewayMethodName = 'Online Payment (Gateway)';
@@ -1522,11 +1619,24 @@ router.post('/checkout', async (req, res) => {
   const coupon = req.session.coupon || null;
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
   const deliveryCharge = flags.allFreeShipping ? 0 : (zone ? zone.charge : (deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka));
+  // F4 (feat/retention): points redeem — balance / cap / payable
+  // onujayi clamp kora (lib/retention.js pointsDiscountFor). Na
+  // thakle ba loyalty off thakle ৳0.
+  const redeemRequested = parseInt(req.body.redeem_points, 10);
+  const pointsRedeem = (loyaltyEnabled && req.session.userId && Number.isFinite(redeemRequested) && redeemRequested > 0)
+    ? ret.pointsDiscountFor({
+        pointsBalance, redeemRequested, subtotal, couponDiscount: discount,
+        maxRedeemTaka: retentionSettings.loyalty_max_redeem_taka,
+        redeemPoints: retentionSettings.loyalty_redeem_points,
+        redeemTaka: retentionSettings.loyalty_redeem_taka,
+      })
+    : { points: 0, value: 0 };
+  const pointsDiscount = pointsRedeem.value;
   if (selectedMethod === 'Cash on Delivery' && !flags.codAllowed) {
     return renderCheckoutError('Cash on Delivery is not available for one or more products in your cart — please pay online or by bKash/Nagad.');
   }
   const normalizedPhone = normalizeBdPhone(phone);
-  const total = subtotal - discount + deliveryCharge;
+  const total = subtotal - discount - pointsDiscount + deliveryCharge;
   const userId = req.session.userId || null;
 
   // bKash/Nagad/Rocket (ba admin-er jog kora onno mobile banking method) e
@@ -1541,9 +1651,9 @@ router.post('/checkout', async (req, res) => {
     await connection.beginTransaction();
 
     const [orderResult] = await connection.query(
-      `INSERT INTO orders (user_id, customer_name, email, phone, address, payment_method, transaction_id, delivery_zone, delivery_charge, coupon_code, discount_amount, total_amount)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, customer_name, email || null, normalizedPhone, fullAddress, payment_method || 'Cash on Delivery', transaction_id || null, zone ? zone.name : null, deliveryCharge, coupon ? coupon.code : null, discount, total]
+      `INSERT INTO orders (user_id, customer_name, email, phone, address, payment_method, transaction_id, delivery_zone, delivery_charge, coupon_code, discount_amount, total_amount, points_redeemed, points_discount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, customer_name, email || null, normalizedPhone, fullAddress, payment_method || 'Cash on Delivery', transaction_id || null, zone ? zone.name : null, deliveryCharge, coupon ? coupon.code : null, discount, total, pointsRedeem.points, pointsDiscount]
     );
     const orderId = orderResult.insertId;
 
@@ -1578,6 +1688,17 @@ router.post('/checkout', async (req, res) => {
     await connection.commit();
     req.session.cart = [];
     req.session.coupon = null;
+
+    // F4 (feat/retention): points redeem hole ledger-e negative row.
+    // F1: order hoye geche — ei session-er abandoned cart ar
+    // abandoned noy, recovery email jabe na.
+    try {
+      if (userId && pointsRedeem.points > 0) {
+        await ret.redeemPointsForOrder(db, userId, orderId, pointsRedeem.points, pointsDiscount);
+      }
+      await db.query('UPDATE abandoned_carts SET recovered_at = NOW() WHERE session_key = ? AND recovered_at IS NULL',
+        [viewerSessionKey(req)]);
+    } catch (e) { /* retention never breaks the order */ }
 
     // Order confirmation email pathano (background e, order response e delay hobe na)
     const siteUrl = `${req.protocol}://${req.get('host')}`;

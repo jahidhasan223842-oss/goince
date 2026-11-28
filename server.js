@@ -29,7 +29,7 @@ app.locals.assetUrl = createAssetUrl(path.join(__dirname, 'public'));
 
 // Site settings (Admin > Settings theke bodlano jay): hero, announcement,
 // address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
-const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'delivery_charge_inside', 'delivery_charge_outside'];
+const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'delivery_charge_inside', 'delivery_charge_outside', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key'];
 const SITE_SETTING_DEFAULTS = {
   hero_title: 'সেরা পণ্য, ক্যাশ অন ডেলিভারি',
   hero_subtitle: 'ঢাকার ভিতরে ১–২ দিনে, ঢাকার বাইরে ৩–৫ দিনে ডেলিভারি। অর্ডারের আগে ফোনে কনফার্ম করা হয়।',
@@ -465,6 +465,124 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- Retention batch tables (feat/retention, PR #88) ----------
+// F4 loyalty ledger, F5 referrals, F1 abandoned carts, F7 newsletter
+// + campaigns, F6 price-drop alerts, F9 win-back offers, F8 customer
+// push subscriptions — plus the users.referral_code, stock_alerts.email
+// and orders points columns. Same pattern as product_view_history in
+// PR #85: CREATE TABLE IF NOT EXISTS on every start, so the live
+// deploy needs no manual step. The documented source of the schema
+// is sql/retention.sql.
+(async () => {
+  try {
+    const db = require('./config/db');
+    await db.query(`CREATE TABLE IF NOT EXISTS loyalty_points (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      order_id INT DEFAULT NULL,
+      points INT NOT NULL,
+      type VARCHAR(20) NOT NULL DEFAULT 'earn',
+      note VARCHAR(255) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL,
+      INDEX idx_lp_user (user_id),
+      INDEX idx_lp_order_type (order_id, type)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS referrals (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      referrer_user_id INT NOT NULL,
+      referred_user_id INT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      reward_points INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      rewarded_at DATETIME DEFAULT NULL,
+      FOREIGN KEY (referrer_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (referred_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE KEY uq_referral_friend (referred_user_id),
+      INDEX idx_ref_referrer (referrer_user_id)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS abandoned_carts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_key VARCHAR(100) NOT NULL,
+      user_id INT DEFAULT NULL,
+      email VARCHAR(255) DEFAULT NULL,
+      cart_json TEXT NOT NULL,
+      restore_token VARCHAR(64) NOT NULL UNIQUE,
+      emailed_at DATETIME DEFAULT NULL,
+      recovered_at DATETIME DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+      INDEX idx_ac_session (session_key),
+      INDEX idx_ac_email (email)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      user_id INT DEFAULT NULL,
+      source VARCHAR(50) DEFAULT 'footer',
+      subscribed TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS email_campaigns (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      subject VARCHAR(255) NOT NULL,
+      body_text TEXT NOT NULL,
+      audience VARCHAR(20) NOT NULL DEFAULT 'subscribers',
+      recipient_count INT NOT NULL DEFAULT 0,
+      status VARCHAR(20) NOT NULL DEFAULT 'sending',
+      sent_at DATETIME DEFAULT NULL,
+      created_by VARCHAR(100) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS price_drop_alerts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      product_id INT NOT NULL,
+      price_from DECIMAL(10,2) NOT NULL,
+      price_to DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+      UNIQUE KEY uq_price_drop (user_id, product_id, price_from, price_to)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS winback_offers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      coupon_code VARCHAR(50) NOT NULL,
+      issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE KEY uq_winback_user (user_id)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS customer_push_subscriptions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      endpoint VARCHAR(500) NOT NULL UNIQUE,
+      p256dh VARCHAR(255) NOT NULL,
+      auth VARCHAR(255) NOT NULL,
+      user_id INT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    )`);
+    const [uCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'");
+    const uNames = new Set((uCols || []).map(c => c.COLUMN_NAME));
+    if (!uNames.has('referral_code')) await db.query('ALTER TABLE users ADD COLUMN referral_code VARCHAR(20) DEFAULT NULL');
+    const [saCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_alerts'");
+    const saNames = new Set((saCols || []).map(c => c.COLUMN_NAME));
+    if (!saNames.has('email')) await db.query('ALTER TABLE stock_alerts ADD COLUMN email VARCHAR(255) DEFAULT NULL');
+    const [oCols2] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'");
+    const oNames2 = new Set((oCols2 || []).map(c => c.COLUMN_NAME));
+    for (const [col, def] of [
+      ['points_earned', 'INT NOT NULL DEFAULT 0'],
+      ['points_redeemed', 'INT NOT NULL DEFAULT 0'],
+      ['points_discount', 'DECIMAL(10,2) NOT NULL DEFAULT 0'],
+    ]) if (!oNames2.has(col)) await db.query(`ALTER TABLE orders ADD COLUMN ${col} ${def}`);
+  } catch (err) {
+    console.error('Retention tables skip holo:', err.message);
+  }
+})();
+
 // ---------- WHMCS-style admin (fix/whmcs-style-admin): customer notes + ticket status ----------
 // Additive columns only, safe defaults — a missing table/column only logs,
 // the server never crashes on it.
@@ -647,6 +765,11 @@ app.use(async (req, res, next) => {
   // never queries the DB.
   res.locals.userPhotoUrl = req.session.userPhotoUrl || null;
   res.locals.cartCount = (req.session.cart || []).reduce((sum, item) => sum + item.quantity, 0);
+  // Newsletter signup flash (feat/retention, F7): the footer form
+  // POSTs from any page, so the "thanks" note rides one redirect in
+  // the session and the footer shows it once, then it is cleared.
+  res.locals.newsletterMsg = (req.session && req.session.newsletterMsg) || null;
+  if (req.session) delete req.session.newsletterMsg;
   // Mini-cart drawer (fix/mini-cart-drawer-hover): the shop footer
   // partial is on every shop page, so the drawer needs the cart LINES
   // + subtotal without a new query or route — the session cart already

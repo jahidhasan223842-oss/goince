@@ -160,6 +160,61 @@
   <label>Invoice Template Name (must be approved by Meta)</label>
   <input type="text" name="whatsapp_template_name" value="<%= whatsappTemplateName %>" placeholder="invoice_pdf">
 
+  <hr style="margin:20px 0;">
+  <h3>🎯 Retention — Loyalty Points, Referrals, Win-Back &amp; Notifications</h3>
+  <p class="field-hint">All the repeat-customer features live here. Every email below is sent through the shop's email system (Admin &gt; Test Email) — <strong>emails only actually send once a Gmail App Password is set in the live .env file</strong> (EMAIL_USER / EMAIL_PASS). Until then, everything is recorded and shown, but no email leaves the shop, and nothing breaks. Points are only ever earned on real delivered orders — never made up.</p>
+  <% const _r = (typeof retention !== 'undefined' && retention) || {}; %>
+  <% const _rv = (k, fb) => (_r[k] !== undefined && _r[k] !== '' ? _r[k] : fb); %>
+  <h4 style="margin-top:14px;">Loyalty Points</h4>
+  <label><input type="checkbox" name="loyalty_enabled" value="1" <%= _rv('loyalty_enabled', '1') === '1' ? 'checked' : '' %>> Enable loyalty points</label>
+  <label>Points earned — spend this much (৳) to earn 1 point (default 100)</label>
+  <input type="number" name="loyalty_earn_per" min="1" value="<%= _rv('loyalty_earn_per', '100') %>">
+  <label>Points redeemed — this many points (default 100) = this much off (৳)</label>
+  <div style="display:flex; gap:8px;">
+    <input type="number" name="loyalty_redeem_points" min="1" value="<%= _rv('loyalty_redeem_points', '100') %>" placeholder="Points">
+    <input type="number" name="loyalty_redeem_taka" min="1" value="<%= _rv('loyalty_redeem_taka', '10') %>" placeholder="Taka off">
+  </div>
+  <label>Max points discount per order (৳, default 500)</label>
+  <input type="number" name="loyalty_max_redeem_taka" min="0" value="<%= _rv('loyalty_max_redeem_taka', '500') %>">
+  <p class="field-hint">Points are earned when an order is marked Delivered, and can be redeemed at checkout. The balance shows on the customer's profile and at checkout.</p>
+
+  <h4 style="margin-top:14px;">Referral Program</h4>
+  <label><input type="checkbox" name="referral_enabled" value="1" <%= _rv('referral_enabled', '1') === '1' ? 'checked' : '' %>> Enable referrals</label>
+  <label>Points the referrer earns when a referred friend's first order is delivered (default 200)</label>
+  <input type="number" name="referral_reward_points" min="0" value="<%= _rv('referral_reward_points', '200') %>">
+  <p class="field-hint">Each customer gets a referral link on their profile page (goince.com/signup?ref=CODE). The reward is loyalty points — no coupon is created.</p>
+
+  <h4 style="margin-top:14px;">Win-Back Offers</h4>
+  <label><input type="checkbox" name="winback_enabled" value="1" <%= _rv('winback_enabled', '1') === '1' ? 'checked' : '' %>> Enable win-back offers</label>
+  <label>Customer has not ordered in this many days (default 60)</label>
+  <input type="number" name="winback_days" min="1" value="<%= _rv('winback_days', '60') %>">
+  <label>Win-back coupon discount (%) (default 10)</label>
+  <input type="number" name="winback_discount_percent" min="1" max="100" value="<%= _rv('winback_discount_percent', '10') %>">
+  <p class="field-hint">Run it from Admin &gt; Customers ("Run win-back check"). Each customer gets one real coupon (WINBACK-…, 30-day expiry, in Admin &gt; Coupons) plus an email — at most once per period.</p>
+
+  <h4 style="margin-top:14px;">Notification Emails</h4>
+  <label><input type="checkbox" name="order_status_email_enabled" value="1" <%= _rv('order_status_email_enabled', '1') === '1' ? 'checked' : '' %>> Email the customer when an order's status changes</label>
+  <label><input type="checkbox" name="back_in_stock_enabled" value="1" <%= _rv('back_in_stock_enabled', '1') === '1' ? 'checked' : '' %>> Email Notify Me subscribers when a product is back in stock (once per restock)</label>
+  <label><input type="checkbox" name="price_drop_enabled" value="1" <%= _rv('price_drop_enabled', '1') === '1' ? 'checked' : '' %>> Email wishlist customers when a product's price drops (once per price drop)</label>
+  <label><input type="checkbox" name="abandoned_cart_email_enabled" value="1" <%= _rv('abandoned_cart_email_enabled', '1') === '1' ? 'checked' : '' %>> Send abandoned-cart recovery emails (one email per cart, ever)</label>
+  <label>Abandoned-cart email — only send when the cart is at least this old (hours, default 24)</label>
+  <input type="number" name="abandoned_cart_cooldown_hours" min="0" value="<%= _rv('abandoned_cart_cooldown_hours', '24') %>">
+  <p class="field-hint">Abandoned carts are listed under Admin &gt; Sales &gt; Abandoned Carts, where you can also send the recovery email by hand.</p>
+
+  <h4 style="margin-top:14px;">Email Campaigns / Newsletter</h4>
+  <label><input type="checkbox" name="campaigns_enabled" value="1" <%= _rv('campaigns_enabled', '0') === '1' ? 'checked' : '' %>> Enable email campaigns (bulk send — keep OFF until you are ready to send)</label>
+  <label>Max recipients per campaign send (default 200, never above 500)</label>
+  <input type="number" name="campaign_max_recipients" min="1" max="500" value="<%= _rv('campaign_max_recipients', '200') %>">
+  <p class="field-hint">Campaigns are composed under Admin &gt; Communication &gt; Campaigns. The footer signup form adds customers to the newsletter list.</p>
+
+  <h4 style="margin-top:14px;">Customer Web Push Notifications</h4>
+  <label><input type="checkbox" name="push_enabled" value="1" <%= _rv('push_enabled', '0') === '1' ? 'checked' : '' %>> Enable customer web push notifications</label>
+  <label>VAPID Public Key (customers subscribe with this — safe to show)</label>
+  <input type="text" name="vapid_public_key" value="<%= _rv('vapid_public_key', '') %>" placeholder="e.g. BNDx… (base64url)">
+  <label>VAPID Private Key <%= _r.vapidPrivateKeySet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="vapid_private_key" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <p class="field-hint">Generate a VAPID key pair once with <code>npx web-push generate-vapid-keys</code> and paste both keys here. Until BOTH keys are saved and push is enabled, the customer subscribe prompt stays off and never errors. (The admin order push uses the .env VAPID keys — this is only for customers.)</p>
+
   <button type="submit" class="btn-primary" style="padding:14px 32px; font-size:16px; width:100%;">💾 Save Settings</button>
 </form>
 

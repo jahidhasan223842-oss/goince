@@ -272,4 +272,32 @@ async function sendInvoiceEmail(toEmail, invoice) {
   }
 }
 
-module.exports = { sendOrderConfirmation, sendPasswordResetEmail, sendTestEmail, isEmailConfigured, sendInvoiceEmail };
+// Generic single email (feat/retention, PR #88) — used by loyalty /
+// referral / win-back / abandoned-cart / back-in-stock / order-status
+// / price-drop / campaign senders in lib/retention.js.
+// Returns { ok: true } or { ok: false, error } — NEVER throws, and
+// silently skips (ok: false, 'not-configured') when EMAIL_USER /
+// EMAIL_PASS are not set in .env yet, so no retention feature can
+// crash the shop or spam anyone before donal provides the Gmail App
+// Password. Callers log + skip on ok: false.
+async function sendMail(toEmail, subject, text, html) {
+  if (!isEmailConfigured()) {
+    return { ok: false, error: 'Email is not configured yet — set EMAIL_USER and EMAIL_PASS in the .env file first.' };
+  }
+  if (!toEmail) return { ok: false, error: 'Recipient email address is required.' };
+  try {
+    await transporter.sendMail({
+      from: `"Goince" <${process.env.EMAIL_USER}>`,
+      to: toEmail,
+      subject,
+      text: text || '',
+      html: html || undefined,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('Email send failed:', err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+module.exports = { sendOrderConfirmation, sendPasswordResetEmail, sendTestEmail, isEmailConfigured, sendInvoiceEmail, sendMail };

@@ -18,7 +18,7 @@
 //   5. Messages: status filter pills, detail page, reply marks Answered,
 //      status change works, read marks Answered.
 //   6. Source checks: convention comment, CSS rules, permission registry
-//      untouched (still 22 permissions).
+//      (23 permissions — feat/retention added campaigns.manage).
 //
 // Run:  node scripts/test-whmcs-style-admin.js
 // Exit code 0 = all checks passed.
@@ -370,8 +370,8 @@ async function waitForServer(tries = 50) {
     headerSrc.includes('admin-topbar') && headerSrc.includes('admin-bell-btn') &&
     headerSrc.includes('admin-breadcrumb') && headerSrc.includes('admin-nav-group-btn'));
   const { ALL_PERMISSIONS } = require('../lib/permissions');
-  check('permission registry untouched (still 22 permissions)',
-    ALL_PERMISSIONS.length === 22, 'got ' + ALL_PERMISSIONS.length);
+  check('permission registry has 23 permissions (22 + campaigns.manage, feat/retention)',
+    ALL_PERMISSIONS.length === 23, 'got ' + ALL_PERMISSIONS.length);
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'style.css'), 'utf8');
   check('CSS has the shell rules (topbar, bell badge, nav badge, breadcrumb, tabs)',
     css.includes('.admin-topbar') && css.includes('.admin-bell-badge') && css.includes('.admin-nav-badge') &&

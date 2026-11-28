@@ -7,6 +7,7 @@ const upload = require('../config/upload');
 const { cropProfilePhoto, validateProfileDetails, validateEmailChange } = require('../lib/admin-profile');
 const { customerDisplayName, formatMemberSince } = require('../lib/customer-profile');
 const { isEmailConfigured } = require('../config/email');
+const ret = require('../lib/retention');
 const fs = require('fs');
 const path = require('path');
 
@@ -21,7 +22,11 @@ function isValidEmail(email) {
 }
 
 // ---------- SIGNUP ----------
+// F5 (feat/retention): ?ref=CODE link diye asle code-ta session-e
+// rakha hoy — POST /signup-e referral row toiri hoy.
 router.get('/signup', (req, res) => {
+  const refCode = typeof req.query.ref === 'string' ? req.query.ref.trim() : '';
+  if (refCode && ret.parseReferralCode(refCode)) req.session.refCode = refCode;
   res.render('auth/signup', { error: null, siteName: 'Goince' });
 });
 
@@ -61,6 +66,22 @@ router.post('/signup', async (req, res) => {
       req.session.userName = customerDisplayName({ name, email });
       req.session.userEmail = email;
       req.session.userPhotoUrl = null;
+      // F5 (feat/retention): referral link diye signup hole referrer-er
+      // pending referral row toiri hoy — reward tokhon-i, jokhon ei
+      // customer-er prothom order Delivered hobe.
+      try {
+        const refCode = req.session.refCode;
+        delete req.session.refCode;
+        if (refCode) {
+          const referrerId = ret.parseReferralCode(refCode);
+          if (referrerId) {
+            const settings = await ret.getRetentionSettings(db);
+            if (ret.isOn(settings, 'referral_enabled')) {
+              await ret.recordReferralSignup(db, referrerId, result.insertId);
+            }
+          }
+        }
+      } catch (e) { /* referral never blocks signup */ }
       res.redirect('/');
     } catch (dbErr) {
       // Race condition: 2 jon ekshathe same email diye signup korte gele eta dhorbe
@@ -298,6 +319,24 @@ router.get('/account/profile', requireCustomer, async (req, res) => {
   } catch (e) { /* stats stay 0 — the profile still loads */ }
   const photoUrl = (user.photo_url && String(user.photo_url).startsWith('/uploads/'))
     ? String(user.photo_url) : null;
+  // F4/F5/F9/F7 (feat/retention): points balance, referral code/link,
+  // active win-back coupon, newsletter status — shob guarded, profile
+  // kokhono egulor jonno vangbe na.
+  let pointsBalance = 0;
+  let referralCode = null;
+  let referralLink = null;
+  let winbackCoupon = null;
+  let newsletterSubscribed = false;
+  let loyaltySettings = ret.RETENTION_DEFAULTS;
+  try {
+    loyaltySettings = await ret.getRetentionSettings(db);
+    pointsBalance = await ret.getPointsBalance(db, req.session.userId);
+    referralCode = await ret.getOrCreateReferralCode(db, req.session.userId);
+    referralLink = ret.referralLink(`${req.protocol}://${req.get('host')}`, req.session.userId);
+    winbackCoupon = await ret.getActiveWinbackCoupon(db, req.session.userId);
+    newsletterSubscribed = await ret.isNewsletterSubscribed(db, user.email);
+  } catch (e) { /* retention sections stay empty — profile still loads */ }
+  const pointsValue = ret.redeemValueForPoints(pointsBalance, loyaltySettings.loyalty_redeem_points, loyaltySettings.loyalty_redeem_taka);
   res.render('auth/profile', {
     user,
     displayName: customerDisplayName(user),
@@ -308,6 +347,18 @@ router.get('/account/profile', requireCustomer, async (req, res) => {
     memberSince: formatMemberSince(user.created_at),
     ordersCount,
     totalSpent,
+    pointsBalance,
+    pointsValue,
+    loyaltyEnabled: ret.isOn(loyaltySettings, 'loyalty_enabled'),
+    loyaltyEarnPer: loyaltySettings.loyalty_earn_per,
+    loyaltyRedeemPoints: loyaltySettings.loyalty_redeem_points,
+    loyaltyRedeemTaka: loyaltySettings.loyalty_redeem_taka,
+    referralEnabled: ret.isOn(loyaltySettings, 'referral_enabled'),
+    referralRewardPoints: loyaltySettings.referral_reward_points,
+    referralCode,
+    referralLink,
+    winbackCoupon,
+    newsletterSubscribed,
     emailConfigured: isEmailConfigured(),
     profileOk: req.query.saved === 'details' || req.query.saved === 'photo'
       || req.query.saved === 'removed' || req.query.saved === 'email'

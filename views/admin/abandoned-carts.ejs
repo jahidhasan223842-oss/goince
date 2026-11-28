@@ -1,0 +1,41 @@
+<%- include('../partials/admin-header') %>
+
+<h1>🛒 Abandoned Carts</h1>
+<p class="field-hint">Carts that reached checkout but were never ordered — real carts only. "Send recovery email" sends at most <strong>one</strong> email per cart, ever, with a link that restores the cart. A cart that was already emailed, or already ordered, cannot be emailed again.</p>
+
+<% if (typeof msg !== 'undefined' && msg) { %><p class="success-msg" style="text-align:left;"><%= msg %></p><% } %>
+
+<% if (!carts || carts.length === 0) { %>
+  <div class="empty-state">
+    <span class="empty-state-icon">🛒</span>
+    <strong>No abandoned carts</strong>
+    <p>Carts appear here once a visitor reaches checkout without ordering.</p>
+  </div>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Customer</th><th>Email</th><th>Items</th><th>Subtotal</th><th>Abandoned</th><th>Recovery email</th><th>Actions</th></tr></thead>
+  <tbody>
+    <% carts.forEach(c => { %>
+      <tr>
+        <td><%= c.customer_name || 'Guest' %></td>
+        <td><%= c.email || '—' %></td>
+        <td><% (c.items || []).forEach((i, idx) => { %><%= idx ? ', ' : '' %><%= i.name %> × <%= i.quantity %><% }) %></td>
+        <td>৳<%= (c.subtotal || 0).toLocaleString('en-BD') %></td>
+        <td><%= c.updated_at ? new Date(c.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '' %></td>
+        <td>
+          <% if (c.emailed_at) { %>Sent <%= new Date(c.emailed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %><% } else if (c.recovered_at) { %>Recovered ✓<% } else { %>Not sent<% } %>
+        </td>
+        <td>
+          <% if (!c.emailed_at && !c.recovered_at && c.email) { %>
+          <form action="/admin/abandoned-carts/<%= c.id %>/email<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
+            <button type="submit" class="btn-sm">📧 Send recovery email</button>
+          </form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
