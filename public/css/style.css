@@ -23,6 +23,13 @@
      jate sada page theke sposhto alada lage. Dark mode-e govir
      navy-blue tint. */
   --pills-band: #e7f0f8;
+  /* Unselected category pills (fix/category-pill-background): solid
+     BURGUNDY / wine #881337 resting background + white text — a
+     colour used NOWHERE else on the shop (not navy, gold, green,
+     purple #7c3aed / #9c27b0, magenta, bright red, or the blue pills
+     band). White on burgundy is 9.57:1 (WCAG AA). Same in both
+     themes — dark mode-e alada kore lekha hoy ni. */
+  --pill-burgundy: #881337;
   /* Product card-er nicher zone (fix/pills-band-ripple-card, rong
      bodle fix/card-hover-transition): card hover-e shudhu border-e
      rong + price/button zone-e norom MINT SOBUJ background (halka
@@ -201,6 +208,32 @@ a { text-decoration: none; color: inherit; }
 }
 .category-bar > a:not(.active):focus-visible .cat-caret,
 .category-bar .cat-pill-wrap > a:not(.active):focus-visible .cat-caret { color: #fff; }
+/* ---------- Category pills — unselected resting background: burgundy
+   (fix/category-pill-background) ----------
+   donal (screenshot, dark mode): unselected pills ("Home Appliances",
+   "Winter Collection") had NO solid background — dark surface + thin
+   border, blending into the band/page. Now they rest on solid
+   BURGUNDY #881337 with white text + white caret, in BOTH themes
+   (same colour — donal's standing preference: colours don't change
+   between modes). Burgundy matches NO colour on the shop
+   (elimination: navy header, gold/amber + dark gold, green + mint,
+   purple #7c3aed / #9c27b0 + magenta, bright reds, blue pills band,
+   teal). White on burgundy = 9.57:1 (WCAG AA). Active "All" stays
+   solid orange/gold; hover still shows the dark-gold gradient + lift.
+   Desktop only (min-width: 769px): mobile pills are separate round
+   cards (background: none) and stay untouched. Scoped to
+   .container > .category-bar like the band rule, so the admin
+   category-bar is not touched. */
+@media (min-width: 769px) {
+  .container > .category-bar > a:not(.active),
+  .container > .category-bar .cat-pill-wrap > a:not(.active) {
+    background: var(--pill-burgundy);
+    border-color: var(--pill-burgundy);
+    color: #fff;
+  }
+  .container > .category-bar > a:not(.active) .cat-caret,
+  .container > .category-bar .cat-pill-wrap > a:not(.active) .cat-caret { color: #fff; }
+}
 .category-bar a img.cat-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
 
 .subcategory-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 20px; flex-wrap: wrap; padding-left: 10px; }
