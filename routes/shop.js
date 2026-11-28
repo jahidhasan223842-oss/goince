@@ -69,6 +69,30 @@ async function getGatewayConfig() {
 }
 const GATEWAY_LABELS = { sslcommerz: 'SSLCommerz', shurjopay: 'ShurjoPay', bkash: 'bKash PGW' };
 
+// Card hover-e 2nd chobi (feat/animations-delight, A5): prottek
+// product-er product_images table-er PROTHOM chobi (main image-er
+// porer chobi) — ekta query-tei map banano hoy (id -> filename).
+// Jader gallery chobi nei, tader map-e kichu thake na — card tokhon
+// ektai chobi dekhay, kono bodol hoy na. productIds dile shudhu
+// oi product gulor chobi ase (product page-er Related), na dile
+// shob product-er (homepage).
+async function firstGalleryImages(productIds) {
+  try {
+    let rows;
+    if (productIds && productIds.length) {
+      [rows] = await db.query(
+        `SELECT product_id, image FROM product_images WHERE product_id IN (${productIds.map(() => '?').join(',')}) ORDER BY id ASC`,
+        productIds
+      );
+    } else {
+      [rows] = await db.query('SELECT product_id, image FROM product_images ORDER BY id ASC');
+    }
+    const map = {};
+    for (const r of rows) { if (!(r.product_id in map)) map[r.product_id] = r.image; }
+    return map;
+  } catch (e) { return {}; }
+}
+
 // Bangladeshi mobile number: 01XXXXXXXXX ba +8801XXXXXXXXX — 013-019 diye shuru hote hobe
 // (shared lib/bd-phone.js — shop checkout ar admin profile ek-i niyom-e jachai kore)
 const { normalizeBdPhone, isValidBdPhone } = require('../lib/bd-phone');
@@ -235,8 +259,12 @@ router.get('/', async (req, res) => {
       const [bannerRows] = await db.query("SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC");
       banners = bannerRows;
     } catch (e) { banners = []; }
+    // Card hover-e 2nd chobi (feat/animations-delight, A5): main grid
+    // + Best Sellers — ektai map, du jaygatei use hoy.
+    const secondImages = await firstGalleryImages();
     res.render('index', {
       banners,
+      secondImages,
       heroProduct,
       variantProductIds: [...variantProductIds],
       optionProductIds: [...optionProductIds],
@@ -384,6 +412,10 @@ router.get('/product/:id', async (req, res) => {
 
     const deliveryCharges = await getDeliveryCharges();
 
+    // Related-er 2nd chobi (feat/animations-delight, A5): shudhu
+    // Related product gulor prothom gallery chobi.
+    const secondImages = await firstGalleryImages(related.map(r => r.id));
+
     // Long Description-e Admin jodi Markdown (#, ##, *, ** ityadi) use kore
     // thaken, eta ekhane real HTML-e convert kore dilam jate website-e
     // shothikvabe Heading/Bold/List hisebe dekhay, raw # * chinho na dekhiye
@@ -402,6 +434,7 @@ router.get('/product/:id', async (req, res) => {
       specs,
       discountPercent,
       related,
+      secondImages,
       reviews,
       avgRating: avgRow.avgRating ? parseFloat(avgRow.avgRating).toFixed(1) : null,
       reviewCount: avgRow.reviewCount,

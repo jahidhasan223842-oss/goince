@@ -3556,6 +3556,7 @@ img, video { max-width: 100%; }
   .product-grid { gap: 12px; }
   .product-grid .product-card { flex-basis: calc(50% - 6px); max-width: none; }
   .product-card img { height: 140px; }
+  .product-card-img-alt { height: 140px; }
   .product-card h3 { font-size: 14px; }
   .product-card .price { font-size: 15px; }
 
@@ -3829,3 +3830,105 @@ img, video { max-width: 100%; }
    ≤1024px screens — give the checkout area scroll room so the
    "Proceed to Checkout" button can always be scrolled clear of it. */
 @media (max-width: 1024px) { .cart-summary { margin-bottom: 130px; } }
+
+/* =========================================================
+   Animations & delight (feat/animations-delight, A1–A9)
+   Notun rong NEI — shudhu age thekei thaka palette: sonali
+   (var(--accent)), navy, sobuj (var(--success)), mint foot,
+   burgundy (via --pill-burgundy), lal badge
+   (var(--danger-solid)). Sob animation prefers-reduced-motion-e
+   bondho (nicher block).
+   ========================================================= */
+
+/* --- A1 fly to cart: clone chobi fixed position-e tab-er dike ure --- */
+.fly-to-cart-img { position: fixed; z-index: 1200; margin: 0; border-radius: 8px; object-fit: cover; pointer-events: none; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); transition: left .6s cubic-bezier(.3, .7, .4, 1), top .6s cubic-bezier(.3, .7, .4, 1), width .6s cubic-bezier(.3, .7, .4, 1), height .6s cubic-bezier(.3, .7, .4, 1), opacity .6s ease; }
+
+/* --- A2 skeleton shimmer: shudhu async jayga (Recently Viewed grid
+   + search suggestions) — server-rendered main grid-e skeleton NEI --- */
+@keyframes skeleton-shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+.product-grid .skeleton-card { flex: 1 1 230px; max-width: 360px; }
+.product-grid--fill .skeleton-card { max-width: none; }
+.skeleton-card { background: var(--surface); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px var(--shadow-sm); padding-bottom: 14px; }
+.skeleton-img, .skeleton-line, .skeleton-btn { background: linear-gradient(90deg, var(--bg) 25%, var(--bg-hover) 50%, var(--bg) 75%); background-size: 400px 100%; animation: skeleton-shimmer 1.2s ease-in-out infinite; }
+.skeleton-img { height: 180px; }
+.skeleton-line { height: 14px; margin: 12px 12px 0; border-radius: 4px; }
+.skeleton-line--short { width: 55%; }
+.skeleton-btn { height: 36px; margin: 14px 12px 0; border-radius: 6px; }
+.search-skeleton span { display: block; height: 14px; margin: 12px; border-radius: 4px; background: linear-gradient(90deg, var(--bg) 25%, var(--bg-hover) 50%, var(--bg) 75%); background-size: 400px 100%; animation: skeleton-shimmer 1.2s ease-in-out infinite; }
+
+/* --- A3 button loading + success --- */
+.btn-spinner { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border: 2px solid rgba(255, 255, 255, .35); border-top-color: #fff; border-radius: 50%; animation: btn-spin .7s linear infinite; }
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+.btn-card.is-loading { cursor: wait; opacity: .85; }
+.btn-card.is-success { background: var(--success); color: #fff; }
+.btn-place-order.is-loading { cursor: wait; opacity: .85; }
+.btn-place-order .btn-spinner { border-color: rgba(26, 26, 46, .25); border-top-color: var(--navy); }
+
+/* --- A4 cart badge bump on add (hover-er pop bodlano hoy ni) --- */
+@keyframes badge-bump { 0% { transform: scale(.9); } 40% { transform: scale(1.05); } 100% { transform: scale(1); } }
+.side-cart-badge--bump { animation: badge-bump .45s ease; }
+
+/* --- A5 hover preview: 2nd chobi card-er main chobir upore boshe,
+   hover-e opacity-te ase. position: relative alada rule-e (ager
+   .product-card rule chhoya hoy ni); layout-e kichu bodlay na. --- */
+.product-card { position: relative; }
+.product-card-img-alt { position: absolute; top: 0; left: 0; width: 100%; height: 180px; object-fit: contain; background: var(--bg); opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+.product-card:hover .product-card-img-alt, .product-card:focus-within .product-card-img-alt { opacity: 1; }
+
+/* --- A7 scroll reveal: opacity/transform SHUDHU (layout shift nei).
+   .reveal class JS-i lagay — JS na cholle content ager motoi dekha jay. --- */
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+.reveal.is-visible { opacity: 1; transform: none; }
+.why-grid > div[data-reveal]:nth-child(2) { transition-delay: .08s; }
+.why-grid > div[data-reveal]:nth-child(3) { transition-delay: .16s; }
+.why-grid > div[data-reveal]:nth-child(4) { transition-delay: .24s; }
+
+/* --- A8 animated checkout stepper: bar-ta step onujayi vore
+   (1 = 0%, 2 = 50%, 3 = 100% — inline --step-progress). Base width-i
+   final width, keyframes shudhu 0 theke shuru kore — reduced-motion-e
+   animation bondho holeo bar thik jaygay thake. --- */
+.checkout-steps-progress { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; margin: 16px 0 4px; }
+.checkout-steps-fill { display: block; height: 100%; width: var(--step-progress, 0%); background: var(--accent); border-radius: inherit; animation: checkout-fill .6s ease; }
+@keyframes checkout-fill { from { width: 0; } }
+
+/* --- A9 order-success celebration: SVG tick (stroke-draw) + CSS
+   confetti. Confetti fixed overlay, pointer-events none — content-ke
+   atke rakhe na, kichu delay kore na; ~2.6s-e pore giye miliye jay. --- */
+.order-success-tick { width: 84px; height: 84px; margin: 8px auto 16px; }
+.order-success-tick svg { width: 84px; height: 84px; display: block; }
+.order-success-tick circle { stroke: var(--success); stroke-width: 3; fill: none; stroke-dasharray: 151; stroke-dashoffset: 151; animation: tick-circle .5s ease forwards; }
+.order-success-tick path { stroke: var(--success); stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: tick-check .35s ease .45s forwards; }
+@keyframes tick-circle { to { stroke-dashoffset: 0; } }
+@keyframes tick-check { to { stroke-dashoffset: 0; } }
+.order-confetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 900; }
+.order-confetti i { position: absolute; top: -12px; width: 8px; height: 14px; opacity: 0; animation: confetti-fall 2.6s ease-in forwards; }
+.order-confetti i:nth-child(3n) { animation-duration: 2.2s; }
+.order-confetti i:nth-child(3n+1) { animation-duration: 3s; }
+.order-confetti i:nth-child(1) { left: 6%; background: var(--accent); animation-delay: 0s; }
+.order-confetti i:nth-child(2) { left: 14%; background: var(--navy); animation-delay: .12s; }
+.order-confetti i:nth-child(3) { left: 22%; background: var(--success); animation-delay: .05s; }
+.order-confetti i:nth-child(4) { left: 30%; background: var(--pill-burgundy); animation-delay: .2s; }
+.order-confetti i:nth-child(5) { left: 38%; background: var(--accent); animation-delay: .08s; }
+.order-confetti i:nth-child(6) { left: 46%; background: var(--success); animation-delay: .18s; }
+.order-confetti i:nth-child(7) { left: 54%; background: var(--navy); animation-delay: 0s; }
+.order-confetti i:nth-child(8) { left: 62%; background: var(--accent); animation-delay: .14s; }
+.order-confetti i:nth-child(9) { left: 70%; background: var(--pill-burgundy); animation-delay: .06s; }
+.order-confetti i:nth-child(10) { left: 78%; background: var(--success); animation-delay: .22s; }
+.order-confetti i:nth-child(11) { left: 84%; background: var(--navy); animation-delay: .1s; }
+.order-confetti i:nth-child(12) { left: 90%; background: var(--accent); animation-delay: .16s; }
+.order-confetti i:nth-child(13) { left: 48%; background: var(--pill-burgundy); animation-delay: .25s; }
+.order-confetti i:nth-child(14) { left: 26%; background: var(--navy); animation-delay: .28s; }
+@keyframes confetti-fall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(105vh) rotate(540deg); opacity: 0; } }
+
+/* --- Reduced motion: ei batch-er sob animation bondho --- */
+@media (prefers-reduced-motion: reduce) {
+  .fly-to-cart-img { transition: none; }
+  .skeleton-img, .skeleton-line, .skeleton-btn, .search-skeleton span { animation: none; }
+  .btn-spinner { animation: none; }
+  .side-cart-badge--bump { animation: none; }
+  .product-card-img-alt { transition: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .checkout-steps-fill { animation: none; }
+  .order-success-tick circle, .order-success-tick path { animation: none; stroke-dashoffset: 0; }
+  .order-confetti { display: none; }
+}

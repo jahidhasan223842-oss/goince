@@ -108,6 +108,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/mega-menu.js') : '/js/mega-menu.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/product-gallery.js') : '/js/product-gallery.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/click-ripple.js') : '/js/click-ripple.js' %>"></script>
+  <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/scroll-reveal.js') : '/js/scroll-reveal.js' %>"></script>
   <script>
     // Search suggestions: type korlei product-er naam/daam dekhabe
     (function () {
@@ -130,6 +131,11 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
         var q = input.value.trim();
         if (q.length < 2) { box.hidden = true; box.innerHTML = ''; return; }
         timer = setTimeout(function () {
+          // A2 skeleton (feat/animations-delight): suggestion ashar
+          // age shimmer row dekhay — search-i ekmatro sotti async
+          // jayga (250ms debounce + fetch); result aslei bodle jay.
+          box.innerHTML = '<div class="search-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
+          box.hidden = false;
           fetch('/api/search-suggestions?q=' + encodeURIComponent(q))
             .then(function (r) { return r.json(); })
             .then(function (items) {
@@ -249,6 +255,30 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
   </script>
 
   <script>
+    // Grid -> product page transition (feat/animations-delight, A6):
+    // product card-er link-e click korle View Transitions API
+    // thakle cross-fade hoy; na thakle kichui kora hoy na — sadharon
+    // navigation-i chole (fallback). Shudhu plain left-click (kono
+    // modifier key / middle-click noy), shudhu .product-card-er
+    // /product/ link — Add to Cart form, drawer, dark mode kichutei
+    // hat deya hoy na.
+    (function () {
+      if (!document.addEventListener) return;
+      document.addEventListener('click', function (e) {
+        if (typeof document.startViewTransition !== 'function') return;
+        if (!e || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        var t = (e.target && typeof e.target.closest === 'function')
+          ? e.target.closest('.product-card a[href^="/product/"]') : null;
+        if (!t) return;
+        if (e.preventDefault) e.preventDefault();
+        var url = t.getAttribute ? t.getAttribute('href') : null;
+        if (!url) return;
+        document.startViewTransition(function () { window.location.href = url; });
+      });
+    })();
+  </script>
+
+  <script>
     // Side-cart tab overlap guard (fix/header-cart-side-tab) + 6s
     // idle timer + mini-cart drawer (fix/mini-cart-drawer-hover):
     // tab-ta fixed, majhkhane dan dike thake — scroll korle dan
@@ -324,7 +354,19 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
             badge.className = 'side-cart-badge';
             if (tab.appendChild) tab.appendChild(badge);
           }
-          if (badge) badge.textContent = String(count);
+          if (badge) {
+            badge.textContent = String(count);
+            // A4 badge bump (feat/animations-delight): add-er sathe
+            // sathe badge-ta pop kore (scale .9 -> 1.05 -> 1, CSS
+            // keyframes). Class soriye reflow kore abar lagano hoy,
+            // jate porpor add-eo protibar bump chole. Hover-er pop
+            // (age thekei ache) bodlano hoy ni.
+            if (badge.classList) {
+              badge.classList.remove('side-cart-badge--bump');
+              void badge.offsetWidth;
+              badge.classList.add('side-cart-badge--bump');
+            }
+          }
         } else if (badge && badge.parentNode && badge.parentNode.removeChild) {
           badge.parentNode.removeChild(badge);
         }
@@ -478,6 +520,67 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           }
         });
       }
+      // ---------- Fly to cart (feat/animations-delight, A1) ----------
+      // Add to Cart chaple product-er chobi-ta ure dan diker floating
+      // side-cart tab-er dike jay (~0.6s), tarpor nije theke sore
+      // jay. Target HEADER-er cart icon NOY (PR #75-e header theke
+      // sorano hoyeche) — floating gold side-cart tab (.side-cart).
+      // Fetch-er sathe sathe chole — add-ke ek muhurto-o deri koray
+      // na; add fail holeo animation-ta shudhu visual, kichu vange
+      // na. Chobi na pele, tab na thakle, ba prefers-reduced-motion
+      // hole chupchap kichu kore na (skip).
+      function reducedMotion() {
+        try {
+          return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        } catch (err) { return false; }
+      }
+      function findProductImage(form) {
+        try {
+          var card = (form && typeof form.closest === 'function') ? form.closest('.product-card') : null;
+          var img = null;
+          if (card && card.querySelector) img = card.querySelector('img');
+          if (!img && document.querySelector) img = document.querySelector('#main-product-image') || document.querySelector('.product-image img');
+          if (!img || typeof img.getBoundingClientRect !== 'function') return null;
+          var src = (img.getAttribute && img.getAttribute('src')) || img.src || '';
+          if (!src || src.indexOf('no-image.png') !== -1) return null;
+          return { src: src, rect: img.getBoundingClientRect() };
+        } catch (err) { return null; }
+      }
+      function flyToCart(form) {
+        try {
+          if (reducedMotion()) return;
+          if (!tab || typeof tab.getBoundingClientRect !== 'function') return;
+          if (!document.createElement || !document.body || !document.body.appendChild) return;
+          var found = findProductImage(form);
+          if (!found) return;
+          var from = found.rect;
+          var to = tab.getBoundingClientRect();
+          if (!from || !to || !from.width || !to.width) return;
+          var clone = document.createElement('img');
+          clone.className = 'fly-to-cart-img';
+          clone.src = found.src;
+          if (clone.setAttribute) clone.setAttribute('aria-hidden', 'true');
+          if (!clone.style) clone.style = {};
+          clone.style.left = from.left + 'px';
+          clone.style.top = from.top + 'px';
+          clone.style.width = from.width + 'px';
+          clone.style.height = from.height + 'px';
+          document.body.appendChild(clone);
+          // Reflow, jate prothom obostha boshe, tarpor sesh obostha
+          // (tab-er kendro, chhoto, halka fade) — transition-tai arc.
+          void clone.offsetWidth;
+          clone.style.left = (to.left + to.width / 2 - 14) + 'px';
+          clone.style.top = (to.top + to.height / 2 - 14) + 'px';
+          clone.style.width = '28px';
+          clone.style.height = '28px';
+          clone.style.opacity = '0.25';
+          if (hasTimer) {
+            setTimeout(function () {
+              if (clone.parentNode && clone.parentNode.removeChild) clone.parentNode.removeChild(clone);
+            }, 650);
+          }
+        } catch (err) { /* fly animation kokhono add-ke vangbe na */ }
+      }
       // ---------- AJAX Add to Cart (fix/ajax-add-to-cart) ----------
       // donal: Add to Cart chaple cart-er page-e chole jay — erokom
       // jaoa jabe na. Tai shob /cart/add/ form-er submit ekhanei
@@ -516,7 +619,21 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           form._adding = true;
           var btn = null;
           if (form.querySelector) btn = form.querySelector('button[type="submit"]');
-          if (btn) { btn.disabled = true; }
+          // A3 button loading state (feat/animations-delight): spinner
+          // + "Adding…" — PR #80-er in-flight disable-er upore visual
+          // state; ager label-ta mone rakha hoy, jate pore fire ase.
+          var btnOrigHtml = null;
+          if (btn) {
+            btn.disabled = true;
+            if (btn.classList) btn.classList.add('is-loading');
+            if (typeof btn.innerHTML === 'string') {
+              btnOrigHtml = btn.innerHTML;
+              btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span> Adding…';
+            }
+          }
+          // A1 fly-to-cart: fetch-er sathe sathei shuru — add-ke
+          // deri koray na; chobi na pele chupchap skip.
+          flyToCart(form);
           var body = '';
           try {
             var fd = new FormData(form);
@@ -526,9 +643,33 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           } catch (err) {
             body = '';
           }
-          function done() {
+          // A3 success/error reset: safal hole tick "✓ Added" ~1.2s,
+          // tarpor ager label fire ase; error hole sathe sathe ager
+          // label fire ase (button abar chapa jay). Disabled sob
+          // somoy sathe sathe khule jay.
+          function done(success) {
             form._adding = false;
-            if (btn) { btn.disabled = false; }
+            if (btn) {
+              btn.disabled = false;
+              if (btn.classList) btn.classList.remove('is-loading');
+              if (typeof btn.innerHTML === 'string' && btnOrigHtml !== null) {
+                if (success) {
+                  if (btn.classList) btn.classList.add('is-success');
+                  btn.innerHTML = '✓ Added';
+                  if (hasTimer) {
+                    setTimeout(function () {
+                      if (btn.classList) btn.classList.remove('is-success');
+                      btn.innerHTML = btnOrigHtml;
+                    }, 1200);
+                  } else {
+                    if (btn.classList) btn.classList.remove('is-success');
+                    btn.innerHTML = btnOrigHtml;
+                  }
+                } else {
+                  btn.innerHTML = btnOrigHtml;
+                }
+              }
+            }
           }
           fetch(action, {
             method: 'POST',
@@ -555,13 +696,14 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
               restoreTab();
               openDrawer();
               showToast('✓ ' + (r.data.itemName || 'Product') + ' added to cart', false);
+              done(true);
             } else {
               showToast((r.data && r.data.error) || 'Could not add to cart. Please try again.', true);
+              done(false);
             }
-            done();
           }).catch(function () {
             showToast('Could not add to cart. Please try again.', true);
-            done();
+            done(false);
           });
         });
       }

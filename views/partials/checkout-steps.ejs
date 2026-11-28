@@ -1,4 +1,13 @@
-<% /* step: 1 = Cart, 2 = Checkout, 3 = Done */ %>
+<% /* step: 1 = Cart, 2 = Checkout, 3 = Done.
+     A8 animated stepper (feat/animations-delight): uporer soru
+     progress bar-ta step onujayi vore — 1 = 0%, 2 = 50%, 3 = 100%.
+     Fill-er width inline --step-progress variable-e; CSS
+     @keyframes checkout-fill 0 theke oi width porjonto animate kore
+     (base width-i final width, tai prefers-reduced-motion-e
+     animation bondho holeo bar thik jaygay thake). Step pill gulo
+     ager motoi (active sonali, done sobuj) — bodlano hoy ni. */ %>
+<% const _stepPct = step >= 3 ? 100 : (step >= 2 ? 50 : 0); %>
+<div class="checkout-steps-progress" aria-hidden="true"><span class="checkout-steps-fill" style="--step-progress: <%= _stepPct %>%"></span></div>
 <div class="checkout-steps">
   <span class="<%= step >= 1 ? 'active' : '' %> <%= step > 1 ? 'done' : '' %>">1. Cart</span>
   <span class="step-arrow">→</span>

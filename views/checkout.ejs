@@ -100,6 +100,40 @@
 </div>
 
 <script>
+  // Place Order button lock (feat/animations-delight, A3): submit
+  // chaplei button disable + spinner "Placing order…" — double-click
+  // ba double-submit-e ditiyo order toiri hobe na. Submit hole page
+  // navigate kore (server order-success-e pathay ba error-e form-ta
+  // abar render kore — du khetrei notun button ase), tai safal
+  // submit-e reset lage na. Tobe navigation kono karone na hole
+  // (network stall) ba back-button-e bfcache theke firle button
+  // atke thakbe na: 15s safety timer + pageshow-e reset.
+  (function () {
+    var form = document.querySelector('.checkout-form');
+    var btn = document.querySelector('.btn-place-order');
+    if (!form || !btn) return;
+    var origHtml = btn.innerHTML;
+    var safetyTimer = null;
+    function resetBtn() {
+      form._placing = false;
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.innerHTML = origHtml;
+      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+    }
+    form.addEventListener('submit', function () {
+      if (form._placing) return;
+      form._placing = true;
+      btn.disabled = true;
+      btn.classList.add('is-loading');
+      btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span> Placing order…';
+      safetyTimer = setTimeout(resetBtn, 15000);
+    });
+    window.addEventListener('pageshow', function () { if (form._placing) resetBtn(); });
+  })();
+</script>
+
+<script>
   const subtotal = <%= subtotal %>;
   const discount = <%= discount %>;
 

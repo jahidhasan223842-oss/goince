@@ -2,7 +2,16 @@
 
 <div class="order-success">
   <%- include('partials/checkout-steps', { step: 3 }) %>
-  <h1>✅ Order Placed Successfully!</h1>
+  <% /* A9 celebration (feat/animations-delight): animated tick (SVG
+        stroke-draw, sobuj) + halka confetti (CSS-only, ~14 tukro,
+        shudhu page-er palette-er rong: sonali/navy/sobuj/burgundy).
+        Confetti fixed overlay, pointer-events none — content-er
+        upor kono badha dey na, kichu delay kore na; ~3s-e pore giye
+        miliye jay. Emoji nei — h1-er ✅-o sorano holo, tick-i
+        celebration. */ %>
+  <div class="order-success-tick" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" fill="none"/><path fill="none" d="M14 27l8 8 16-16"/></svg></div>
+  <div class="order-confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <h1>Order Placed Successfully!</h1>
   <p>Thank you for shopping with <%= siteName %>.</p>
   <p>Your Order ID: <strong>#<%= orderId %></strong></p>
   <p>Order-er status jante <a href="/track-order">Track Order</a> page-e Order ID ar phone number dao.</p>

@@ -139,6 +139,12 @@
     <div class="product-card">
       <a href="/product/<%= p.id %>">
         <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
+        <% /* A5 hover preview: 2nd gallery chobi thakle hover-e etai
+              dekhabe (CSS opacity swap); na thakle kichui na — ektai
+              chobi thake. DOM-e thakay browser age thekei load kore,
+              tai swap-e flash hoy na. Chobi na pele nijeke soriye
+              ney, jate hover-e main chobi-i thake. */ %>
+        <% if (typeof secondImages !== 'undefined' && secondImages && secondImages[p.id]) { %><img class="product-card-img-alt" src="/uploads/<%= secondImages[p.id] %>" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><% } %>
         <h3><%= p.name %></h3>
         <% if (p.avg_rating) { %><p class="card-rating">⭐ <%= Number(p.avg_rating).toFixed(1) %> (<%= p.review_count %>)</p><% } %>
       </a>
@@ -164,12 +170,13 @@
 </div>
 
 <% if (typeof bestSellers !== 'undefined' && bestSellers && bestSellers.length > 0 && !selectedCategory && !search) { %>
-  <div class="section-heading"><h2>🔥 Best Sellers</h2></div>
+  <div class="section-heading" data-reveal><h2>🔥 Best Sellers</h2></div>
   <div class="product-grid product-grid--fill">
     <% bestSellers.forEach(p => { %>
       <div class="product-card">
         <a href="/product/<%= p.id %>">
           <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
+          <% if (typeof secondImages !== 'undefined' && secondImages && secondImages[p.id]) { %><img class="product-card-img-alt" src="/uploads/<%= secondImages[p.id] %>" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><% } %>
           <h3><%= p.name %></h3>
         </a>
         <div class="product-card-foot">
@@ -188,17 +195,25 @@
 <% } %>
 
 <div id="recently-viewed" hidden>
-  <div class="section-heading"><h2>👀 Recently Viewed</h2></div>
-  <div class="product-grid product-grid--fill" id="recently-viewed-grid" data-csrf="<%= (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '' %>" data-products='<%- JSON.stringify(typeof recentlyViewedMap !== "undefined" ? recentlyViewedMap : {}) %>'></div>
+  <div class="section-heading" data-reveal><h2>👀 Recently Viewed</h2></div>
+  <div class="product-grid product-grid--fill" id="recently-viewed-grid" data-csrf="<%= (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '' %>" data-products='<%- JSON.stringify(typeof recentlyViewedMap !== "undefined" ? recentlyViewedMap : {}) %>'>
+    <% /* A2 skeleton: card gulo JS-e localStorage theke toiri hoy —
+          toiri howar age ei shimmer card gulo jayga dhore rakhe.
+          JS render korlei innerHTML bodle jay (skeleton sore jay);
+          kono recent item na thakle section-tai hidden thake, tai
+          skeleton kokhono dekha jay na. Main grid server-rendered,
+          tai okhane skeleton NEI (fake loading dekhano hobe na). */ %>
+    <% for (let s = 0; s < 4; s++) { %><div class="skeleton-card" aria-hidden="true"><div class="skeleton-img"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-line--short"></div><div class="skeleton-btn"></div></div><% } %>
+  </div>
 </div>
 
 <section class="why-shop">
-  <div class="section-heading"><h2>Why Shop With Goince?</h2></div>
+  <div class="section-heading" data-reveal><h2>Why Shop With Goince?</h2></div>
   <div class="why-grid">
-    <div><strong>✅ Cash on Delivery</strong><p>Product hate peye taka dao — age taka dite hoy na.</p></div>
-    <div><strong>🚚 Fast Delivery</strong><p>Dhaka 1–2 din, baire 3–5 din. Order-er age phone-e confirm.</p></div>
-    <div><strong>🔄 Easy Return</strong><p>Defective ba vul product pele 24 ghontar vitore janalei hobe.</p></div>
-    <div><strong>💬 WhatsApp Support</strong><p>Jekono proshne WhatsApp-e likho, amra uttor dibo.</p></div>
+    <div data-reveal><strong>✅ Cash on Delivery</strong><p>Product hate peye taka dao — age taka dite hoy na.</p></div>
+    <div data-reveal><strong>🚚 Fast Delivery</strong><p>Dhaka 1–2 din, baire 3–5 din. Order-er age phone-e confirm.</p></div>
+    <div data-reveal><strong>🔄 Easy Return</strong><p>Defective ba vul product pele 24 ghontar vitore janalei hobe.</p></div>
+    <div data-reveal><strong>💬 WhatsApp Support</strong><p>Jekono proshne WhatsApp-e likho, amra uttor dibo.</p></div>
   </div>
 </section>
 
