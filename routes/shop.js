@@ -1,6 +1,8 @@
 // Customer side er shob route: Home, Product Details, Reviews, Cart, Coupon, Checkout
 const express = require('express');
 const router = express.Router();
+const ejs = require('ejs');
+const path = require('path');
 const db = require('../config/db');
 const { marked } = require('marked');
 const { sendOrderConfirmation } = require('../config/email');
@@ -453,6 +455,14 @@ router.post('/product/:id/notify-me', async (req, res) => {
 
 // ---------- ADD TO CART ----------
 router.post('/cart/add/:id', async (req, res) => {
+  // AJAX add-to-cart (fix/ajax-add-to-cart): donal — Add to Cart
+  // chaple cart-er page-e chole jay, erokom jaoa jabe na. JS
+  // fetch POST pathay X-Requested-With: XMLHttpRequest header
+  // diye (req.xhr) — tokhon redirect noy, JSON uttor ashe
+  // (cartCount + drawer HTML), ar page eki jaygay thake. JS na
+  // cholle ager motoi redirect hoy /cart-e (no-JS fallback).
+  const isAjax = req.xhr || req.get('X-Requested-With') === 'XMLHttpRequest';
+  const ajaxError = (status, message) => res.status(status).json({ ok: false, error: message });
   try {
     const productId = req.params.id;
     const quantity = parseInt(req.body.quantity) || 1;
@@ -460,7 +470,10 @@ router.post('/cart/add/:id', async (req, res) => {
     const optionId = req.body.option_id ? parseInt(req.body.option_id) : null;
 
     const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [productId]);
-    if (rows.length === 0) return res.status(404).send('Product not found');
+    if (rows.length === 0) {
+      if (isAjax) return ajaxError(404, 'Product not found');
+      return res.status(404).send('Product not found');
+    }
     const product = rows[0];
 
     // Variant select kora thakle, tar price/label niye ashi
@@ -468,7 +481,10 @@ router.post('/cart/add/:id', async (req, res) => {
     let variantLabel = null;
     if (variantId) {
       const [[variant]] = await db.query('SELECT * FROM product_variants WHERE id = ? AND product_id = ?', [variantId, productId]);
-      if (!variant) return res.status(400).send('Selected variant not found.');
+      if (!variant) {
+        if (isAjax) return ajaxError(400, 'Selected variant not found.');
+        return res.status(400).send('Selected variant not found.');
+      }
       price = variant.price !== null ? variant.price : product.price;
       const [attrs] = await db.query(
         `SELECT a.name AS attribute_name, av.value FROM product_variant_attributes pva
@@ -486,7 +502,10 @@ router.post('/cart/add/:id', async (req, res) => {
     let optionLabelText = null;
     if (optionId) {
       const [[option]] = await db.query('SELECT * FROM product_options WHERE id = ? AND product_id = ?', [optionId, productId]);
-      if (!option) return res.status(400).send('Selected option not found.');
+      if (!option) {
+        if (isAjax) return ajaxError(400, 'Selected option not found.');
+        return res.status(400).send('Selected option not found.');
+      }
       optionLabelText = `${option.option_label}: ${option.value_name}`;
       if (option.image) cartImage = option.image;
     }
@@ -515,9 +534,25 @@ router.post('/cart/add/:id', async (req, res) => {
       });
     }
 
+    // AJAX uttor: redirect noy — notun cartCount + subtotal +
+    // drawer-er TAZA HTML (eki partial ja footer-eo render hoy:
+    // views/partials/mini-cart-content.ejs), jate JS badge update
+    // kore, drawer-er vitore notun content bosiye drawer khulte
+    // pare — page reload / navigate kicchu hoy na.
+    if (isAjax) {
+      const cartCount = req.session.cart.reduce((s, it) => s + it.quantity, 0);
+      const subtotal = req.session.cart.reduce((s, it) => s + (Number(it.price) || 0) * it.quantity, 0);
+      const drawerHtml = await ejs.renderFile(
+        path.join(__dirname, '..', 'views', 'partials', 'mini-cart-content.ejs'),
+        { miniCart: req.session.cart, miniCartSubtotal: subtotal, cartCount, csrfToken: res.locals.csrfToken }
+      );
+      return res.json({ ok: true, cartCount, itemName: product.name, subtotal, drawerHtml });
+    }
+
     res.redirect('/cart');
   } catch (err) {
     console.error(err);
+    if (isAjax) return ajaxError(500, 'Could not add product to cart.');
     res.status(500).send('Could not add product to cart.');
   }
 });

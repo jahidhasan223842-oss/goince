@@ -981,6 +981,17 @@ body.mini-cart-open { overflow: hidden; }
   .mini-cart-view:hover { background: var(--bg-hover); }
 }
 
+/* ---------- Add-to-cart toast (fix/ajax-add-to-cart) ----------
+   Add to Cart chaple page reload / navigate hoy na — chhoto ekta
+   toast niche-majhkhane "✓ <product> added to cart" dekhay, ~3s
+   pore nije theke chole jay. Error hole lal background-e "Could
+   not add to cart". Drawer (1001) ar overlay (1000)-er upore
+   (z 1100), jate drawer khola thakleo dekha jay. */
+.cart-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 8px); z-index: 1100; background: var(--navy); color: #fff; padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); opacity: 0; visibility: hidden; transition: opacity .25s ease, transform .25s ease, visibility .25s ease; pointer-events: none; max-width: calc(100vw - 32px); text-align: center; }
+.cart-toast.is-visible { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.cart-toast--error { background: var(--danger-solid); }
+.cart-toast[hidden] { display: none; }
+
 /* ---------- Wishlist empty state (fix/floating-cart-wishlist) ----------
    The wishlist page was a bare one-liner ("Your wishlist is empty.
    Start shopping") over a huge empty area. Now a proper empty
@@ -3578,6 +3589,7 @@ img, video { max-width: 100%; }
   .side-cart { transition: none; }
   .btn-card:hover { transform: none; }
   .mini-cart-overlay, .mini-cart-drawer { transition: none; }
+  .cart-toast { transition: none; }
   .main-nav .btn-nav-solid::before, .main-nav .btn-nav-solid::after { transition: none; }
   .main-nav .btn-nav-solid:hover { box-shadow: none; }
 }

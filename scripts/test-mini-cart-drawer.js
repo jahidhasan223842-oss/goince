@@ -105,6 +105,11 @@ const vm = require('vm');
 
 const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'style.css'), 'utf8');
 const footerEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'footer.ejs'), 'utf8');
+// UPDATED (fix/ajax-add-to-cart): drawer-er asol content ekhon
+// views/partials/mini-cart-content.ejs partial-e thake (footer.ejs
+// aside-er vitore include hoy) — markup check gulo ekhan theke
+// pore, footer.ejs theke noy.
+const drawerEjs = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'mini-cart-content.ejs'), 'utf8');
 const serverJs = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 const shopRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'shop.js'), 'utf8');
 const renderFile = util.promisify(ejs.renderFile);
@@ -253,13 +258,17 @@ function contrastRatio(hexA, hexB) {
   // ---------- 6. Drawer markup (footer source) ----------
   check('drawer markup: aside is role=dialog aria-modal with a labelled title, hidden by default', /<aside class="mini-cart-drawer" id="mini-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="mini-cart-title" hidden>/.test(footerEjs));
   check('drawer markup: overlay exists, hidden by default', /<div class="mini-cart-overlay" id="mini-cart-overlay" hidden><\/div>/.test(footerEjs));
-  check('drawer markup: header has "Your Cart" + count + close (×) button', /<h2 id="mini-cart-title">Your Cart/.test(footerEjs) && /class="mini-cart-close" aria-label="Close cart">×<\/button>/.test(footerEjs));
-  check('drawer markup: items carry photo + name link + variant + stepper + line total + remove', footerEjs.includes('class="mini-cart-thumb"') && footerEjs.includes('class="mini-cart-name"') && footerEjs.includes('class="mini-cart-variant"') && footerEjs.includes('class="qty-stepper mini-cart-qty"') && footerEjs.includes('class="mini-cart-line-total"') && footerEjs.includes('class="mini-cart-remove"'));
-  check('drawer markup: stepper + remove reuse the EXISTING cart POST routes (no invented URLs)', footerEjs.includes('action="/cart/update/<%= item.cartKey || item.id %>"') && footerEjs.includes('action="/cart/remove/<%= item.cartKey || item.id %>"') && shopRoutes.includes("router.post('/cart/update/:cartKey'") && shopRoutes.includes("router.post('/cart/remove/:cartKey'"));
-  check('drawer markup: stepper + remove forms carry the CSRF field', (footerEjs.match(/include\('csrf-field'\)/g) || []).length >= 2);
-  check('drawer markup: subtotal + delivery note (৳60 inside Dhaka / ৳120 outside Dhaka, calculated at checkout)', footerEjs.includes('class="mini-cart-subtotal"') && footerEjs.includes('৳60 inside Dhaka / ৳120 outside Dhaka') && footerEjs.includes('calculated at checkout'));
-  check('drawer markup: View Cart (→ /cart) + Checkout (→ /checkout) + Continue shopping', footerEjs.includes('<a href="/cart" class="mini-cart-view">View Cart</a>') && footerEjs.includes('<a href="/checkout" class="btn-primary mini-cart-checkout">Checkout</a>') && footerEjs.includes('class="mini-cart-continue">Continue shopping</button>'));
-  check('drawer markup: empty state has a message + Start Shopping (→ /)', footerEjs.includes('Your cart is empty.') && footerEjs.includes('<a href="/" class="btn-primary">Start Shopping</a>'));
+  // UPDATED (fix/ajax-add-to-cart): drawer content ekhon
+  // mini-cart-content.ejs partial-e — markup check gulo drawerEjs
+  // theke pore; footer.ejs-e shudhu aside + include thake.
+  check('drawer markup: aside in footer includes the drawer-content partial', /<aside class="mini-cart-drawer" id="mini-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="mini-cart-title" hidden>/.test(footerEjs) && /include\('mini-cart-content'\)/.test(footerEjs));
+  check('drawer markup: header has "Your Cart" + count + close (×) button', /<h2 id="mini-cart-title">Your Cart/.test(drawerEjs) && /class="mini-cart-close" aria-label="Close cart">×<\/button>/.test(drawerEjs));
+  check('drawer markup: items carry photo + name link + variant + stepper + line total + remove', drawerEjs.includes('class="mini-cart-thumb"') && drawerEjs.includes('class="mini-cart-name"') && drawerEjs.includes('class="mini-cart-variant"') && drawerEjs.includes('class="qty-stepper mini-cart-qty"') && drawerEjs.includes('class="mini-cart-line-total"') && drawerEjs.includes('class="mini-cart-remove"'));
+  check('drawer markup: stepper + remove reuse the EXISTING cart POST routes (no invented URLs)', drawerEjs.includes('action="/cart/update/<%= item.cartKey || item.id %>"') && drawerEjs.includes('action="/cart/remove/<%= item.cartKey || item.id %>"') && shopRoutes.includes("router.post('/cart/update/:cartKey'") && shopRoutes.includes("router.post('/cart/remove/:cartKey'"));
+  check('drawer markup: stepper + remove forms carry the CSRF field', (drawerEjs.match(/include\('csrf-field'\)/g) || []).length >= 2);
+  check('drawer markup: subtotal + delivery note (৳60 inside Dhaka / ৳120 outside Dhaka, calculated at checkout)', drawerEjs.includes('class="mini-cart-subtotal"') && drawerEjs.includes('৳60 inside Dhaka / ৳120 outside Dhaka') && drawerEjs.includes('calculated at checkout'));
+  check('drawer markup: View Cart (→ /cart) + Checkout (→ /checkout) + Continue shopping', drawerEjs.includes('<a href="/cart" class="mini-cart-view">View Cart</a>') && drawerEjs.includes('<a href="/checkout" class="btn-primary mini-cart-checkout">Checkout</a>') && drawerEjs.includes('class="mini-cart-continue">Continue shopping</button>'));
+  check('drawer markup: empty state has a message + Start Shopping (→ /)', drawerEjs.includes('Your cart is empty.') && drawerEjs.includes('<a href="/" class="btn-primary">Start Shopping</a>'));
   check('drawer markup: NO recommendations query in the drawer (no relatedProducts / "You may also like")', !/mini-cart[\s\S]{0,4000}relatedProducts/.test(footerEjs) && !footerEjs.slice(footerEjs.indexOf('mini-cart-drawer')).includes('You may also like'));
   check('drawer markup: tab is STILL a plain <a href="/cart"> (no-JS fallback — JS intercepts the click)', /<a href="\/cart" class="side-cart"/.test(footerEjs));
 

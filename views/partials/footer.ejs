@@ -27,8 +27,13 @@
         above stays a plain <a href="/cart"> (no-JS fallback: it still
         navigates to /cart), and the footer IIFE below intercepts the
         click and opens this panel instead. Server-rendered from the
+        drawer content lives in views/partials/mini-cart-content.ejs
+        (included below) — the SAME partial is also rendered by
+        routes/shop.js POST /cart/add/:id for the AJAX add-to-cart
+        JSON reply (fix/ajax-add-to-cart), so the drawer always shows
+        the fresh cart after an add. Server-rendered from the
         session cart (res.locals.miniCart / miniCartSubtotal, set in
-        server.js — no new query, no new route, no JSON API): photo,
+        server.js — no new query, no new route): photo,
         name, variant/option label, quantity stepper, line total,
         per-item remove, subtotal, delivery note (the site's real
         charges: ৳60 inside Dhaka / ৳120 outside), View Cart + Checkout
@@ -38,55 +43,12 @@
         /cart, exactly like the cart page today; the drawer re-opens
         only via the tab after reload. No recommendations row here —
         a footer query on every page load would be wasteful. */ %>
-  <% const _miniTk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
-  <% const _miniCart = (typeof miniCart !== 'undefined' && miniCart) ? miniCart : []; %>
-  <% const _miniSubtotal = (typeof miniCartSubtotal !== 'undefined' && miniCartSubtotal) ? miniCartSubtotal : _miniCart.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0); %>
   <div class="mini-cart-overlay" id="mini-cart-overlay" hidden></div>
   <aside class="mini-cart-drawer" id="mini-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="mini-cart-title" hidden>
-    <div class="mini-cart-head">
-      <h2 id="mini-cart-title">Your Cart<% if (typeof cartCount !== 'undefined' && cartCount > 0) { %> (<%= cartCount %>)<% } %></h2>
-      <button type="button" class="mini-cart-close" aria-label="Close cart">×</button>
-    </div>
-    <% if (_miniCart.length === 0) { %>
-      <div class="mini-cart-empty">
-        <p>Your cart is empty.</p>
-        <a href="/" class="btn-primary">Start Shopping</a>
-      </div>
-    <% } else { %>
-      <ul class="mini-cart-items">
-        <% _miniCart.forEach(function (item) { %>
-          <li class="mini-cart-item">
-            <a href="/product/<%= item.id %>"><img src="/uploads/<%= item.image %>" alt="<%= item.name %>" class="mini-cart-thumb" onerror="this.src='/uploads/no-image.png'"></a>
-            <div class="mini-cart-info">
-              <a href="/product/<%= item.id %>" class="mini-cart-name"><%= item.name %></a>
-              <% if (item.variantLabel) { %><span class="mini-cart-variant"><%= item.variantLabel %></span><% } %>
-              <span class="mini-cart-price"><%= _miniTk(item.price) %> each</span>
-              <form action="/cart/update/<%= item.cartKey || item.id %>" method="POST" class="qty-stepper mini-cart-qty"><%- include('csrf-field') %>
-                <button type="submit" name="quantity" value="<%= Math.max(1, item.quantity - 1) %>" class="qty-btn" aria-label="Decrease quantity">−</button>
-                <input type="number" name="quantity" value="<%= item.quantity %>" min="1" class="qty-input" aria-label="Quantity">
-                <button type="submit" name="quantity" value="<%= item.quantity + 1 %>" class="qty-btn" aria-label="Increase quantity">+</button>
-              </form>
-            </div>
-            <div class="mini-cart-line">
-              <span class="mini-cart-line-total"><%= _miniTk(item.price * item.quantity) %></span>
-              <form action="/cart/remove/<%= item.cartKey || item.id %>" method="POST"><%- include('csrf-field') %>
-                <button type="submit" class="mini-cart-remove" aria-label="Remove <%= item.name %>">×</button>
-              </form>
-            </div>
-          </li>
-        <% }) %>
-      </ul>
-      <div class="mini-cart-foot">
-        <p class="mini-cart-subtotal"><span>Subtotal</span><strong><%= _miniTk(_miniSubtotal) %></strong></p>
-        <p class="mini-cart-delivery">🚚 Delivery: ৳60 inside Dhaka / ৳120 outside Dhaka — calculated at checkout.</p>
-        <div class="mini-cart-actions">
-          <a href="/cart" class="mini-cart-view">View Cart</a>
-          <a href="/checkout" class="btn-primary mini-cart-checkout">Checkout</a>
-        </div>
-        <button type="button" class="mini-cart-continue">Continue shopping</button>
-      </div>
-    <% } %>
+<%- include('mini-cart-content') %>
   </aside>
+  <div class="cart-toast" id="cart-toast" role="status" aria-live="polite" hidden></div>
+
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
@@ -329,6 +291,68 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       var drawerOpen = false;
       var guardHidden = false;
       var lastFocused = null;
+      // Add-to-cart toast (fix/ajax-add-to-cart): "✓ <product> added
+      // to cart" — ~3s pore nije theke chole jay; error hole lal.
+      var toast = document.querySelector('#cart-toast');
+      var toastTimer = null;
+      function showToast(msg, isError) {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.toggle('cart-toast--error', !!isError);
+        toast.hidden = false;
+        void toast.offsetWidth;
+        toast.classList.add('is-visible');
+        if (hasTimer) {
+          if (toastTimer !== null) clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () {
+            toastTimer = null;
+            toast.classList.remove('is-visible');
+            toast.hidden = true;
+          }, 3000);
+        }
+      }
+      // Badge duto jayga-tei update hoy (side-cart tab + mobile
+      // drawer-er Cart link) — ektai cartCount, kono ditiyo count
+      // source nei. Badge na thakle (cart khali chhilo) baniye
+      // bosano hoy; 0 hole soriye fela hoy.
+      function setCartCount(n) {
+        var count = Number(n) || 0;
+        var badge = document.querySelector('.side-cart-badge');
+        if (count > 0) {
+          if (!badge && document.createElement) {
+            badge = document.createElement('span');
+            badge.className = 'side-cart-badge';
+            if (tab.appendChild) tab.appendChild(badge);
+          }
+          if (badge) badge.textContent = String(count);
+        } else if (badge && badge.parentNode && badge.parentNode.removeChild) {
+          badge.parentNode.removeChild(badge);
+        }
+        var drawerLink = document.querySelector('.shop-drawer-link[href="/cart"]');
+        var drawerBadge = document.querySelector('.shop-drawer-link[href="/cart"] .badge');
+        if (drawerLink) {
+          if (count > 0) {
+            if (!drawerBadge && document.createElement) {
+              drawerBadge = document.createElement('span');
+              drawerBadge.className = 'badge';
+              if (drawerLink.appendChild) drawerLink.appendChild(drawerBadge);
+            }
+            if (drawerBadge) drawerBadge.textContent = String(count);
+          } else if (drawerBadge && drawerBadge.parentNode && drawerBadge.parentNode.removeChild) {
+            drawerBadge.parentNode.removeChild(drawerBadge);
+          }
+        }
+      }
+      // Drawer-er vitore HTML bodle gele (AJAX add-er pore drawer
+      // refresh) purono × / Continue button duto bodle jay — tai
+      // notun kore khuje listener lagate hoy. Prothombar nichei
+      // call hoy, pore drawer refresh-er pore abar.
+      function rebindDrawerButtons() {
+        closeBtn = document.querySelector('.mini-cart-close');
+        continueBtn = document.querySelector('.mini-cart-continue');
+        if (closeBtn) closeBtn.addEventListener('click', function () { closeDrawer(); });
+        if (continueBtn) continueBtn.addEventListener('click', function () { closeDrawer(); });
+      }
       // Test-er vm sandbox-e setTimeout na thakleo IIFE cholte
       // hobe — tai age thekei porikkha kore rakhi; browser-e sob
       // somoy ache.
@@ -444,8 +468,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
         // khole.
         openDrawer();
       });
-      if (closeBtn) closeBtn.addEventListener('click', function () { closeDrawer(); });
-      if (continueBtn) continueBtn.addEventListener('click', function () { closeDrawer(); });
+      rebindDrawerButtons();
       if (overlay) overlay.addEventListener('click', function () { closeDrawer(); });
       if (document.addEventListener) {
         document.addEventListener('keydown', function (e) {
@@ -453,6 +476,93 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
             if (e.preventDefault) e.preventDefault();
             closeDrawer();
           }
+        });
+      }
+      // ---------- AJAX Add to Cart (fix/ajax-add-to-cart) ----------
+      // donal: Add to Cart chaple cart-er page-e chole jay — erokom
+      // jaoa jabe na. Tai shob /cart/add/ form-er submit ekhanei
+      // dhora hoy (document-level delegation — Recently Viewed-er
+      // JS-e toiri form guloteo kaj kore): fetch POST, page reload
+      // hoy na, kothao navigate hoy na. Body URLSearchParams-e
+      // pathano hoy (urlencoded — multipart NOY: CSRF middleware
+      // body parser-er age chole, ar multipart body tokhon pora
+      // jay na; urlencoded body thik-i pora jay, tai form-er _csrf
+      // field-ta kaj kore). Route-er JSON shakha theke notun
+      // cartCount + drawer-er TAZA HTML ashe: badge update hoy,
+      // drawer-er vitore notun content boshe (purono × / Continue
+      // button bodle jay bole rebindDrawerButtons() abar chole),
+      // tab-er sliver obostha thakle puro pill fire ashe, drawer
+      // khole, ar toast "✓ <product> added to cart" dekhay.
+      // Error hole (out-of-stock / vul variant / server error)
+      // toast error dekhay — navigate hoy na, drawer khole na.
+      // Request cholte thakle button disable thake (double-add
+      // atkano). "Choose Option →" kono form-i noy (link), tai
+      // ekhane dhora pore na — ager motoi product page-e jay.
+      // Drawer-er qty stepper / remove ekhono ager motoi reload
+      // kore /cart-e jay — AJAX kora ei PR-er baire (follow-up).
+      // JS na cholle form ager motoi POST kore /cart-e redirect
+      // hoy (no-JS fallback — action + method bodlano hoy ni).
+      if (document.addEventListener) {
+        document.addEventListener('submit', function (e) {
+          var form = e && e.target;
+          if (!form || typeof form.getAttribute !== 'function') return;
+          var action = form.getAttribute('action') || '';
+          if (action.indexOf('/cart/add/') !== 0) return;
+          var method = (form.getAttribute('method') || 'get').toLowerCase();
+          if (method !== 'post') return;
+          if (e.preventDefault) e.preventDefault();
+          // Ekbar cholte thakle ditiyo submit ar neoa hoy na.
+          if (form._adding) return;
+          form._adding = true;
+          var btn = null;
+          if (form.querySelector) btn = form.querySelector('button[type="submit"]');
+          if (btn) { btn.disabled = true; }
+          var body = '';
+          try {
+            var fd = new FormData(form);
+            var params = new URLSearchParams();
+            fd.forEach(function (v, k) { params.append(k, v); });
+            body = params.toString();
+          } catch (err) {
+            body = '';
+          }
+          function done() {
+            form._adding = false;
+            if (btn) { btn.disabled = false; }
+          }
+          fetch(action, {
+            method: 'POST',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body,
+            credentials: 'same-origin'
+          }).then(function (res) {
+            return res.json().then(function (data) {
+              return { status: res.status, ok: res.ok, data: data };
+            }).catch(function () {
+              return { status: res.status, ok: res.ok, data: null };
+            });
+          }).then(function (r) {
+            if (r.ok && r.data && r.data.ok) {
+              setCartCount(r.data.cartCount);
+              if (drawer && typeof r.data.drawerHtml === 'string') {
+                drawer.innerHTML = r.data.drawerHtml;
+                rebindDrawerButtons();
+              }
+              restoreTab();
+              openDrawer();
+              showToast('✓ ' + (r.data.itemName || 'Product') + ' added to cart', false);
+            } else {
+              showToast((r.data && r.data.error) || 'Could not add to cart. Please try again.', true);
+            }
+            done();
+          }).catch(function () {
+            showToast('Could not add to cart. Please try again.', true);
+            done();
+          });
         });
       }
       window.addEventListener('scroll', onScroll, { passive: true });
