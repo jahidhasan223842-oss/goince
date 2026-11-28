@@ -595,12 +595,21 @@ const URLS = { success: 'http://x/payment/success', fail: 'http://x/payment/fail
   check('guard: no photo file was touched by this batch',
     (() => {
       const { execSync } = require('child_process');
-      // Working tree + index vs the batch base: uncommitted batch
-      // files are what this check must see (HEAD is still the base
-      // until the batch is committed).
-      const out = execSync('git status --porcelain', { cwd: path.join(__dirname, '..'), encoding: 'utf8' });
-      const files = out.split('\n').filter(Boolean).map((l) => l.slice(3).trim());
-      return files.length > 0 && !files.some((f) => /\.(png|jpe?g|webp|gif|svg|ico)$/i.test(f));
+      const root = path.join(__dirname, '..');
+      const img = /\.(png|jpe?g|webp|gif|svg|ico)$/i;
+      // 1. Uncommitted changes (builder pre-commit workflow).
+      let files = execSync('git status --porcelain', { cwd: root, encoding: 'utf8' })
+        .split('\n').filter(Boolean).map((l) => l.slice(3).trim());
+      if (files.length) return !files.some((f) => img.test(f));
+      // 2. Committed batch: the batch commit itself (single commit) or
+      // the merge commit's second-parent diff (on main after merge).
+      const parents = execSync('git rev-list --parents -n 1 HEAD', { cwd: root, encoding: 'utf8' }).trim().split(' ');
+      const range = parents.length > 2 ? `${parents[0]}^1..${parents[0]}` : 'HEAD~1..HEAD';
+      files = execSync(`git diff --name-only ${range}`, { cwd: root, encoding: 'utf8' })
+        .split('\n').filter(Boolean);
+      if (files.length) return !files.some((f) => img.test(f));
+      // 3. Nothing attributable to this batch — nothing to check.
+      return true;
     })());
 
   console.log(`\nPayments & messaging checks: ${passes.length} passed, ${failures.length} failed.`);
