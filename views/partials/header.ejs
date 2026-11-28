@@ -73,7 +73,7 @@
   <header class="site-header">
     <div class="container header-inner">
       <% /* Mobile header (≤768px): hamburger + logo + search icon —
-            Home / Categories / Login / Sign Up ar header-e chhoriye
+            Home / Categories / My Account ar header-e chhoriye
             thake na, ogulo drawer-er vitore thake (niche). Cart-er
             kono button/icon upore nei — cart-er ekmatro entry point
             ekhon dan pranter floating side-cart tab (footer.ejs).
@@ -147,7 +147,7 @@
               Quick Links-er Cart ar drawer-er Cart entry ager motoi
               ache — ogulo "upre" noy, tai sorano hoy ni. */ %>
         <% /* Theme toggle (day/night) — account control-er AGE (thik
-              bam pashe): logged out-e "Login / Sign Up" button-er age,
+              bam pashe): logged out-e "My Account" button-er age,
               logged in-e profile pill-er age — account control shob
               somoy header-er ekdom dan konay shesh element.
               DECIDED (fix/header-account-menu): (a) admin panel-er
@@ -188,11 +188,12 @@
             </div>
           </div>
         <% } else { %>
-          <% /* Login + Sign Up EK button-e (fix/header-account-menu):
-                "Login / Sign Up" — login page-ei "New here? Create an
-                account" ache, tai ek button duitar kaj kore. Age alada
-                Login (outline) + Sign Up (solid) chhilo. */ %>
-          <a href="/login" class="btn-nav-solid">Login / Sign Up</a>
+          <% /* Login + Sign Up EK button-e (fix/header-account-menu,
+                fix/my-account-button): "My Account" (donal bechhe
+                niyechhen) — login page-ei "New here? Create an
+                account" ache, tai ek button duitar kaj kore. Age
+                "Login / Sign Up" lekha chhilo. */ %>
+          <a href="/login" class="btn-nav-solid">My Account</a>
         <% } %>
       </nav>
     </div>

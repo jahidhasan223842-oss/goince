@@ -222,12 +222,12 @@ function ruleBody(source, selectorRe) {
   }
   if (html) {
     // Visual order in the header: search input, then the nav links
-    // Home, Categories button, theme toggle, single "Login / Sign Up"
+    // Home, Categories button, theme toggle, single "My Account"
     // button. (fix/header-cart-side-tab: the Cart link is gone from
     // the top nav; the drawer Cart entry stays, below.)
     // (fix/header-account-menu: Login + Sign Up are ONE button, and
     // the theme toggle sits immediately before it.)
-    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'class="theme-toggle-btn"', 'href="/login" class="btn-nav-solid">Login / Sign Up</a>'];
+    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'class="theme-toggle-btn"', 'href="/login" class="btn-nav-solid">My Account</a>'];
     let lastIdx = -1;
     let inOrder = true;
     for (const piece of order) {
@@ -235,7 +235,7 @@ function ruleBody(source, selectorRe) {
       if (i < 0 || i < lastIdx) { inOrder = false; break; }
       lastIdx = i;
     }
-    check('header render: search, Home, Categories, theme toggle, single "Login / Sign Up" in order (NO Cart link)', inOrder && html.includes('class="logo"'));
+    check('header render: search, Home, Categories, theme toggle, single "My Account" in order (NO Cart link)', inOrder && html.includes('class="logo"'));
     check('header render: theme toggle present', html.includes('toggleGoinceTheme()'));
     check('header render: mega panel has exactly 2 columns for 2 top categories', (html.match(/class="mega-col"/g) || []).length === 2);
     check('header render: category titles + counts present', html.includes('Home Appliances') && html.includes('(3)') && html.includes('Winter Collection') && html.includes('(1)'));

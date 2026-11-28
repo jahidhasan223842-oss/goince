@@ -11,9 +11,12 @@
 // work.
 //
 // THE DECIDED DESIGN (stated in the PR body with its reasoning):
-//   1. ONE "Login / Sign Up" solid button (logged out) linking to
+//   1. ONE "My Account" solid button (logged out) linking to
 //      /login — the login page already offers "New here? Create an
 //      account", so one button honestly covers both.
+//      (fix/my-account-button, 2026-11-28: donal chose "My Account"
+//      from the label ideas; the button used to read "Login /
+//      Sign Up".)
 //   2. Profile pill + dropdown (logged in) at the FAR RIGHT corner:
 //      avatar + name + chevron (avatar-only at <=1024px), opening a
 //      dropdown with an account header (avatar, name, email) and,
@@ -23,7 +26,7 @@
 //      (/track-order), divider, Logout. The separate Wishlist and
 //      Logout text links leave the desktop nav.
 //   3. DAY/NIGHT PLACEMENT: immediately to the LEFT of the account
-//      control — before the "Login / Sign Up" button when logged out,
+//      control — before the "My Account" button when logged out,
 //      before the profile pill when logged in — so the account control
 //      is ALWAYS the last element at the far right corner. Reasons:
 //      (a) it mirrors the admin panel, which donal himself designed
@@ -152,7 +155,7 @@ function inOrder(html, pieces) {
   // ---------- 1. Header source ----------
   check('header source: no separate Login (outline) button any more', !headerEjs.includes('btn-nav-outline'));
   check('header source: no separate Sign Up link in the nav', !headerEjs.includes('href="/signup" class="btn-nav-solid"'));
-  check('header source: ONE "Login / Sign Up" button linking to /login', headerEjs.includes('href="/login" class="btn-nav-solid">Login / Sign Up</a>'));
+  check('header source: ONE "My Account" button linking to /login (fix/my-account-button — was "Login / Sign Up")', headerEjs.includes('href="/login" class="btn-nav-solid">My Account</a>') && !headerEjs.includes('btn-nav-solid">Login / Sign Up'));
   check('header source: no Wishlist text link in the desktop nav', !/<a href="\/wishlist">Wishlist<\/a>/.test(headerEjs));
   check('header source: no Logout text link in the desktop nav', !/<a href="\/logout">Logout<\/a>/.test(headerEjs));
   check('header source: profile pill button exists (aria-haspopup + controls)', headerEjs.includes('id="shop-profile-btn"') && headerEjs.includes('aria-haspopup="true"') && headerEjs.includes('aria-controls="shop-profile-menu"'));
@@ -160,7 +163,7 @@ function inOrder(html, pieces) {
   check('header source: dropdown items in order My Profile / My Orders / Wishlist / Track Order / Logout',
     inOrder(headerEjs, ['href="/account/profile" class="shop-profile-link"', 'href="/account" class="shop-profile-link"', 'href="/wishlist" class="shop-profile-link"', 'href="/track-order" class="shop-profile-link"', 'shop-profile-divider', 'href="/logout" class="shop-profile-link"']));
   check('header source: My Orders links to /account (the real orders-list URL, not /account/orders)', headerEjs.includes('href="/account" class="shop-profile-link"'));
-  check('header source: theme toggle comes BEFORE the account control in the markup', headerEjs.indexOf('class="theme-toggle-btn"') < headerEjs.indexOf('shop-profile-wrap') && headerEjs.indexOf('class="theme-toggle-btn"') < headerEjs.indexOf('btn-nav-solid">Login / Sign Up'));
+  check('header source: theme toggle comes BEFORE the account control in the markup', headerEjs.indexOf('class="theme-toggle-btn"') < headerEjs.indexOf('shop-profile-wrap') && headerEjs.indexOf('class="theme-toggle-btn"') < headerEjs.indexOf('btn-nav-solid">My Account'));
   check('header source: drawer keeps Login / Sign Up links (mobile unchanged)', headerEjs.includes('href="/login" class="shop-drawer-link"') && headerEjs.includes('href="/signup" class="shop-drawer-link"'));
   check('header source: drawer keeps the account block + theme toggle (mobile unchanged)', headerEjs.includes('shop-drawer-account') && headerEjs.includes('shop-drawer-theme'));
 
@@ -226,14 +229,14 @@ function inOrder(html, pieces) {
 
   if (outHtml) {
     const nav = navBlock(outHtml);
-    check('render logged-out: exactly ONE account button in the nav ("Login / Sign Up")',
-      (nav.match(/btn-nav-solid/g) || []).length === 1 && nav.includes('>Login / Sign Up</a>'));
+    check('render logged-out: exactly ONE account button in the nav ("My Account")',
+      (nav.match(/btn-nav-solid/g) || []).length === 1 && nav.includes('>My Account</a>') && !nav.includes('>Login / Sign Up</a>'));
     check('render logged-out: no separate Login or Sign Up buttons anywhere in the nav', !nav.includes('>Login</a>') && !nav.includes('>Sign Up</a>'));
     check('render logged-out: no avatar in the nav', !nav.includes('shop-user-avatar'));
-    check('render logged-out: theme toggle sits immediately before the login button (toggle, then button, nothing between)',
-      inOrder(nav, ['class="theme-toggle-btn"', 'href="/login" class="btn-nav-solid">Login / Sign Up</a>'])
-      && nav.indexOf('btn-nav-solid">Login / Sign Up') > nav.indexOf('theme-toggle-btn'));
-    check('render logged-out: the login button is the LAST element in the header nav', nav.trimEnd().endsWith('Login / Sign Up</a>'));
+    check('render logged-out: theme toggle sits immediately before the account button (toggle, then button, nothing between)',
+      inOrder(nav, ['class="theme-toggle-btn"', 'href="/login" class="btn-nav-solid">My Account</a>'])
+      && nav.indexOf('btn-nav-solid">My Account') > nav.indexOf('theme-toggle-btn'));
+    check('render logged-out: the account button is the LAST element in the header nav', nav.trimEnd().endsWith('My Account</a>'));
     check('render logged-out: no login button in the mobile top row (drawer only)', !mobileTopRow(outHtml).includes('href="/login"'));
     check('render logged-out: drawer still has Login / Sign Up links', outHtml.includes('href="/login" class="shop-drawer-link"') && outHtml.includes('href="/signup" class="shop-drawer-link"'));
   }
