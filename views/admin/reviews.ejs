@@ -56,4 +56,51 @@
 </div>
 <% } %>
 
+<% /* ---------- D4 Product Q&A (feat/product-page) ----------
+      Shopper-er proshno + admin-er uttor — ekhanei moderation.
+      Uttor na deoa porjonto proshno shop-e dekhabe na. */ %>
+<% if (typeof questions !== 'undefined' && questions) { %>
+<div class="admin-page-header" style="margin-top:28px;">
+  <h2>Product Q&amp;A <% if (pendingQuestions > 0) { %><span class="status-badge status-pending"><%= pendingQuestions %> pending</span><% } %></h2>
+</div>
+<% if (questions.length === 0) { %>
+  <div class="empty-state">
+    <span class="empty-state-icon">❓</span>
+    <strong>No questions yet</strong>
+    <p>When a shopper asks a question on a product page, it will appear here for you to answer.</p>
+  </div>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead>
+    <tr><th>Product</th><th>Asked by</th><th>Question</th><th>Your answer</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    <% questions.forEach(q => { %>
+      <tr>
+        <td><a href="/product/<%= q.product_id %>" target="_blank"><%= q.product_name || ('#' + q.product_id) %></a></td>
+        <td><%= q.asker_name || '-' %></td>
+        <td style="max-width:280px;"><%= q.question %></td>
+        <td style="max-width:320px;">
+          <% if (q.status === 'answered') { %><%= q.answer %><% } else { %>
+          <form action="/admin/questions/<%= q.id %>/answer" method="POST"><%- include('../partials/csrf-field') %>
+            <textarea name="answer" rows="2" required placeholder="Write your answer here — it will show on the product page." style="width:100%; padding:8px;"></textarea>
+            <button type="submit" class="btn-sm btn-sm--primary" style="margin-top:6px;">Answer &amp; Publish</button>
+          </form>
+          <% } %>
+        </td>
+        <td>
+          <% if (q.status === 'answered') { %><span class="status-badge status-delivered">Answered</span><% } else { %><span class="status-badge status-pending">Pending</span><% } %>
+        </td>
+        <td style="white-space:nowrap;">
+          <form action="/admin/questions/<%= q.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('Delete this question permanently?');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--danger">Delete</button></form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+<% } %>
+
 <%- include('../partials/admin-footer') %>

@@ -4,6 +4,15 @@
   <div class="product-image">
     <div class="gallery-stage" id="gallery-stage" tabindex="0" role="group" aria-label="Product photos">
       <img src="/uploads/<%= product.image %>" alt="<%= product.name %>" id="main-product-image" onerror="this.src='/uploads/no-image.png'">
+      <% /* D1 product video (feat/product-page): Admin > Products >
+            Edit-er video field-e (product_videos table) video thakle
+            gallery-te player hisebe ase — ekta slide-er motoi.
+            Video na thakle gallery ager motoi thake, kichu bodlay
+            na. Video file ekhane banano/upload kora hoy na — donal-ke
+            ashol phone-e tola video upload korte hobe. */ %>
+      <% if (typeof productVideo !== 'undefined' && productVideo) { %>
+        <video id="product-video" class="gallery-video" src="/uploads/<%= productVideo %>" controls preload="metadata" playsinline hidden></video>
+      <% } %>
       <% if (galleryImages && galleryImages.length > 0) { %>
         <button type="button" class="gallery-arrow gallery-prev" id="gallery-prev" aria-label="Previous photo">‹</button>
         <button type="button" class="gallery-arrow gallery-next" id="gallery-next" aria-label="Next photo">›</button>
@@ -16,12 +25,17 @@
       <span class="gallery-zoom-hint"><span class="zoom-hint-hover">Hover to zoom · Click to toggle</span><span class="zoom-hint-touch">Tap to zoom</span></span>
     </div>
 
-    <% if (galleryImages && galleryImages.length > 0) { %>
+    <% if ((galleryImages && galleryImages.length > 0) || (typeof productVideo !== 'undefined' && productVideo)) { %>
       <div class="thumbnail-row">
         <img src="/uploads/<%= product.image %>" class="thumbnail active" data-index="0" data-full="/uploads/<%= product.image %>" onclick="swapImage(this, '/uploads/<%= product.image %>')" onerror="this.src='/uploads/no-image.png'" alt="">
+        <% if (galleryImages && galleryImages.length > 0) { %>
         <% galleryImages.forEach((img, i) => { %>
           <img src="/uploads/<%= img.image %>" class="thumbnail" data-index="<%= i + 1 %>" data-full="/uploads/<%= img.image %>" onclick="swapImage(this, '/uploads/<%= img.image %>')" onerror="this.src='/uploads/no-image.png'" alt="">
         <% }) %>
+        <% } %>
+        <% if (typeof productVideo !== 'undefined' && productVideo) { %>
+          <button type="button" class="thumbnail thumbnail-video" onclick="showProductVideo(this)" aria-label="Play product video">▶ Video</button>
+        <% } %>
       </div>
     <% } %>
   </div>
@@ -55,6 +69,27 @@
     </div>
 
     <p class="stock" id="display-stock"><%= product.stock > 0 ? product.stock + ' in stock' : 'Out of stock' %></p>
+
+    <% /* G5 sold counter (feat/product-page): ashol order count
+          theke ase; 0 sold hole kichu dekhabe na. */ %>
+    <% if (typeof soldLine !== 'undefined' && soldLine) { %>
+      <p class="sold-line">🔥 <%= soldLine %></p>
+    <% } %>
+    <% /* G1 live viewers (feat/product-page): REAL count — goto 5
+          minute-e kotogulo alada session ei product dekhchhe.
+          0 ba 1 (shudhu apni) hole kichu dekhabe na. */ %>
+    <% if (typeof viewerLine !== 'undefined' && viewerLine) { %>
+      <p class="viewer-line">👀 <%= viewerLine %></p>
+    <% } %>
+    <% /* D8 honest low-stock bar (feat/product-page): sold /
+          (sold + remaining) — ashol number diye; stock plentiful
+          hole (bar-er threshold-er upore) ekebarei dekhabe na. */ %>
+    <% if (typeof stockBar !== 'undefined' && stockBar) { %>
+      <div class="low-stock" role="status">
+        <p class="low-stock-text">⚠️ Hurry — only <strong><%= stockBar.remaining %> left</strong> (<%= stockBar.percent %>% sold)</p>
+        <div class="low-stock-bar"><div class="low-stock-fill" style="width:<%= stockBar.percent %>%"></div></div>
+      </div>
+    <% } %>
 
     <% if (options && options.length > 0) { %>
       <div class="option-selectors" style="margin-bottom:15px;">
@@ -106,6 +141,17 @@
             lukano thake, tai vul variant-e Buy Now chapa jay na. */ %>
       <button type="submit" name="buy_now" value="1" class="btn-buy-now" id="buy-now-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>>Buy Now</button>
     </form>
+    <% /* G3 trust badges (feat/product-page): shop-er ashol
+          sotto gulo — Cash on Delivery, manual bKash/Nagad/Rocket,
+          24h return (defective/wrong only), ashol phone number.
+          Kono gateway nei, tai "secure online payment" bole kono
+          badge nei. */ %>
+    <div class="trust-badges" aria-label="Why shop with Goince">
+      <span class="trust-badge">💵 Cash on Delivery available</span>
+      <span class="trust-badge">📱 Pay by bKash / Nagad / Rocket (manual)</span>
+      <span class="trust-badge">↩️ Easy return — within 24 hours if defective or wrong item</span>
+      <span class="trust-badge">📞 Phone support: <a href="tel:<%= (typeof shopPhone !== 'undefined' && shopPhone) ? String(shopPhone).replace(/[^0-9+]/g, '') : '01814697896' %>"><%= (typeof shopPhone !== 'undefined' && shopPhone) ? shopPhone : '01814697896' %></a></span>
+    </div>
     <% /* B2 sticky bar-er anchor: buy box viewport-er upore beriye
           gelei bar dekhabe. Form lukano thakleo (variant bechha
           hoy ni) ei khali div-er obosthan thik thake. */ %>
@@ -141,6 +187,21 @@
       <p>🚚 Delivery Charge: <strong>৳<%= deliveryCharge %></strong> (Inside Dhaka) / <strong>৳<%= deliveryChargeOutside %></strong> (Outside Dhaka)</p>
       <% } %>
       <p>📦 Estimated Delivery: <%= product.delivery_time ? product.delivery_time : 'Inside Dhaka 1–2 din, Outside Dhaka 3–5 din' %></p>
+      <% /* D7 delivery-date estimate (feat/product-page): "Order in
+            the next X hours, get it by <date>" — ashol zone window
+            (Dhaka 1–2 din / baire 3–5 din) + 5pm cut-off theke hisab
+            (lib/product-page.js). Zone bechhle session-e mone thake,
+            default Dhaka. */ %>
+      <% if (typeof deliveryEstimate !== 'undefined' && deliveryEstimate) { %>
+        <p class="delivery-estimate">⏰ Order in the next <strong><%= deliveryEstimate.hoursLeft %> hour<%= deliveryEstimate.hoursLeft != 1 ? 's' : '' %></strong> — get it by <strong><%= deliveryEstimate.getByLabel %></strong> (<%= deliveryEstimate.zoneLabel %>)</p>
+      <% } %>
+      <form class="delivery-zone-form" method="GET" action="/product/<%= product.id %>">
+        <label for="delivery-zone">Delivery area:</label>
+        <select name="zone" id="delivery-zone" onchange="this.form.submit()">
+          <option value="inside_dhaka" <%= (typeof deliveryZone === 'undefined' || deliveryZone === 'inside_dhaka') ? 'selected' : '' %>>Inside Dhaka (1–2 days)</option>
+          <option value="outside_dhaka" <%= (typeof deliveryZone !== 'undefined' && deliveryZone === 'outside_dhaka') ? 'selected' : '' %>>Outside Dhaka (3–5 days)</option>
+        </select>
+      </form>
     </div>
 
     <div class="share-box">
@@ -170,6 +231,37 @@
   <button type="button" class="btn-primary" id="sticky-buy-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>>Add to Cart</button>
 </div>
 
+<% /* D2 "Frequently bought together" (feat/product-page): shudhu
+      admin-er beche deya related product (related_products table)
+      thaklei box-ta ase — na thakle khali box noy, kichui na.
+      "Add all to cart" PR #80-er AJAX flow-ei chole (fetch POST
+      /cart/add/:id, page reload noy, drawer khole); variant/option
+      thaka product bundle-e dhoke na, tai prottekta add sorasori
+      kora jay. */ %>
+<% if (typeof bundleProducts !== 'undefined' && bundleProducts && bundleProducts.length > 0) { %>
+  <% const bundleTotal = Number(product.price) + bundleProducts.reduce((s, b) => s + Number(b.price), 0); %>
+  <div class="bundle-box" id="bundle-box">
+    <h2>Frequently bought together</h2>
+    <ul class="bundle-list">
+      <li class="bundle-item bundle-item--main">
+        <img src="/uploads/<%= product.image %>" alt="" onerror="this.remove()">
+        <span class="bundle-item-name"><%= product.name %></span>
+        <span class="bundle-item-price">৳<%= product.price %></span>
+      </li>
+      <% bundleProducts.forEach(bp => { %>
+        <li class="bundle-item">
+          <a href="/product/<%= bp.id %>"><img src="/uploads/<%= bp.image %>" alt="<%= bp.name %>" onerror="this.remove()"></a>
+          <span class="bundle-item-name"><a href="/product/<%= bp.id %>"><%= bp.name %></a></span>
+          <span class="bundle-item-price">৳<%= bp.price %></span>
+        </li>
+      <% }) %>
+    </ul>
+    <p class="bundle-total">Total for all <%= bundleProducts.length + 1 %> items: <strong>৳<%= bundleTotal %></strong></p>
+    <button type="button" class="btn-primary" id="bundle-add-all" data-bundle-ids="<%= bundleProducts.map(b => b.id).join(',') %>">Add all to cart — ৳<%= bundleTotal %></button>
+    <input type="hidden" id="bundle-csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+  </div>
+<% } %>
+
 <% if (product.description) { %>
   <div class="long-description-section">
     <h2>Product Details</h2>
@@ -190,7 +282,68 @@
   </div>
 <% } %>
 
-<div class="reviews-section">
+<% /* D5 size guide (feat/product-page): shudhu Size attribute
+      thaka apparel product-e (jemon A.T.Z dress) dekhabe. Chart-ta
+      static — ei style-er standard approximate measurement (inch),
+      chart-ei lekha ache ashol product-e ±0.5" bodol hote pare.
+      Admin-editable kora hoy ni — donal chart bodlate chaile code-e
+      ei table-ta bodlate hobe (PR body-te lekha ache). */ %>
+<% if (typeof variantAttributes !== 'undefined' && variantAttributes && variantAttributes.some(a => String(a.name || '').trim().toLowerCase() === 'size')) { %>
+  <div class="size-guide-section">
+    <h2>Size Guide</h2>
+    <p class="size-guide-note">Standard size guide for this style — approximate measurements in inches. Actual product may vary slightly (±0.5"). When in doubt, pick the larger size.</p>
+    <table class="size-guide-table">
+      <thead><tr><th>Size</th><th>Chest</th><th>Length</th></tr></thead>
+      <tbody>
+        <tr><td>S</td><td>36"</td><td>34"</td></tr>
+        <tr><td>M</td><td>38"</td><td>35"</td></tr>
+        <tr><td>L</td><td>40"</td><td>36"</td></tr>
+        <tr><td>XL</td><td>42"</td><td>37"</td></tr>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<% /* D9 product FAQ (feat/product-page): static accordion — uttor
+      gulo shop-er ashol niyom (return 24h, defective/wrong only;
+      delivery Dhaka 1–2 din / baire 3–5 din; COD + manual
+      bKash/Nagad/Rocket). Size-er proshno-ta shudhu Size thaka
+      product-e ase. Admin-editable kora hoy ni — PR body-te lekha. */ %>
+<div class="faq-section">
+  <h2>Frequently Asked Questions</h2>
+  <details class="faq-item">
+    <summary>How long does delivery take?</summary>
+    <p>Inside Dhaka 1–2 days, outside Dhaka 3–5 days. Order before 5pm and your order dispatches the same day.</p>
+  </details>
+  <details class="faq-item">
+    <summary>Can I pay Cash on Delivery?</summary>
+    <p>Yes — Cash on Delivery is available. You can also pay manually by bKash, Nagad or Rocket: send the money first, then enter the Transaction ID at checkout.</p>
+  </details>
+  <details class="faq-item">
+    <summary>What is the return policy?</summary>
+    <p>You can request a return within 24 hours of delivery if the product is defective or damaged, or you received the wrong product. Change-of-mind returns are not accepted once delivered. See the <a href="/return-policy">Return &amp; Refund Policy</a> for details.</p>
+  </details>
+  <% if (typeof variantAttributes !== 'undefined' && variantAttributes && variantAttributes.some(a => String(a.name || '').trim().toLowerCase() === 'size')) { %>
+  <details class="faq-item">
+    <summary>How do I choose the right size?</summary>
+    <p>Use the Size Guide table above — match your chest measurement to the chart. Between two sizes, pick the larger one for a comfortable fit.</p>
+  </details>
+  <% } %>
+  <details class="faq-item">
+    <summary>How do I take care of this product?</summary>
+    <p>Follow the care instructions on the product packaging or label. For apparel, wash gently and dry in shade; for electronics and home items, keep dry and handle with care.</p>
+  </details>
+  <details class="faq-item">
+    <summary>Is the stock shown on this page live?</summary>
+    <p>Yes — the stock count on this page comes from the shop's live stock. If it says "Out of stock", you can use Notify Me and we will let you know when it is back.</p>
+  </details>
+  <details class="faq-item">
+    <summary>How can I track my order?</summary>
+    <p>Use the Track Order page with your Order ID and phone number, or call us at <%= (typeof shopPhone !== 'undefined' && shopPhone) ? shopPhone : '01814697896' %>.</p>
+  </details>
+</div>
+
+<div class="reviews-section" data-csrf-token="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
   <h2>Reviews</h2>
   <% if (typeof reviewPending !== 'undefined' && reviewPending) { %>
     <p style="background:#fff8e1; border:1px solid #f0a500; padding:10px; border-radius:6px;">✅ Thanks! Your review is awaiting approval and will show after the admin approves it.</p>
@@ -202,15 +355,33 @@
     <% reviews.forEach(r => { %>
       <div class="review-item">
         <p class="review-stars"><%= '⭐'.repeat(r.rating) %></p>
-        <p class="review-author"><strong><%= r.user_name %></strong> — <%= new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></p>
+        <p class="review-author"><strong><%= r.user_name %></strong>
+          <% /* D3 verified-buyer badge: ei customer sotti ei
+                product-ta kinechhe kina orders diye jachai kora —
+                na kinle badge othe na. */ %>
+          <% if (typeof verifiedBuyerIds !== 'undefined' && verifiedBuyerIds && verifiedBuyerIds.indexOf(r.user_id) !== -1) { %><span class="verified-badge">✓ Verified Buyer</span><% } %>
+          — <%= new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></p>
         <% if (r.comment) { %><p class="review-comment"><%= r.comment %></p><% } %>
+        <% /* D3 review photo: customer-er upload kora chobi (WebP). */ %>
+        <% if (typeof reviewPhotos !== 'undefined' && reviewPhotos && reviewPhotos[r.id]) { %>
+          <div class="review-photos">
+            <% reviewPhotos[r.id].forEach(function (ph) { %>
+              <img class="review-photo" src="/uploads/<%= ph %>" alt="Customer photo" loading="lazy">
+            <% }) %>
+          </div>
+        <% } %>
+        <% /* D3 helpful vote: ekbar chaple vote, abar chaple tule
+              neoa — ekjon-ekbar (route + DB UNIQUE key). */ %>
+        <button type="button" class="helpful-btn<%= (typeof votedReviewIds !== 'undefined' && votedReviewIds && votedReviewIds.indexOf(r.id) !== -1) ? ' is-voted' : '' %>" data-review-id="<%= r.id %>">👍 Helpful (<span class="helpful-count"><%= (typeof helpfulCounts !== 'undefined' && helpfulCounts && helpfulCounts[r.id]) || 0 %></span>)</button>
       </div>
     <% }) %>
   <% } %>
 
   <% if (userName) { %>
     <h3>Write a Review</h3>
-    <form action="/product/<%= product.id %>/review" method="POST" class="review-form"><%- include('partials/csrf-field') %>
+    <% /* D3 review photo: multipart form bole action URL-e ?_csrf=
+          thaktei hobe (lib/csrf.js) — na hole token pora jay na. */ %>
+    <form action="/product/<%= product.id %>/review?_csrf=<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>" method="POST" class="review-form" enctype="multipart/form-data"><%- include('partials/csrf-field') %>
       <label>Rating</label>
       <select name="rating" required>
         <option value="5">⭐⭐⭐⭐⭐ (5)</option>
@@ -221,10 +392,42 @@
       </select>
       <label>Comment (optional)</label>
       <textarea name="comment" rows="3"></textarea>
+      <label>Add a photo (optional)</label>
+      <input type="file" name="review_photo" accept="image/*">
       <button type="submit" class="btn-primary">Submit Review</button>
     </form>
   <% } else { %>
     <p><a href="/login">Login</a> to write a review.</p>
+  <% } %>
+</div>
+
+<% /* D4 Product Q&A (feat/product-page): shudhu admin-er uttor
+      deoa proshno-guloi dekhabe; uttor na deoa proshno pending
+      thake, shop-e othe na. Proshno korte login lage (review-er
+      motoi). */ %>
+<div class="qa-section">
+  <h2>Questions &amp; Answers</h2>
+  <% if (typeof questionPending !== 'undefined' && questionPending) { %>
+    <p style="background:#fff8e1; border:1px solid #f0a500; padding:10px; border-radius:6px;">✅ Thanks! Your question is awaiting an answer from the shop and will show here once answered.</p>
+  <% } %>
+  <% if (typeof answeredQuestions !== 'undefined' && answeredQuestions && answeredQuestions.length > 0) { %>
+    <% answeredQuestions.forEach(q => { %>
+      <div class="qa-item">
+        <p class="qa-question"><strong>Q:</strong> <%= q.question %> <span class="qa-asker">— <%= q.asker_name %></span></p>
+        <p class="qa-answer"><strong>A:</strong> <%= q.answer %></p>
+      </div>
+    <% }) %>
+  <% } else { %>
+    <p>No questions answered yet — be the first to ask!</p>
+  <% } %>
+  <% if (userName) { %>
+    <h3>Ask a question</h3>
+    <form action="/product/<%= product.id %>/question" method="POST" class="qa-form"><%- include('partials/csrf-field') %>
+      <textarea name="question" rows="2" required maxlength="1000" placeholder="Ask about size, delivery, material..."></textarea>
+      <button type="submit" class="btn-primary">Ask Question</button>
+    </form>
+  <% } else { %>
+    <p><a href="/login">Login</a> to ask a question.</p>
   <% } %>
 </div>
 
@@ -263,12 +466,28 @@
     localStorage.setItem('goince-recent', JSON.stringify(recent.slice(0, 4)));
   } catch (e) {}
   function swapImage(el, src) {
+    // D1: chobi-te firle video lukay + pause hoy, chobi abar dekha jay.
+    var _video = document.getElementById('product-video');
+    if (_video) { _video.hidden = true; if (_video.pause) _video.pause(); }
+    var _img = document.getElementById('main-product-image');
+    if (_img) _img.hidden = false;
     // Gallery module thakle shetai chobi bodlay (index + zoom reset
     // soho); na thakle purono upay (direct src bodol + active class).
     if (window.GoinceGallery) { window.GoinceGallery.showBySrc(src, el); return; }
     document.getElementById('main-product-image').src = src;
     document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
+  }
+  // D1: video thumbnail chaple chobi lukay, video player ase + play hoy.
+  function showProductVideo(el) {
+    var video = document.getElementById('product-video');
+    var img = document.getElementById('main-product-image');
+    if (!video || !img) return;
+    img.hidden = true;
+    video.hidden = false;
+    document.querySelectorAll('.thumbnail').forEach(function (t) { t.classList.remove('active'); });
+    if (el) el.classList.add('active');
+    if (video.play) { var p = video.play(); if (p && p.catch) p.catch(function () {}); }
   }
 
   function selectOption(el) {
@@ -513,6 +732,111 @@
         });
       });
     }
+  })();
+</script>
+
+<% /* G2 recent-purchase popup (feat/product-page): SUDHU ashol
+      order theke ase (server route-e DB theke) — kono recent order
+      na thakle ei div-ta ekebarei render hoy na. 4s pore ase, 10s
+      pore nije theke jay, × diye bondho kora jay. */ %>
+<% if (typeof recentPurchase !== 'undefined' && recentPurchase) { %>
+  <div class="recent-purchase-popup" id="recent-purchase-popup" hidden>
+    <span aria-hidden="true">🛍️</span>
+    <p><%= recentPurchase %></p>
+    <button type="button" class="recent-purchase-close" id="recent-purchase-close" aria-label="Dismiss">×</button>
+  </div>
+  <script>
+    (function () {
+      var pop = document.getElementById('recent-purchase-popup');
+      var closeBtn = document.getElementById('recent-purchase-close');
+      if (!pop) return;
+      function show() { pop.hidden = false; if (pop.classList) pop.classList.add('is-visible'); }
+      function hide() { pop.hidden = true; if (pop.classList) pop.classList.remove('is-visible'); }
+      if (closeBtn) closeBtn.addEventListener('click', hide);
+      setTimeout(show, 4000);
+      setTimeout(hide, 14000);
+    })();
+  </script>
+<% } %>
+
+<script>
+  // D3 helpful vote (feat/product-page): button chaple POST
+  // /product/review/:id/helpful — CSRF token x-csrf-token header-e
+  // (reviews-section-er data-csrf-token theke). Toggle: vote dile
+  // count bare + button highlight hoy, abar chaple vote tule neoa
+  // hoy + count kome. Ekjon-ekbar — route + DB UNIQUE key diye.
+  (function () {
+    var section = document.querySelector('.reviews-section');
+    if (!section) return;
+    var token = section.getAttribute('data-csrf-token') || '';
+    section.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.helpful-btn') : null;
+      if (!btn) return;
+      var id = btn.getAttribute('data-review-id');
+      if (!id) return;
+      fetch('/product/review/' + id + '/helpful', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'x-csrf-token': token, 'Accept': 'application/json' },
+        credentials: 'same-origin'
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d || !d.ok) return;
+        var countEl = btn.querySelector('.helpful-count');
+        if (countEl) countEl.textContent = String(d.count);
+        if (btn.classList) btn.classList.toggle('is-voted', !!d.helpful);
+      }).catch(function () {});
+    });
+  })();
+  // D2 "Add all to cart" (feat/product-page): ei product + bundle-er
+  // prottekta complement — ekta kore fetch POST /cart/add/:id
+  // (PR #80-er AJAX flow: page reload noy). Sesh uttor-er
+  // drawerHtml + cartCount diye footer-er mini-cart bridge
+  // (window.GoinceMiniCart) drawer refresh kore + khole + toast
+  // dekhay. Bridge na thakle (footer JS bondho) page reload kore
+  // cart-er notun obostha dekhano hoy.
+  (function () {
+    var btn = document.getElementById('bundle-add-all');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var ids = (btn.getAttribute('data-bundle-ids') || '').split(',').filter(Boolean);
+      var allIds = [String(<%= product.id %>)].concat(ids);
+      var tokenEl = document.getElementById('bundle-csrf');
+      var token = tokenEl ? tokenEl.value : '';
+      var i = 0;
+      var last = null;
+      var failed = 0;
+      btn.disabled = true;
+      var origText = btn.textContent;
+      btn.textContent = 'Adding…';
+      function finish() {
+        btn.disabled = false;
+        btn.textContent = origText;
+        if (last && window.GoinceMiniCart) {
+          window.GoinceMiniCart.refresh(last.cartCount, last.drawerHtml);
+          window.GoinceMiniCart.open();
+          window.GoinceMiniCart.toast(failed ? '✓ Bundle added to cart (' + failed + ' item(s) could not be added)' : '✓ Bundle added to cart', failed > 0);
+        } else if (last) {
+          window.location.reload();
+        } else if (window.GoinceMiniCart) {
+          window.GoinceMiniCart.toast('Could not add bundle to cart. Please try again.', true);
+        }
+      }
+      function next() {
+        if (i >= allIds.length) { finish(); return; }
+        var id = allIds[i++];
+        fetch('/cart/add/' + id, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: '_csrf=' + encodeURIComponent(token) + '&quantity=1',
+          credentials: 'same-origin'
+        }).then(function (r) {
+          return r.json().catch(function () { return null; }).then(function (d) { return { ok: r.ok, data: d }; });
+        }).then(function (r) {
+          if (r.ok && r.data && r.data.ok) last = r.data; else failed++;
+          next();
+        }).catch(function () { failed++; next(); });
+      }
+      next();
+    });
   })();
 </script>
 

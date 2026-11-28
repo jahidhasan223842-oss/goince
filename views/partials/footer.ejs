@@ -814,6 +814,22 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       raf(function () { update(); });
       update();
       startTimer();
+      // D2 bundle "Add all to cart" (feat/product-page): bundle
+      // button-ta nije fetch kore, tarpor ei bridge diye drawer-er
+      // TAZA HTML + badge + toast ekbar-e update kore — footer-er
+      // IIFE-r vitore thaka private function gulo baire theke
+      // dorkar, tai shudhu ei tinti kaj expose kora holo.
+      window.GoinceMiniCart = {
+        refresh: function (cartCount, drawerHtml) {
+          setCartCount(cartCount);
+          if (drawer && typeof drawerHtml === 'string') {
+            drawer.innerHTML = drawerHtml;
+            rebindDrawerButtons();
+          }
+        },
+        open: openDrawer,
+        toast: showToast
+      };
     })();
   </script>
 

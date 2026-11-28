@@ -3,11 +3,31 @@ const express = require('express');
 const router = express.Router();
 const ejs = require('ejs');
 const path = require('path');
+const crypto = require('crypto');
 const db = require('../config/db');
+const upload = require('../config/upload');
+const pp = require('../lib/product-page');
 const { marked } = require('marked');
 const { sendOrderConfirmation } = require('../config/email');
 const { notifyAdmins } = require('../config/push');
 const { buildCategoryTree, ancestorChain, visibleSubtreeIds, isEffectivelyVisible } = require('../lib/categories');
+
+// ---------- PRODUCT-PAGE BATCH (feat/product-page, PR #83) ----------
+// Session key for G1 live viewers + D3 guest helpful votes: the
+// express-session id when there is one, else a random key kept in the
+// session itself. Never a name, phone or anything identifying.
+function viewerSessionKey(req) {
+  if (req.sessionID) return String(req.sessionID);
+  if (req.session) {
+    if (!req.session.viewKey) {
+      req.session.viewKey = crypto.randomUUID
+        ? crypto.randomUUID()
+        : crypto.randomBytes(16).toString('hex');
+    }
+    return String(req.session.viewKey);
+  }
+  return 'anonymous';
+}
 
 // Settings table theke delivery charge load kora — admin panel theke change korle
 // ei function shathe shathe notun value niye ashbe (server restart lagbe na)
@@ -397,6 +417,7 @@ router.get('/product/:id', async (req, res) => {
 
     // Related products: Admin-er beche deya gulo age, tarpor eki category theke
     let related = [];
+    let adminRelated = [];
     try {
       const [chosen] = await db.query(
         `SELECT p.* FROM related_products rp JOIN products p ON p.id = rp.related_id
@@ -404,6 +425,11 @@ router.get('/product/:id', async (req, res) => {
         [product.id]
       );
       related = chosen;
+      // D2 bundle box: SUDHU admin-er beche deya related product
+      // (related_products table) — category theke auto-bhora gulo
+      // bundle-e dhoke na, donal nije jader complement hisebe
+      // bechechen tarai ase.
+      adminRelated = chosen.slice();
     } catch (e) { related = []; }
     if (related.length < 4 && product.category_id) {
       const [relRows] = await db.query(
@@ -415,6 +441,153 @@ router.get('/product/:id', async (req, res) => {
     }
 
     const deliveryCharges = await getDeliveryCharges();
+
+    // ---------- PRODUCT-PAGE BATCH (feat/product-page, PR #83) ----------
+    // D1 — product video (Admin > Products > Edit-er video field,
+    // product_videos table, PR #7): thakle gallery-te player ase,
+    // na thakle kichui bodlay na. Video file ekhane upload kora
+    // hoy na — donal-ke ashol phone-e tola video upload korte hobe.
+    // (Admin upload multer-er public/uploads-e rakhe, tai /uploads/.)
+    let productVideo = null;
+    try {
+      const [vrows] = await db.query(
+        'SELECT filename FROM product_videos WHERE product_id = ? ORDER BY created_at DESC LIMIT 1',
+        [product.id]
+      );
+      if (vrows.length) productVideo = vrows[0].filename;
+    } catch (e) { productVideo = null; }
+
+    // D2 — "Frequently bought together": admin-er beche deya
+    // related (max 3), shudhu jegulo stock-e ache AR variant/option
+    // nei — "Add all to cart"-e variant bechha lage, tai variant
+    // product bundle-e dhoke na. Kono admin-related na thakle
+    // bundle box-ta ekebarei dekhabe na (khali box noy).
+    let bundleProducts = [];
+    try {
+      const inStock = adminRelated.filter((r) => r.stock > 0).slice(0, 3);
+      if (inStock.length > 0) {
+        const ids = inStock.map((r) => r.id);
+        const inList = `(${ids.map(() => '?').join(',')})`;
+        const [vrows] = await db.query(`SELECT DISTINCT product_id FROM product_variants WHERE product_id IN ${inList}`, ids);
+        const [orows] = await db.query(`SELECT DISTINCT product_id FROM product_options WHERE product_id IN ${inList}`, ids);
+        const withChoices = new Set([...vrows.map((r) => r.product_id), ...orows.map((r) => r.product_id)]);
+        bundleProducts = inStock.filter((r) => !withChoices.has(r.id));
+      }
+    } catch (e) { bundleProducts = []; }
+
+    // G5 — "X sold": ashol order count (order_items). 0 hole view-e
+    // kichu dekhabe na — kokhono banano count noy.
+    let soldCount = 0;
+    try {
+      const [[srow]] = await db.query(
+        'SELECT COALESCE(SUM(quantity), 0) AS sold FROM order_items WHERE product_id = ?',
+        [product.id]
+      );
+      soldCount = Number(srow.sold) || 0;
+    } catch (e) { soldCount = 0; }
+    const soldLine = pp.soldDisplay(soldCount);
+    // D8 — honest low-stock bar: sold / (sold + remaining), ashol
+    // number diye. Stock plentiful hole null (bar dekhabe na).
+    const stockBar = pp.lowStockBar(soldCount, product.stock, product.low_stock_threshold);
+
+    // D3 — review photos + helpful votes + verified-buyer badge.
+    // Photo: review_photos table; helpful: count + ei visitor
+    // age vote diyechhe kina; verified: ei product-ta sotti
+    // kinechhe kina (orders + order_items diye jachai — kokhono
+    // dhore neoa hoy na).
+    let reviewPhotos = {};
+    let helpfulCounts = {};
+    let votedReviewIds = [];
+    let verifiedBuyerIds = [];
+    if (reviews.length > 0) {
+      const rids = reviews.map((r) => r.id);
+      const inRids = `(${rids.map(() => '?').join(',')})`;
+      try {
+        const [prows] = await db.query(`SELECT review_id, filename FROM review_photos WHERE review_id IN ${inRids}`, rids);
+        prows.forEach((p) => { (reviewPhotos[p.review_id] = reviewPhotos[p.review_id] || []).push(p.filename); });
+      } catch (e) {}
+      try {
+        const [hrows] = await db.query(`SELECT review_id, COUNT(*) AS c FROM review_helpful_votes WHERE review_id IN ${inRids} GROUP BY review_id`, rids);
+        hrows.forEach((h) => { helpfulCounts[h.review_id] = Number(h.c) || 0; });
+      } catch (e) {}
+      try {
+        const sessionKey = viewerSessionKey(req);
+        const [vrows] = await db.query(
+          `SELECT review_id FROM review_helpful_votes WHERE review_id IN ${inRids} AND (user_id = ? OR session_key = ?)`,
+          [...rids, req.session.userId || null, sessionKey]
+        );
+        votedReviewIds = vrows.map((v) => v.review_id);
+      } catch (e) {}
+      try {
+        const uids = [...new Set(reviews.map((r) => r.user_id))];
+        const [brows] = await db.query(
+          `SELECT DISTINCT o.user_id FROM orders o JOIN order_items oi ON oi.order_id = o.id
+           WHERE oi.product_id = ? AND o.user_id IN (${uids.map(() => '?').join(',')})`,
+          [product.id, ...uids]
+        );
+        verifiedBuyerIds = brows.map((b) => b.user_id);
+      } catch (e) {}
+    }
+
+    // D4 — Q&A: shudhu admin-er uttor deoa proshno-guloi public-e
+    // dekhabe (status='answered'); uttor na deoa proshno admin-er
+    // kachhe pending thake, shop-e othe na.
+    let answeredQuestions = [];
+    try {
+      const [qrows] = await db.query(
+        `SELECT asker_name, question, answer, answered_at FROM product_questions
+         WHERE product_id = ? AND status = 'answered' AND answer IS NOT NULL
+         ORDER BY answered_at DESC`,
+        [product.id]
+      );
+      answeredQuestions = qrows;
+    } catch (e) { answeredQuestions = []; }
+
+    // D7 — delivery-date estimate: customer-er bechha zone
+    // (?zone=inside_dhaka/outside_dhaka, session-e mone rakha),
+    // na bechhle Dhaka (inside) default. Cut-off 5pm, window
+    // 1–2 din (Dhaka) / 3–5 din (baire) — lib/product-page.js.
+    const zoneParam = String(req.query.zone || '');
+    if (zoneParam === 'inside_dhaka' || zoneParam === 'outside_dhaka') req.session.deliveryZone = zoneParam;
+    const deliveryZone = req.session.deliveryZone === 'outside_dhaka' ? 'outside_dhaka' : 'inside_dhaka';
+    const deliveryEstimate = pp.deliveryEstimate(deliveryZone, new Date());
+
+    // G1 — REAL live viewers: ei page load-e session-ta record
+    // kora hoy (product_views), tarpor goto 5 minute-e kotogulo
+    // alada session ei product dekhchhe gona hoy. 10 minute-er
+    // purono row muche fela hoy. Table na thakle / query fail
+    // hole page kokhono vangbe na — viewer line shudhu dekhabe na.
+    let viewerLine = null;
+    try {
+      const sessionKey = viewerSessionKey(req);
+      await db.query(
+        'INSERT INTO product_views (product_id, session_key, viewed_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE viewed_at = NOW()',
+        [product.id, sessionKey]
+      );
+      await db.query('DELETE FROM product_views WHERE viewed_at < NOW() - INTERVAL 10 MINUTE');
+      const [[vrow]] = await db.query(
+        'SELECT COUNT(DISTINCT session_key) AS c FROM product_views WHERE product_id = ? AND viewed_at >= NOW() - INTERVAL 5 MINUTE',
+        [product.id]
+      );
+      viewerLine = pp.viewerDisplay(Number(vrow.c) || 0);
+    } catch (e) { viewerLine = null; }
+
+    // G2 — recent-purchase popup: SUDHU ashol order theke (goto
+    // 7 din, ei product-ta kena). Naam-er prothom ongsho +
+    // delivery zone + ashol time-ago — kokhono banano order noy.
+    // Kono recent order na thakle kichu dekhabe na.
+    let recentPurchase = null;
+    try {
+      const [orows] = await db.query(
+        `SELECT o.customer_name, o.delivery_zone, o.created_at, oi.product_name
+         FROM orders o JOIN order_items oi ON oi.order_id = o.id
+         WHERE oi.product_id = ? AND o.created_at >= NOW() - INTERVAL 7 DAY
+           AND (o.status IS NULL OR o.status NOT IN ('Cancelled', 'cancelled'))
+         ORDER BY o.created_at DESC LIMIT 1`,
+        [product.id]
+      );
+      if (orows.length) recentPurchase = pp.recentPurchaseLine(orows[0], new Date());
+    } catch (e) { recentPurchase = null; }
 
     // Related-er 2nd chobi (feat/animations-delight, A5): shudhu
     // Related product gulor prothom gallery chobi.
@@ -430,6 +603,20 @@ router.get('/product/:id', async (req, res) => {
       pageTitle: product.meta_title || `${product.name} - Goince`,
       metaDescription: (product.meta_description || product.short_description || product.name).slice(0, 160),
       product,
+      productVideo,
+      bundleProducts,
+      reviewPhotos,
+      helpfulCounts,
+      votedReviewIds,
+      verifiedBuyerIds,
+      answeredQuestions,
+      questionPending: req.query.question === 'pending',
+      recentPurchase,
+      viewerLine,
+      deliveryZone,
+      deliveryEstimate,
+      stockBar,
+      soldLine,
       galleryImages,
       options,
       optionLabel,
@@ -455,18 +642,106 @@ router.get('/product/:id', async (req, res) => {
 });
 
 // ---------- SUBMIT A REVIEW (login required) ----------
-router.post('/product/:id/review', async (req, res) => {
+// D3 (feat/product-page): review-er sathe ekta photo-o deoa jay.
+// Multipart form bole action URL-e ?_csrf= thaktei hobe (lib/csrf.js
+// — multipart body route-er age pora jay na); photo upload.single +
+// convertToWebP diye /uploads-e WebP hisebe jay, review_photos
+// table-e filename save hoy. Photo na dile ager motoi shudhu text
+// review joma hoy. Review age-r motoi 'pending' — admin approve
+// na korle shop-e dekhabe na.
+router.post('/product/:id/review', upload.single('review_photo'), upload.convertToWebP, async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
   try {
     const { rating, comment } = req.body;
-    await db.query(
+    const [result] = await db.query(
       'INSERT INTO reviews (product_id, user_id, rating, comment, status) VALUES (?, ?, ?, ?, \'pending\')',
       [req.params.id, req.session.userId, rating, comment]
     );
+    if (req.file) {
+      try {
+        await db.query(
+          'INSERT INTO review_photos (review_id, filename) VALUES (?, ?)',
+          [result.insertId, req.file.filename]
+        );
+      } catch (e) { /* photo row na bosleo review-ta thakbe */ }
+    }
     res.redirect('/product/' + req.params.id + '?review=pending');
   } catch (err) {
     console.error(err);
     res.status(500).send('Review submit korte problem hoyeche.');
+  }
+});
+
+// ---------- REVIEW "HELPFUL" VOTE (D3, feat/product-page) ----------
+// Ekjon customer/guest ekta review-ke ekbar-i helpful bolte pare —
+// toggle: age vote diye thakle tule neoa hoy. Login kora thakle
+// user_id diye, guest hole session key diye chena hoy; DB-r UNIQUE
+// key dutoi (review_id, user_id) / (review_id, session_key) ei
+// niyom-ta jore diye rakhe. CSRF: JSON fetch x-csrf-token header-e
+// token pathay (lib/csrf.js seta mane). Uttor: { ok, helpful, count }.
+router.post('/product/review/:reviewId/helpful', async (req, res) => {
+  try {
+    const reviewId = parseInt(req.params.reviewId, 10);
+    if (!reviewId) return res.status(404).json({ ok: false, error: 'Review not found.' });
+    const [[rv]] = await db.query('SELECT id FROM reviews WHERE id = ?', [reviewId]);
+    if (!rv) return res.status(404).json({ ok: false, error: 'Review not found.' });
+    const userId = req.session.userId || null;
+    const sessionKey = viewerSessionKey(req);
+    const [existing] = await db.query(
+      'SELECT id FROM review_helpful_votes WHERE review_id = ? AND (user_id = ? OR session_key = ?)',
+      [reviewId, userId, sessionKey]
+    );
+    let voted;
+    if (existing.length > 0) {
+      await db.query('DELETE FROM review_helpful_votes WHERE id = ?', [existing[0].id]);
+      voted = false;
+    } else {
+      try {
+        await db.query(
+          'INSERT INTO review_helpful_votes (review_id, user_id, session_key) VALUES (?, ?, ?)',
+          [reviewId, userId, sessionKey]
+        );
+      } catch (e) {
+        // Race-e duibar click hole UNIQUE key badha dey — tokhon
+        // vote-ta agei boshe geche bole dhora hoy.
+        if (!/Duplicate entry/.test(String(e && e.message))) throw e;
+      }
+      voted = true;
+    }
+    const [[{ count }]] = await db.query(
+      'SELECT COUNT(*) AS count FROM review_helpful_votes WHERE review_id = ?',
+      [reviewId]
+    );
+    res.json({ ok: true, helpful: voted, count: Number(count) || 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: 'Could not save your vote. Please try again.' });
+  }
+});
+
+// ---------- ASK A PRODUCT QUESTION (D4, feat/product-page) ----------
+// Shopper proshno kore — 'pending' hisebe joma hoy, shop-e othe na.
+// Shudhu admin uttor dile (Admin > Reviews > Product Q&A) tobei
+// public-e dekhabe. Login lage (review-er motoi — spam atkate).
+router.post('/product/:id/question', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/login');
+  try {
+    const question = String(req.body.question || '').trim();
+    if (!question) return res.redirect('/product/' + req.params.id);
+    const [prows] = await db.query(
+      'SELECT id FROM products WHERE id = ? OR slug = ?',
+      [isNaN(parseInt(req.params.id, 10)) ? 0 : parseInt(req.params.id, 10), req.params.id]
+    );
+    if (prows.length === 0) return res.status(404).send('Product not found');
+    const [[u]] = await db.query('SELECT name FROM users WHERE id = ?', [req.session.userId]);
+    await db.query(
+      'INSERT INTO product_questions (product_id, user_id, asker_name, question, status) VALUES (?, ?, ?, ?, \'pending\')',
+      [prows[0].id, req.session.userId, (u && u.name) || 'Customer', question.slice(0, 1000)]
+    );
+    res.redirect('/product/' + prows[0].id + '?question=pending');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Question submit korte problem hoyeche.');
   }
 });
 
