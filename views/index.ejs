@@ -157,6 +157,7 @@
           <% } %>
         </div>
         <% if (p.stock > 0 && p.stock <= 5) { %><p class="card-stock-low">⚠️ Only <%= p.stock %> left!</p><% } else if (p.stock === 0) { %><p class="card-stock-out">Out of stock</p><% } %>
+        <%- include('partials/delivery-badge', { p: p, deliveryInside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.inside_dhaka : 60, deliveryOutside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.outside_dhaka : 120 }) %>
         <% if (p.stock > 0) { %>
           <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
             <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
@@ -181,6 +182,7 @@
         </a>
         <div class="product-card-foot">
           <p class="price">৳<%= p.price %></p>
+          <%- include('partials/delivery-badge', { p: p, deliveryInside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.inside_dhaka : 60, deliveryOutside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.outside_dhaka : 120 }) %>
           <% if (p.stock > 0) { %>
             <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
               <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
@@ -196,7 +198,7 @@
 
 <div id="recently-viewed" hidden>
   <div class="section-heading" data-reveal><h2>👀 Recently Viewed</h2></div>
-  <div class="product-grid product-grid--fill" id="recently-viewed-grid" data-csrf="<%= (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '' %>" data-products='<%- JSON.stringify(typeof recentlyViewedMap !== "undefined" ? recentlyViewedMap : {}) %>'>
+  <div class="product-grid product-grid--fill" id="recently-viewed-grid" data-csrf="<%= (typeof csrfToken !== 'undefined' && csrfToken) ? csrfToken : '' %>" data-products='<%- JSON.stringify(typeof recentlyViewedMap !== "undefined" ? recentlyViewedMap : {}) %>' data-delivery-inside="<%= (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.inside_dhaka : 60 %>" data-delivery-outside="<%= (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.outside_dhaka : 120 %>">
     <% /* A2 skeleton: card gulo JS-e localStorage theke toiri hoy —
           toiri howar age ei shimmer card gulo jayga dhore rakhe.
           JS render korlei innerHTML bodle jay (skeleton sore jay);
@@ -236,12 +238,26 @@
       var csrf = grid.getAttribute('data-csrf') || '';
       var serverMap = {};
       try { serverMap = JSON.parse(grid.getAttribute('data-products') || '{}'); } catch (e) { serverMap = {}; }
+      // Delivery badge (feat/cart-buying, B4): server-rendered card-er
+      // partial-er motoi lekha — Free Delivery hole sobuj badge, na
+      // hole zone charge-er range. Charge duto grid-er data attribute
+      // theke ase (settings theke), na thakle ৳60/৳120 default.
+      var delIn = parseFloat(grid.getAttribute('data-delivery-inside')) || 60;
+      var delOut = parseFloat(grid.getAttribute('data-delivery-outside')) || 120;
+      function deliveryBadgeHTML(free) {
+        if (free) return '<span class="delivery-badge delivery-badge--free">🚚 Free Delivery</span>';
+        return '<span class="delivery-badge" title="Delivery: ৳' + delIn + ' inside Dhaka / ৳' + delOut + ' outside Dhaka">🚚 Delivery ৳' + delIn + '–৳' + delOut + '</span>';
+      }
       grid.innerHTML = items.map(function (it) {
         var card = '<div class="product-card"><a href="/product/' + it.id + '"><img src="/uploads/' + it.image + '" alt="" loading="lazy" onerror="this.src=\'/uploads/no-image.png\'"><h3>' + it.name.replace(/</g, '&lt;') + '</h3></a><div class="product-card-foot"><p class="price">৳' + it.price + '</p>';
         // Saved flags primary; na thakle server map fallback.
         var flags = (typeof it.hasOptions === 'boolean' && typeof it.stock === 'number')
           ? { hasOptions: it.hasOptions, stock: it.stock }
           : (serverMap[it.id] || null);
+        var isFree = (typeof it.freeDelivery === 'boolean')
+          ? it.freeDelivery
+          : (serverMap[it.id] ? !!serverMap[it.id].freeDelivery : false);
+        card += deliveryBadgeHTML(isFree);
         if (flags && flags.hasOptions) {
           card += '<a href="/product/' + it.id + '" class="btn-card">Choose Option →</a>';
         } else if (flags && flags.stock > 0 && csrf) {

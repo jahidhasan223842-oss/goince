@@ -9,6 +9,17 @@
 <% const _miniTk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
 <% const _miniCart = (typeof miniCart !== 'undefined' && miniCart) ? miniCart : []; %>
 <% const _miniSubtotal = (typeof miniCartSubtotal !== 'undefined' && miniCartSubtotal) ? miniCartSubtotal : _miniCart.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0); %>
+<% /* B4 delivery line (feat/cart-buying): cart-er sob item Free
+      Delivery hole "Free delivery ✓" — na hole zone charge-er
+      line (charge duto miniCartDeliveryInside/Outside locals theke;
+      na dile ৳60/৳120 default). Flag-ta cart item-er freeDelivery
+      (POST /cart/add ar wishlist move-to-cart-e bosano hoy);
+      flag na thaka item "charge" dhora hoy (nirapod default).
+      Checkout-er hisab DB theke abar jachai kore
+      (getCartShippingFlags) — drawer ekhanei melle. */ %>
+<% const _miniAllFree = _miniCart.length > 0 && _miniCart.every(function (it) { return !!it.freeDelivery; }); %>
+<% const _miniDIn = (typeof miniCartDeliveryInside !== 'undefined' && Number.isFinite(Number(miniCartDeliveryInside))) ? Number(miniCartDeliveryInside) : 60; %>
+<% const _miniDOut = (typeof miniCartDeliveryOutside !== 'undefined' && Number.isFinite(Number(miniCartDeliveryOutside))) ? Number(miniCartDeliveryOutside) : 120; %>
     <div class="mini-cart-head">
       <h2 id="mini-cart-title">Your Cart<% if (typeof cartCount !== 'undefined' && cartCount > 0) { %> (<%= cartCount %>)<% } %></h2>
       <button type="button" class="mini-cart-close" aria-label="Close cart">×</button>
@@ -44,7 +55,7 @@
       </ul>
       <div class="mini-cart-foot">
         <p class="mini-cart-subtotal"><span>Subtotal</span><strong><%= _miniTk(_miniSubtotal) %></strong></p>
-        <p class="mini-cart-delivery">🚚 Delivery: ৳60 inside Dhaka / ৳120 outside Dhaka — calculated at checkout.</p>
+        <% if (_miniAllFree) { %><p class="mini-cart-delivery mini-cart-delivery--free">🚚 Free delivery ✓ — no delivery charge for these items.</p><% } else { %><p class="mini-cart-delivery">🚚 Delivery: ৳<%= _miniDIn %> inside Dhaka / ৳<%= _miniDOut %> outside Dhaka — calculated at checkout.</p><% } %>
         <div class="mini-cart-actions">
           <a href="/cart" class="mini-cart-view">View Cart</a>
           <a href="/checkout" class="btn-primary mini-cart-checkout">Checkout</a>

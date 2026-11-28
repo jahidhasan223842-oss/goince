@@ -29,7 +29,7 @@ app.locals.assetUrl = createAssetUrl(path.join(__dirname, 'public'));
 
 // Site settings (Admin > Settings theke bodlano jay): hero, announcement,
 // address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
-const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url'];
+const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'delivery_charge_inside', 'delivery_charge_outside'];
 const SITE_SETTING_DEFAULTS = {
   hero_title: 'সেরা পণ্য, ক্যাশ অন ডেলিভারি',
   hero_subtitle: 'ঢাকার ভিতরে ১–২ দিনে, ঢাকার বাইরে ৩–৫ দিনে ডেলিভারি। অর্ডারের আগে ফোনে কনফার্ম করা হয়।',
@@ -626,6 +626,18 @@ app.use(async (req, res, next) => {
     res.locals.siteSettings = { ...SITE_SETTING_DEFAULTS };
     res.locals.menuCategories = [];
     res.locals.menuById = {};
+  }
+
+  // Mini-cart drawer-er delivery line (feat/cart-buying, B4): sob
+  // item Free Delivery hole "Free delivery ✓", na hole zone charge
+  // (settings theke — ৳60/৳120 default; partial-ta nijei hisab
+  // kore item-er freeDelivery flag theke, ekhane shudhu charge
+  // dutoi deya hoy; kono notun query na — settings query-ta
+  // uporei hoyeche).
+  if (!req.path.startsWith('/admin')) {
+    const _dc = (k, fb) => { const v = parseFloat(res.locals.siteSettings[k]); return Number.isFinite(v) ? v : fb; };
+    res.locals.miniCartDeliveryInside = _dc('delivery_charge_inside', 60);
+    res.locals.miniCartDeliveryOutside = _dc('delivery_charge_outside', 120);
   }
 
   // Search engines (Google) logo/favicon dekhate absolute URL chay, tai

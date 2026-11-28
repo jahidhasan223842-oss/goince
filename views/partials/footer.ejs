@@ -36,13 +36,16 @@
         server.js — no new query, no new route): photo,
         name, variant/option label, quantity stepper, line total,
         per-item remove, subtotal, delivery note (the site's real
-        charges: ৳60 inside Dhaka / ৳120 outside), View Cart + Checkout
-        buttons. Quantity + remove reuse the EXISTING cart POST routes
-        (/cart/update/:cartKey, /cart/remove/:cartKey — same as the
-        cart page), so a stepper click does a full page reload to
-        /cart, exactly like the cart page today; the drawer re-opens
-        only via the tab after reload. No recommendations row here —
-        a footer query on every page load would be wasteful. */ %>
+        charges: ৳60 inside Dhaka / ৳120 outside — or "Free delivery
+        ✓" when every item is Free Delivery, feat/cart-buying B4),
+        View Cart + Checkout buttons. Quantity + remove reuse the
+        EXISTING cart POST routes (/cart/update/:cartKey,
+        /cart/remove/:cartKey — same as the cart page); drawer-er
+        vitore chaple AJAX-e hoy (feat/cart-buying, B5 — drawer
+        refresh, reload noy), cart page theke chaple ager motoi
+        full-page POST + redirect hoy /cart-e. No recommendations
+        row here — a footer query on every page load would be
+        wasteful. */ %>
   <div class="mini-cart-overlay" id="mini-cart-overlay" hidden></div>
   <aside class="mini-cart-drawer" id="mini-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="mini-cart-title" hidden>
 <%- include('mini-cart-content') %>
@@ -173,6 +176,9 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       //   product-card-er "Add to Cart" / "Choose Option" button
       //   (.product-card .btn-card), product page-er Add to Cart
       //   (.add-to-cart-form button / .product-info .btn-primary),
+      //   sticky buy bar-er Add to Cart (.sticky-buy-bar .btn-primary,
+      //   feat/cart-buying B2 — mobile-e bar-ta niche thake, float-er
+      //   sathe lege gele float lukabe),
       //   ar dan pranter floating side-cart tab (.side-cart — khub
       //   chhoto viewport-e majhkhane thaka tab-er satheo jeno na
       //   lege jay). Overlap-ta float-er asol rect-er sathe
@@ -187,7 +193,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       var mq = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null;
       if (!mq) return;
       var THRESHOLD = 300;
-      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary, .side-cart';
+      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary, .sticky-buy-bar .btn-primary, .side-cart';
       var raf = window.requestAnimationFrame || function (fn) { fn(); };
       var ticking = false;
       function overlapsFloat(el) {
@@ -311,7 +317,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       var overlay = document.querySelector('#mini-cart-overlay');
       var closeBtn = document.querySelector('.mini-cart-close');
       var continueBtn = document.querySelector('.mini-cart-continue');
-      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary';
+      var GUARDED = '#sort, .cart-summary .btn-primary, .product-card .btn-card, .add-to-cart-form button, .product-info .btn-primary, .sticky-buy-bar .btn-primary';
       var IDLE_MS = 6000;
       var CLOSE_MS = 260;
       var raf = window.requestAnimationFrame || function (fn) { fn(); };
@@ -581,7 +587,8 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           }
         } catch (err) { /* fly animation kokhono add-ke vangbe na */ }
       }
-      // ---------- AJAX Add to Cart (fix/ajax-add-to-cart) ----------
+      // ---------- AJAX Add to Cart (fix/ajax-add-to-cart) + drawer
+      // steppers/remove (feat/cart-buying, B5) ----------
       // donal: Add to Cart chaple cart-er page-e chole jay — erokom
       // jaoa jabe na. Tai shob /cart/add/ form-er submit ekhanei
       // dhora hoy (document-level delegation — Recently Viewed-er
@@ -601,19 +608,111 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
       // Request cholte thakle button disable thake (double-add
       // atkano). "Choose Option →" kono form-i noy (link), tai
       // ekhane dhora pore na — ager motoi product page-e jay.
-      // Drawer-er qty stepper / remove ekhono ager motoi reload
-      // kore /cart-e jay — AJAX kora ei PR-er baire (follow-up).
-      // JS na cholle form ager motoi POST kore /cart-e redirect
-      // hoy (no-JS fallback — action + method bodlano hoy ni).
+      // Buy Now (B3) ekoi form-er ditiyo button — take dhora hoy
+      // NA: sadharon POST-e /checkout-e jay (route redirect dey).
+      // Drawer-er qty stepper / remove (B5): drawer-er VITORE
+      // chaple ekhanei AJAX-e dhora hoy — eki JSON shakha, drawer
+      // refresh, reload noy, drawer bondho hoy na, toast lage na
+      // (drawer-ei bodol dekha jay). Cart page-er stepper/remove
+      // ekhane dhora pore NA (ora #mini-cart-drawer-er baire) —
+      // ora ager motoi POST kore /cart-e redirect hoy (no-JS
+      // fallback — action + method bodlano hoy ni).
+      // Click tracker: kon submit button chapa hoyeche mone rakha
+      // hoy — FormData-te button-er value ase na, ar e.submitter
+      // Enter-key submit-eo prothom button-ke dekhay, tai click-ta
+      // mone rakha lage: drawer stepper-er +1/−1 quantity ar Buy
+      // Now-er buy_now — duitai ei tracker theke ase.
+      if (document.addEventListener) {
+        document.addEventListener('click', function (e) {
+          var t = e && e.target;
+          var b = null;
+          if (t && typeof t.closest === 'function') b = t.closest('button[type="submit"]');
+          if (!b || !b.form) return;
+          b.form._clickedSubmitter = b;
+        });
+      }
+      // FormData -> urlencoded body (PR #80-er motoi: multipart
+      // NOY). submitter thakle tar name/value override kore —
+      // stepper-er quantity (+1/−1) input-er value-ke haray, Buy
+      // Now-er buy_now jog hoy. Click na hole (Enter-key submit)
+      // input-er value-i thake (thik).
+      function buildFormBody(form, submitter) {
+        var body = '';
+        try {
+          var fd = new FormData(form);
+          var params = new URLSearchParams();
+          fd.forEach(function (v, k) { params.append(k, v); });
+          if (submitter && submitter.name) params.set(submitter.name, submitter.value);
+          body = params.toString();
+        } catch (err) {
+          body = '';
+        }
+        return body;
+      }
+      // B5: drawer-er qty stepper / remove — AJAX, reload noy.
+      // Safal hole: badge update + drawer-er TAZA HTML (delivery
+      // line-soho) + button rebind — drawer kholai thake, toast
+      // lage na, kothao navigate hoy na. Error hole toast error —
+      // navigate hoy na, drawer bondho hoy na. Request cholte
+      // thakle click kora button disable thake (double-submit
+      // atkano).
+      function drawerCartSubmit(form, action, submitter) {
+        if (form._updating) return;
+        form._updating = true;
+        var btn = submitter || (form.querySelector ? form.querySelector('button[type="submit"]') : null);
+        if (btn) btn.disabled = true;
+        fetch(action, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: buildFormBody(form, submitter),
+          credentials: 'same-origin'
+        }).then(function (res) {
+          return res.json().then(function (data) {
+            return { status: res.status, ok: res.ok, data: data };
+          }).catch(function () {
+            return { status: res.status, ok: res.ok, data: null };
+          });
+        }).then(function (r) {
+          if (r.ok && r.data && r.data.ok) {
+            setCartCount(r.data.cartCount);
+            if (drawer && typeof r.data.drawerHtml === 'string') {
+              drawer.innerHTML = r.data.drawerHtml;
+              rebindDrawerButtons();
+            }
+          } else {
+            showToast((r.data && r.data.error) || 'Could not update cart. Please try again.', true);
+          }
+          form._updating = false;
+          if (btn) btn.disabled = false;
+        }).catch(function () {
+          showToast('Could not update cart. Please try again.', true);
+          form._updating = false;
+          if (btn) btn.disabled = false;
+        });
+      }
       if (document.addEventListener) {
         document.addEventListener('submit', function (e) {
           var form = e && e.target;
           if (!form || typeof form.getAttribute !== 'function') return;
           var action = form.getAttribute('action') || '';
-          if (action.indexOf('/cart/add/') !== 0) return;
+          var inDrawer = form.closest && form.closest('#mini-cart-drawer');
+          var isDrawerOp = !!inDrawer && (action.indexOf('/cart/update/') === 0 || action.indexOf('/cart/remove/') === 0);
+          if (action.indexOf('/cart/add/') !== 0 && !isDrawerOp) return;
           var method = (form.getAttribute('method') || 'get').toLowerCase();
           if (method !== 'post') return;
+          var submitter = form._clickedSubmitter || null;
+          form._clickedSubmitter = null;
+          var isAdd = action.indexOf('/cart/add/') === 0;
+          // Buy Now (B3): ekoi form, kintu /checkout-e navigate
+          // korte hobe — AJAX-e dhora jabe na, sadharon POST cholbe
+          // (route /checkout-e redirect dey; no-JS-eo eki).
+          if (isAdd && submitter && submitter.name === 'buy_now') return;
           if (e.preventDefault) e.preventDefault();
+          if (!isAdd) { drawerCartSubmit(form, action, submitter); return; }
           // Ekbar cholte thakle ditiyo submit ar neoa hoy na.
           if (form._adding) return;
           form._adding = true;
@@ -634,15 +733,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           // A1 fly-to-cart: fetch-er sathe sathei shuru — add-ke
           // deri koray na; chobi na pele chupchap skip.
           flyToCart(form);
-          var body = '';
-          try {
-            var fd = new FormData(form);
-            var params = new URLSearchParams();
-            fd.forEach(function (v, k) { params.append(k, v); });
-            body = params.toString();
-          } catch (err) {
-            body = '';
-          }
+          var body = buildFormBody(form, null);
           // A3 success/error reset: safal hole tick "✓ Added" ~1.2s,
           // tarpor ager label fire ase; error hole sathe sathe ager
           // label fire ase (button abar chapa jay). Disabled sob

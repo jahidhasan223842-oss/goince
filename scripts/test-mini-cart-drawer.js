@@ -74,12 +74,13 @@
 //      header (500), side-cart (600) and WhatsApp float (999).
 //      Advanced features included: steppers + per-item remove,
 //      subtotal, delivery note, View Cart + Checkout, Esc/overlay
-//      close, focus return, scroll lock. HONEST LIMIT (same as the
-//      cart page today): the steppers + remove reuse the EXISTING
-//      cart POST routes (/cart/update/:cartKey, /cart/remove/:cartKey),
-//      which redirect to /cart — so a quantity change does a full
-//      page reload to /cart and the drawer re-opens only via the tab
-//      after reload. No recommendations row in the drawer — a footer
+//      close, focus return, scroll lock. UPDATED (feat/cart-buying,
+//      B5): the steppers + remove still reuse the EXISTING cart
+//      POST routes (/cart/update/:cartKey, /cart/remove/:cartKey),
+//      but drawer-er vitore chaple footer JS AJAX-e dhore (JSON
+//      shakha — drawer refresh, reload noy, drawer bondho hoy na);
+//      cart page theke chaple ager motoi full-page POST + redirect
+//      hoy /cart-e. No recommendations row in the drawer — a footer
 //      query on every page load would be wasteful.
 //   4. WHATSAPP — TRANSITION + HOVER LIFT: transform/box-shadow
 //      transition (.25s ease, on the base rule) and on hover it
@@ -266,7 +267,12 @@ function contrastRatio(hexA, hexB) {
   check('drawer markup: items carry photo + name link + variant + stepper + line total + remove', drawerEjs.includes('class="mini-cart-thumb"') && drawerEjs.includes('class="mini-cart-name"') && drawerEjs.includes('class="mini-cart-variant"') && drawerEjs.includes('class="qty-stepper mini-cart-qty"') && drawerEjs.includes('class="mini-cart-line-total"') && drawerEjs.includes('class="mini-cart-remove"'));
   check('drawer markup: stepper + remove reuse the EXISTING cart POST routes (no invented URLs)', drawerEjs.includes('action="/cart/update/<%= item.cartKey || item.id %>"') && drawerEjs.includes('action="/cart/remove/<%= item.cartKey || item.id %>"') && shopRoutes.includes("router.post('/cart/update/:cartKey'") && shopRoutes.includes("router.post('/cart/remove/:cartKey'"));
   check('drawer markup: stepper + remove forms carry the CSRF field', (drawerEjs.match(/include\('csrf-field'\)/g) || []).length >= 2);
-  check('drawer markup: subtotal + delivery note (৳60 inside Dhaka / ৳120 outside Dhaka, calculated at checkout)', drawerEjs.includes('class="mini-cart-subtotal"') && drawerEjs.includes('৳60 inside Dhaka / ৳120 outside Dhaka') && drawerEjs.includes('calculated at checkout'));
+  // UPDATED (feat/cart-buying, B4): delivery line-ta ekhon dynamic —
+  // charge duto miniCartDeliveryInside/Outside locals theke ase
+  // (na dile ৳60/৳120 default), ar sob item Free Delivery hole
+  // "Free delivery ✓" dekhay. Source-e tai literal ৳60/৳120 nei —
+  // render-e default-e ৳60/৳120-i ase (niche render check dekho).
+  check('drawer markup: subtotal + dynamic delivery note (zone charges from locals, "Free delivery ✓" when all items are free)', drawerEjs.includes('class="mini-cart-subtotal"') && drawerEjs.includes('_miniDIn') && drawerEjs.includes('_miniDOut') && drawerEjs.includes('inside Dhaka /') && drawerEjs.includes('outside Dhaka') && drawerEjs.includes('calculated at checkout') && drawerEjs.includes('Free delivery ✓') && drawerEjs.includes('mini-cart-delivery--free'));
   check('drawer markup: View Cart (→ /cart) + Checkout (→ /checkout) + Continue shopping', drawerEjs.includes('<a href="/cart" class="mini-cart-view">View Cart</a>') && drawerEjs.includes('<a href="/checkout" class="btn-primary mini-cart-checkout">Checkout</a>') && drawerEjs.includes('class="mini-cart-continue">Continue shopping</button>'));
   check('drawer markup: empty state has a message + Start Shopping (→ /)', drawerEjs.includes('Your cart is empty.') && drawerEjs.includes('<a href="/" class="btn-primary">Start Shopping</a>'));
   check('drawer markup: NO recommendations query in the drawer (no relatedProducts / "You may also like")', !/mini-cart[\s\S]{0,4000}relatedProducts/.test(footerEjs) && !footerEjs.slice(footerEjs.indexOf('mini-cart-drawer')).includes('You may also like'));

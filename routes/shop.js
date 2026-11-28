@@ -227,8 +227,8 @@ router.get('/', async (req, res) => {
     // (category/search), tai map-er jonno alada query.
     let recentlyViewedMap = {};
     try {
-      const [allRows] = await db.query(`SELECT id, stock FROM products WHERE ${VISIBLE_PRODUCT_SQL}`);
-      recentlyViewedMap = Object.fromEntries(allRows.map((r) => [r.id, { stock: r.stock, hasOptions: variantProductIds.has(r.id) || optionProductIds.has(r.id) }]));
+      const [allRows] = await db.query(`SELECT id, stock, free_shipping FROM products WHERE ${VISIBLE_PRODUCT_SQL}`);
+      recentlyViewedMap = Object.fromEntries(allRows.map((r) => [r.id, { stock: r.stock, hasOptions: variantProductIds.has(r.id) || optionProductIds.has(r.id), freeDelivery: !!r.free_shipping }]));
     } catch (e) { recentlyViewedMap = {}; }
 
     // Best sellers: shobcheye beshi bikri hoya product (homepage hero-r niche)
@@ -262,9 +262,13 @@ router.get('/', async (req, res) => {
     // Card hover-e 2nd chobi (feat/animations-delight, A5): main grid
     // + Best Sellers — ektai map, du jaygatei use hoy.
     const secondImages = await firstGalleryImages();
+    // Card-er delivery badge (feat/cart-buying, B4): Free Delivery
+    // na Delivery Charge — zone charge-gulo settings theke ase.
+    const deliveryCharges = await getDeliveryCharges();
     res.render('index', {
       banners,
       secondImages,
+      deliveryCharges,
       heroProduct,
       variantProductIds: [...variantProductIds],
       optionProductIds: [...optionProductIds],
@@ -487,6 +491,28 @@ router.post('/product/:id/notify-me', async (req, res) => {
 });
 
 // ---------- ADD TO CART ----------
+// Mini-cart drawer-er JSON uttor (feat/cart-buying, B5): POST
+// /cart/add/:id (PR #80), /cart/update/:cartKey ar
+// /cart/remove/:cartKey — tintei AJAX hole eki akarer uttor dey:
+// { ok, cartCount, subtotal, drawerHtml }. Drawer HTML-ta eki
+// shared partial (views/partials/mini-cart-content.ejs) theke ase,
+// tai add/stepper/remove-er pore drawer-e sob somoy TAZA cart
+// dekhay — delivery line-soho (partial-ta cart item-er
+// freeDelivery flag theke bojhe sob item free kina; charge-gulo
+// settings theke ase, hardcode noy).
+async function miniCartPayload(req, res) {
+  const cart = req.session.cart || [];
+  const cartCount = cart.reduce((s, it) => s + it.quantity, 0);
+  const subtotal = cart.reduce((s, it) => s + (Number(it.price) || 0) * it.quantity, 0);
+  const charges = await getDeliveryCharges();
+  const drawerHtml = await ejs.renderFile(
+    path.join(__dirname, '..', 'views', 'partials', 'mini-cart-content.ejs'),
+    { miniCart: cart, miniCartSubtotal: subtotal, cartCount, csrfToken: res.locals.csrfToken,
+      miniCartDeliveryInside: charges.inside_dhaka, miniCartDeliveryOutside: charges.outside_dhaka }
+  );
+  return { cartCount, subtotal, drawerHtml };
+}
+
 router.post('/cart/add/:id', async (req, res) => {
   // AJAX add-to-cart (fix/ajax-add-to-cart): donal — Add to Cart
   // chaple cart-er page-e chole jay, erokom jaoa jabe na. JS
@@ -563,7 +589,13 @@ router.post('/cart/add/:id', async (req, res) => {
         name: product.name,
         price: price,
         image: cartImage,
-        quantity: quantity
+        quantity: quantity,
+        // Per-product free delivery (feat/cart-buying, B4): drawer-er
+        // delivery line + checkout-er hisab — du jaygatei ei flag
+        // lage; purono session-er item-e flag na thakle drawer
+        // "delivery charge" dhore ney (nirapod default), ar
+        // checkout DB theke abar jachai kore (getCartShippingFlags).
+        freeDelivery: !!product.free_shipping
       });
     }
 
@@ -573,14 +605,17 @@ router.post('/cart/add/:id', async (req, res) => {
     // kore, drawer-er vitore notun content bosiye drawer khulte
     // pare — page reload / navigate kicchu hoy na.
     if (isAjax) {
-      const cartCount = req.session.cart.reduce((s, it) => s + it.quantity, 0);
-      const subtotal = req.session.cart.reduce((s, it) => s + (Number(it.price) || 0) * it.quantity, 0);
-      const drawerHtml = await ejs.renderFile(
-        path.join(__dirname, '..', 'views', 'partials', 'mini-cart-content.ejs'),
-        { miniCart: req.session.cart, miniCartSubtotal: subtotal, cartCount, csrfToken: res.locals.csrfToken }
-      );
+      const { cartCount, subtotal, drawerHtml } = await miniCartPayload(req, res);
       return res.json({ ok: true, cartCount, itemName: product.name, subtotal, drawerHtml });
     }
+
+    // Buy Now (feat/cart-buying, B3): item-ta cart-e jog kore
+    // (ager item gulo thake — cart khali kora hoy na), tarpor
+    // sorasori /checkout-e jay — cart page skip. JS na cholleo
+    // eki POST /checkout-e pouchay (no-JS fallback). AJAX + buy_now
+    // kokhono ashar kotha na (footer JS Buy Now-ke intercept kore
+    // na), tobu asle uporer AJAX shakha-i uttor dey.
+    if (req.body.buy_now === '1') return res.redirect('/checkout');
 
     res.redirect('/cart');
   } catch (err) {
@@ -648,6 +683,9 @@ router.get('/cart', async (req, res) => {
   const coupon = req.session.coupon || null;
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
   const total = subtotal - discount;
+  // Card-er delivery badge (feat/cart-buying, B4): "You might also
+  // like" card-gulo Free Delivery na Delivery Charge dekhay.
+  const deliveryCharges = await getDeliveryCharges();
 
   // Estimated delivery: Dhaka-r vitore 1-2 din, baire 3-5 din (shipping policy-r sathe miliye)
   const today = new Date();
@@ -664,6 +702,7 @@ router.get('/cart', async (req, res) => {
 
   res.render('cart', {
     cart, subtotal, coupon, discount, total,
+    deliveryCharges,
     relatedProducts: res.locals.relatedProducts,
     estimatedDelivery,
     wishlistProductIds,
@@ -673,10 +712,33 @@ router.get('/cart', async (req, res) => {
 
 // ---------- UPDATE CART QUANTITY (+ / - buttons and manual input, shob eikhane) ----------
 router.post('/cart/update/:cartKey', async (req, res) => {
+  // B5 (feat/cart-buying): drawer-er stepper AJAX hole JSON uttor
+  // (PR #80-er /cart/add-er motoi) — drawer refresh, reload noy,
+  // drawer bondho hoy na. Cart page theke asle ager motoi
+  // redirect hoy /cart-e (full-page behaviour bodlano hoy ni).
+  const isAjax = req.xhr || req.get('X-Requested-With') === 'XMLHttpRequest';
   const cart = req.session.cart || [];
   const item = cart.find(i => (i.cartKey || String(i.id)) === req.params.cartKey);
-  if (item) {
-    let newQty = Math.max(1, parseInt(req.body.quantity) || 1);
+  if (!item) {
+    if (isAjax) return res.status(404).json({ ok: false, error: 'Item not found in cart.' });
+    return res.redirect('/cart');
+  }
+  {
+    // quantity ekadhikbar ashle (plain submit-e number input +
+    // click kora +/− button — duitar-i name="quantity"): array
+    // hoy. Seta na samlale parseInt prothom-ta ney, mane input-er
+    // bortoman quantity — stepper kichui bodlay na (ei bug-ta
+    // live-e chilo: cart page-er +/− chaple quantity bodlato na,
+    // probe-e dekha geche quantity=2&quantity=3 pathaleo 2-i
+    // thake). Array hole bortoman quantity theke alada value-ta-i
+    // asol target (+1 ba −1); na mille prothom-ta.
+    let rawQty = req.body.quantity;
+    if (Array.isArray(rawQty)) {
+      const cur = item.quantity;
+      const picked = rawQty.map((v) => parseInt(v, 10)).find((n) => !isNaN(n) && n !== cur);
+      rawQty = picked !== undefined ? picked : rawQty[0];
+    }
+    let newQty = Math.max(1, parseInt(rawQty, 10) || 1);
 
     // Stock er beshi order kora theke atkano — kintu Pre-order (backorder) thakle
     // stock-er beshi-o newa jabe
@@ -692,12 +754,25 @@ router.post('/cart/update/:cartKey', async (req, res) => {
     }
     item.quantity = Math.max(1, newQty);
   }
+  if (isAjax) {
+    const { cartCount, subtotal, drawerHtml } = await miniCartPayload(req, res);
+    return res.json({ ok: true, cartCount, subtotal, drawerHtml });
+  }
   res.redirect('/cart');
 });
 
 // ---------- REMOVE FROM CART ----------
-router.post('/cart/remove/:cartKey', (req, res) => {
+router.post('/cart/remove/:cartKey', async (req, res) => {
+  // B5 (feat/cart-buying): drawer-er remove AJAX hole JSON uttor
+  // (PR #80-er /cart/add-er motoi) — drawer refresh, reload noy,
+  // drawer bondho hoy na. Cart page theke asle ager motoi
+  // redirect hoy /cart-e.
+  const isAjax = req.xhr || req.get('X-Requested-With') === 'XMLHttpRequest';
   req.session.cart = (req.session.cart || []).filter(i => (i.cartKey || String(i.id)) !== req.params.cartKey);
+  if (isAjax) {
+    const { cartCount, subtotal, drawerHtml } = await miniCartPayload(req, res);
+    return res.json({ ok: true, cartCount, subtotal, drawerHtml });
+  }
   res.redirect('/cart');
 });
 
@@ -748,7 +823,10 @@ router.get('/wishlist', async (req, res) => {
     variantProductIds = new Set(vrows.map(r => r.product_id));
     optionProductIds = new Set(orows.map(r => r.product_id));
   } catch (e) { suggestions = []; }
-  res.render('wishlist', { items, suggestions, variantProductIds: [...variantProductIds], optionProductIds: [...optionProductIds], siteName: 'Goince' });
+  // Card-er delivery badge (feat/cart-buying, B4): wishlist-er
+  // card-gulo Free Delivery na Delivery Charge dekhay.
+  const deliveryCharges = await getDeliveryCharges();
+  res.render('wishlist', { items, suggestions, variantProductIds: [...variantProductIds], optionProductIds: [...optionProductIds], deliveryCharges, siteName: 'Goince' });
 });
 
 // ---------- ADD TO WISHLIST (product page theke direct) ----------
@@ -782,7 +860,7 @@ router.post('/wishlist/move-to-cart/:id', async (req, res) => {
       if (existing) {
         existing.quantity += 1;
       } else {
-        req.session.cart.push({ cartKey: String(product.id), id: product.id, variantId: null, variantLabel: null, name: product.name, price: product.price, image: product.image, quantity: 1 });
+        req.session.cart.push({ cartKey: String(product.id), id: product.id, variantId: null, variantLabel: null, name: product.name, price: product.price, image: product.image, quantity: 1, freeDelivery: !!product.free_shipping });
       }
       await db.query('DELETE FROM wishlist WHERE user_id = ? AND product_id = ?', [req.session.userId, req.params.id]);
     }
@@ -863,11 +941,17 @@ router.post('/checkout', async (req, res) => {
   const gateway = await getGatewayConfig();
   const zone = deliveryZones.find(z => z.slug === delivery_area) || deliveryZones[0];
   const defaultCharge = zone ? zone.charge : deliveryCharges.inside_dhaka;
+  // Free-delivery flag error render-er AGE-i ber kora (feat/cart-buying,
+  // B4): age renderCheckoutError zone charge-i dekhato, cart-er sob
+  // item Free Delivery holeo — ekhon vul form-eo ৳0 delivery + thik
+  // total dekhay, checkout page-er motoi.
+  const flags = await getCartShippingFlags(cart);
+  const errorDeliveryCharge = flags.allFreeShipping ? 0 : defaultCharge;
   const renderCheckoutError = (msg) => {
     const _coupon = req.session.coupon || null;
     const _sub0 = cart.reduce((s, it) => s + it.price * it.quantity, 0);
     const _disc0 = _coupon ? (_sub0 * _coupon.discount_percent / 100) : 0;
-    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: defaultCharge, total: _sub0 - _disc0 + defaultCharge, paymentMethods, gateway, error: msg, siteName: 'Goince' });
+    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: errorDeliveryCharge, total: _sub0 - _disc0 + errorDeliveryCharge, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: msg, siteName: 'Goince' });
   };
   // Gateway option: sudhu jodi gateway enable + configure kora thake
   const gatewayMethodName = 'Online Payment (Gateway)';
@@ -891,7 +975,6 @@ router.post('/checkout', async (req, res) => {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const coupon = req.session.coupon || null;
   const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
-  const flags = await getCartShippingFlags(cart);
   const deliveryCharge = flags.allFreeShipping ? 0 : (zone ? zone.charge : (deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka));
   if (selectedMethod === 'Cash on Delivery' && !flags.codAllowed) {
     return renderCheckoutError('Cash on Delivery is not available for one or more products in your cart — please pay online or by bKash/Nagad.');

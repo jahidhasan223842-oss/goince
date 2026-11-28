@@ -498,7 +498,12 @@ a { text-decoration: none; color: inherit; }
 .cart-thumb { width: 40px; height: 40px; object-fit: cover; vertical-align: middle; margin-right: 8px; border-radius: 4px; }
 .qty-form { display: flex; gap: 6px; }
 .qty-form input { width: 60px; padding: 4px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
-.cart-summary { text-align: right; margin: 20px 0; }
+/* B6 (feat/cart-buying): cart totals box sticky — cart item
+   scroll korleo totals dekha jay. top: 84px = sticky header
+   (~74px) + gap; background ditei hoy, na hole item-er lekha
+   pichon diye dekha jeto. Checkout-er sticky summary (PR #57)
+   -er motoi pattern. */
+.cart-summary { text-align: right; margin: 20px 0; position: sticky; top: 84px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; }
 .cart-summary h3 { margin-bottom: 12px; }
 .cart-summary p { margin-bottom: 6px; color: var(--text-muted); }
 
@@ -3931,4 +3936,48 @@ img, video { max-width: 100%; }
   .checkout-steps-fill { animation: none; }
   .order-success-tick circle, .order-success-tick path { animation: none; stroke-dashoffset: 0; }
   .order-confetti { display: none; }
+}
+
+/* =========================================================
+   Batch 2 — cart & buying (feat/cart-buying, PR #82)
+   B2 sticky buy bar · B3 Buy Now · B4 per-product free
+   delivery badge · B5 drawer steppers (JS only — notun CSS
+   lage ni, shudhu drawer-er free-delivery line) · B6 sticky
+   cart summary (.cart-summary rule-ta upore bodlano hoyeche).
+   Notun rong nei: sobuj = var(--success), sonali =
+   var(--accent), navy = var(--navy).
+   ========================================================= */
+
+/* --- B4: delivery badge (shob product card-e) --- */
+.delivery-badge { display: inline-block; font-size: 12px; line-height: 1.5; color: var(--text-muted); margin-top: 4px; }
+.delivery-badge--free { background: var(--success); color: #fff; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+.delivery-free-line { color: var(--success); font-weight: 600; }
+.mini-cart-delivery--free { color: var(--success); font-weight: 600; }
+
+/* --- B3: Buy Now — secondary button, Add to Cart-er pashe --- */
+.btn-buy-now { background: transparent; border: 2px solid var(--accent); color: var(--text); padding: 8px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; display: inline-block; transition: background .2s ease, color .2s ease, transform .2s ease; margin-left: 8px; }
+.btn-buy-now:hover { background: var(--accent); color: var(--navy); transform: translateY(-1px); }
+.btn-buy-now:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+/* --- B2: sticky buy bar (product page) --- */
+.sticky-buy-bar { position: fixed; left: 0; right: 0; z-index: 450; display: flex; align-items: center; gap: 12px; background: var(--surface); padding: 10px 16px; box-shadow: 0 4px 16px var(--shadow-md); }
+.sticky-buy-bar[hidden] { display: none; }
+@media (min-width: 769px) {
+  /* Desktop: sticky header-er niche (top JS-e header-er asol
+     height diye bosano hoy; 64px shudhu fallback). */
+  .sticky-buy-bar { top: 64px; border-bottom: 1px solid var(--border); }
+}
+@media (max-width: 768px) {
+  /* Mobile: niche (bottom) — WhatsApp float bottom:88px thake,
+     tai bar-er sathe lege jay na; tobu overlap hole footer-er
+     guard float-ta lukay. */
+  .sticky-buy-bar { top: auto; bottom: 0; border-top: 1px solid var(--border); padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+}
+.sticky-buy-bar img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.sticky-buy-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sticky-buy-price { font-weight: 700; white-space: nowrap; }
+.sticky-buy-bar .btn-primary { white-space: nowrap; flex-shrink: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sticky-buy-bar { transition: none; }
 }

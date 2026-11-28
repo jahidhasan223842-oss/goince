@@ -58,7 +58,11 @@ function check(name, ok, detail) {
     /form\.closest\('\.product-card'\)/.test(footerEjs) && /#main-product-image/.test(footerEjs)
     && /no-image\.png/.test(footerEjs) && /reducedMotion\(\)/.test(footerEjs));
   check('A1: fly runs in parallel with the fetch (called before fetch, never awaits it) and removes the clone after ~650ms',
-    /flyToCart\(form\);\s*\n\s*var body = ''/.test(footerEjs)
+    // UPDATED (feat/cart-buying, B5): body-ta ekhon buildFormBody()
+    // helper-e toiri hoy (drawer stepper-er submitter override-er
+    // jonno) — flyToCart() ekhono body build-er age, fetch-er agei
+    // chole; parallel behaviour bodlano hoy ni.
+    /flyToCart\(form\);\s*\n\s*var body = (''|buildFormBody\(form, null\));/.test(footerEjs)
     && /setTimeout\(function \(\) \{\s*if \(clone\.parentNode && clone\.parentNode\.removeChild\) clone\.parentNode\.removeChild\(clone\);\s*\}, 650\)/.test(footerEjs));
   check('A1: fly CSS — fixed clone, z-index 1200 (above drawer 1001 + toast 1100), .6s arc transition',
     /\.fly-to-cart-img \{[^}]*position:\s*fixed[^}]*z-index:\s*1200[^}]*transition:[^}]*\.6s/.test(cssNoComments));
