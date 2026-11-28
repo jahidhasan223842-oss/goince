@@ -131,6 +131,22 @@ const cssTopLevel = stripRanges(cssNoComments, allMediaRanges(cssNoComments));
 const hoverBlocks = extractRanges(cssNoComments, allMediaRanges(cssNoComments, 'hover: hover'));
 const reducedMotionBlocks = extractRanges(cssNoComments, allMediaRanges(cssNoComments, 'prefers-reduced-motion'));
 const mobileBlocks = extractRanges(cssNoComments, allMediaRanges(cssNoComments, 'max-width: 768px'));
+const desktopBlocks = extractRanges(cssNoComments, allMediaRanges(cssNoComments, 'min-width: 769px'));
+
+// WCAG contrast helper (same formula the PR #78 tests use).
+function luminance(hex) {
+  const c = hex.replace('#', '');
+  const f = (i) => {
+    const v = parseInt(c.substr(i, 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * f(0) + 0.7152 * f(2) + 0.0722 * f(4);
+}
+function contrastRatio(a, b) {
+  const l1 = luminance(a);
+  const l2 = luminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
 
 function ruleBody(source, selectorRe) {
   const m = source.match(selectorRe);
@@ -163,6 +179,29 @@ function ruleBody(source, selectorRe) {
   check('band: mobile keeps the band (full-bleed margins/padding in the <=768px block)', !!mobileBand && /margin:\s*16px calc\(50% - 50vw\)/.test(mobileBand) && /padding:\s*10px calc\(50vw - 50%\)/.test(mobileBand));
   check('band: the old edge-fade mask is gone on mobile (it would fade the band itself)', !/mask-image:\s*linear-gradient/.test(mobileBlocks));
   check('band: mobile strip still scrolls horizontally with snap', /\.category-bar\s*\{[^}]*overflow-x:\s*auto/.test(mobileBlocks) && /scroll-snap-type:\s*x proximity/.test(mobileBlocks));
+
+  // ---------- 1b. Unselected pill resting background — burgundy (PR #79) ----------
+  // donal (2026-11-28, screenshot of the pills row in dark mode):
+  // in the UNSELECTED state the pills should have a background
+  // colour — a colour NOT already used on the website.
+  const burgundyVar = ruleBody(cssTopLevel, /:root\s*\{[^}]*--pill-burgundy:[^}]*\}/);
+  check('pill-bg: --pill-burgundy is #881337 in :root', !!burgundyVar && /--pill-burgundy:\s*#881337/.test(burgundyVar));
+  check('pill-bg: dark theme does NOT redefine --pill-burgundy (same colour both themes)', !!darkVars && !/--pill-burgundy/.test(darkVars));
+  const pillRest = desktopBlocks.match(/\.container > \.category-bar > a:not\(\.active\),[\s\S]*?\{[^}]*\}/);
+  check('pill-bg: unselected pills rest on burgundy (desktop-only min-width: 769px rule)', !!pillRest && /background:\s*var\(--pill-burgundy\)/.test(pillRest) && /border-color:\s*var\(--pill-burgundy\)/.test(pillRest) && /color:\s*#fff/.test(pillRest));
+  check('pill-bg: the resting rule covers BOTH plain pills and dropdown-wrap pills', !!pillRest && /\.container > \.category-bar \.cat-pill-wrap > a:not\(\.active\)/.test(pillRest));
+  const pillRestCaret = desktopBlocks.match(/\.container > \.category-bar > a:not\(\.active\) \.cat-caret,[\s\S]*?\{[^}]*\}/);
+  check('pill-bg: the ▾ caret is white on the burgundy resting state', !!pillRestCaret && /color:\s*#fff/.test(pillRestCaret));
+  const burgundyContrast = contrastRatio('#ffffff', '#881337');
+  check(`pill-bg: white on burgundy passes WCAG AA (>= 4.5:1, computed ${burgundyContrast.toFixed(2)}:1)`, burgundyContrast >= 4.5);
+  const burgundyValue = (burgundyVar && burgundyVar.match(/--pill-burgundy:\s*(#[0-9a-f]{6})/i) || [])[1];
+  const pageColours = ['#1a1a2e', '#f0a500', '#d99400', '#966e00', '#ab8a00', '#1f7a30', '#e3f2e6', '#1c2b22', '#7c3aed', '#9c27b0', '#db2777', '#d62839', '#d9534f', '#e7f0f8', '#1e2c47', '#1976d2'];
+  check('pill-bg: burgundy matches NONE of the colours already on the page (elimination set)', !!burgundyValue && pageColours.every((c) => c.toLowerCase() !== burgundyValue.toLowerCase()));
+  check('pill-bg: the burgundy literal appears only as the var definition (nowhere else as a background)', (cssNoComments.match(/#881337/g) || []).length === 1);
+  const activePill = ruleBody(cssTopLevel, /\.category-bar a\.active\s*\{[^}]*\}/);
+  check('pill-bg: active "All" pill is still solid orange/gold (var(--accent), navy text)', !!activePill && /background:\s*var\(--accent\)/.test(activePill) && /color:\s*var\(--navy\)/.test(activePill));
+  check('pill-bg: mobile round cards are untouched (background: none still in the <=768px block)', /\.category-bar > a, \.category-bar \.cat-pill-wrap > a\s*\{[^}]*background:\s*none/.test(mobileBlocks));
+  check('pill-bg: the burgundy rule is NOT in the mobile block (desktop only)', !/#881337|--pill-burgundy/.test(mobileBlocks));
 
   // ---------- 2. Pill-dropdown children — more lift + gradient ----------
   const goldGradientVar = ruleBody(cssTopLevel, /:root\s*\{[^}]*--gold-gradient:[^}]*\}/);
@@ -426,6 +465,7 @@ function ruleBody(source, selectorRe) {
     check('render: pill dropdown shows 3 links (Kitchen, Home Utility + grandchild Kitchen Tools)', pillMenu.includes('Kitchen') && pillMenu.includes('Home Utility') && pillMenu.includes('Kitchen Tools'));
     check('render: pill dropdown links are plain <a> links (no per-item class/hook)', !/class="[^"]*pill-child/.test(pillMenu) && (pillMenu.match(/<a href=/g) || []).length === 3);
     check('render: pills row is the plain category-bar (band is CSS, not extra markup)', html.includes('<div class="category-bar" id="products">') && !html.includes('pills-band'));
+    check('render: unselected pills (Home Appliances with dropdown, Winter Collection plain) are present for the burgundy resting state', html.includes('/?category=8') && html.includes('/?category=12'));
     // Ripple script tag in the rendered footer.
     check('render: shop footer includes the click-ripple script', html.includes('/js/click-ripple.js'));
   }
