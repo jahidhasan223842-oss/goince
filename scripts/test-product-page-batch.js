@@ -83,6 +83,10 @@ const productLocals = {
   deliveryZone: 'inside_dhaka',
   deliveryEstimate: { hoursLeft: 3, getByLabel: 'Sat, 29 Nov', zoneLabel: 'Inside Dhaka (1–2 days)' },
   stockBar: null, soldLine: null,
+  // D5 (FIX PR #84): the view now gates the guide on showSizeGuide,
+  // computed by the route via pp.hasSizeChoice — default false here
+  // (no sizes), the dress render below passes the route's value.
+  showSizeGuide: false,
 };
 const watch = { id: 3, name: 'BINBOND 2521 Watch', price: 990, image: 'watch.jpg', stock: 3, low_stock_threshold: 5, free_shipping: 0, target_audience: 'all', short_description: '', allow_backorder: false };
 const sewing = { id: 5, name: 'MLSM-202 Sewing Machine', price: 1250, image: 'sew.jpg', stock: 16, low_stock_threshold: 5, free_shipping: 0, target_audience: 'all', short_description: '', allow_backorder: false };
@@ -129,6 +133,9 @@ const dress = { id: 7, name: 'A.T.Z Two-Piece Tops', price: 310, image: 'dress.j
   check('D5 lib: size guide detection — Size attribute present only for the dress',
     pp.hasSizeAttribute([{ name: 'Size' }]) === true && pp.hasSizeAttribute([{ name: 'Color' }]) === false
     && pp.hasSizeAttribute([]) === false);
+  check('D5 lib (FIX PR #84): Size OPTIONS also count — A.T.Z has no variants, its S/M/L/XL are product_options',
+    pp.hasSizeChoice([], [{ option_label: 'Size', value_name: 'S' }, { option_label: 'Size', value_name: 'XL' }], 'Size') === true
+    && pp.hasSizeChoice([], [{ option_label: 'Color', value_name: 'Red' }], 'Color') === false);
 
   // ---------- 2. Schema: new tables (boot + sql file) ----------
   check('db: server.js boot-creates product_questions / review_photos / review_helpful_votes / product_views (no manual step on deploy)',
@@ -264,6 +271,10 @@ const dress = { id: 7, name: 'A.T.Z Two-Piece Tops', price: 310, image: 'dress.j
     dressPage = await renderProduct({
       variantAttributes: [{ id: 1, name: 'Size', values: [{ id: 1, value: 'S' }, { id: 2, value: 'M' }, { id: 3, value: 'L' }, { id: 4, value: 'XL' }] }],
       variants: [{ id: 11, attrs: [], price: 310, compare_at_price: null, image: null, stock: 10, label: 'Size: S' }],
+      // FIX PR #84: showSizeGuide is what the route now computes and
+      // passes (pp.hasSizeChoice) — the render must carry it, as the
+      // e2e product-7 check in scripts/test-size-guide.js proves.
+      showSizeGuide: pp.hasSizeChoice([{ name: 'Size' }], [], null),
     }, dress);
   } catch (e) { check('render: dress page renders', false, String(e && e.message)); }
   if (dressPage) {
