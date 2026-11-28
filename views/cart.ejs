@@ -91,6 +91,7 @@
         </a>
         <div class="product-card-foot">
           <p class="price">৳<%= p.price %></p>
+          <%- include('partials/delivery-badge', { p: p, deliveryInside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.inside_dhaka : 60, deliveryOutside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.outside_dhaka : 120 }) %>
         </div>
       </div>
     <% }) %>

@@ -29,6 +29,7 @@
           </a>
           <div class="product-card-foot">
             <p class="price">৳<%= p.price %></p>
+            <%- include('partials/delivery-badge', { p: p, deliveryInside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.inside_dhaka : 60, deliveryOutside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.outside_dhaka : 120 }) %>
             <% if (p.stock > 0) { %>
               <% if (typeof variantProductIds !== 'undefined' && (variantProductIds.includes(p.id) || optionProductIds.includes(p.id))) { %>
                 <a href="/product/<%= p.id %>" class="btn-card">Choose Option →</a>
@@ -49,6 +50,7 @@
           <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
           <h3><%= p.name %></h3>
           <p class="price">৳<%= p.price %></p>
+          <%- include('partials/delivery-badge', { p: p, deliveryInside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.inside_dhaka : 60, deliveryOutside: (typeof deliveryCharges !== 'undefined' && deliveryCharges) ? deliveryCharges.outside_dhaka : 120 }) %>
         </a>
         <div class="wishlist-actions">
           <form action="/wishlist/move-to-cart/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %>

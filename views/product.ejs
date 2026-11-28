@@ -98,7 +98,18 @@
       <label for="quantity">Quantity:</label>
       <input type="number" name="quantity" id="quantity" value="1" min="1" max="<%= product.stock %>">
       <button type="submit" class="btn-primary" id="add-to-cart-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>><%= product.stock > 0 ? 'Add to Cart' : (product.allow_backorder ? 'Pre-order Now' : 'Out of Stock') %></button>
+      <% /* B3 Buy Now (feat/cart-buying): ekoi form, ditiyo submit
+            button — name="buy_now" dekhe route item-ta cart-e jog
+            kore (ager item thake) sorasori /checkout-e pathay; footer
+            JS ei button-ke AJAX-e dhore na, tai sadharon POST-e
+            /checkout-e jay (no-JS-eo eki). Variant na bechle form-ta
+            lukano thake, tai vul variant-e Buy Now chapa jay na. */ %>
+      <button type="submit" name="buy_now" value="1" class="btn-buy-now" id="buy-now-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>>Buy Now</button>
     </form>
+    <% /* B2 sticky bar-er anchor: buy box viewport-er upore beriye
+          gelei bar dekhabe. Form lukano thakleo (variant bechha
+          hoy ni) ei khali div-er obosthan thik thake. */ %>
+    <div id="buy-box-sentinel" aria-hidden="true"></div>
 
     <% if (product.stock === 0 && !product.allow_backorder) { %>
     <div class="notify-me-box" style="margin-top:16px; padding:14px; border:1px solid #f0a500; border-radius:8px; background:#fff8e6;">
@@ -121,7 +132,14 @@
     <% } %>
 
     <div class="delivery-info-box">
+      <% /* B4 per-product free delivery: Free Delivery hole charge-er
+            line-er bodole sobuj "Free Delivery" line; na hole ager
+            motoi zone charge. Sobuj-ta site-er --success. */ %>
+      <% if (product.free_shipping) { %>
+      <p class="delivery-free-line">🚚 <strong>Free Delivery</strong> — ei product-er kono delivery charge nei</p>
+      <% } else { %>
       <p>🚚 Delivery Charge: <strong>৳<%= deliveryCharge %></strong> (Inside Dhaka) / <strong>৳<%= deliveryChargeOutside %></strong> (Outside Dhaka)</p>
+      <% } %>
       <p>📦 Estimated Delivery: <%= product.delivery_time ? product.delivery_time : 'Inside Dhaka 1–2 din, Outside Dhaka 3–5 din' %></p>
     </div>
 
@@ -132,6 +150,24 @@
     </div>
     <a href="/" class="back-link">&larr; Back to shop</a>
   </div>
+</div>
+
+<% /* ---------- B2 Sticky buy bar (feat/cart-buying) ----------
+      Buy box scroll-er baire gele ei bar-ta ase — desktop-e sticky
+      header-er niche (top; asol header height JS-e mepe bosano hoy),
+      mobile-e niche (bottom). Chobi + naam + daam + Add to Cart.
+      Variant na bechle bar-er button kichu add kore na — buy box-e
+      scroll kore niye jay (vul variant add hobe na). Button-ta asol
+      form-tai submit kore (requestSubmit), tai PR #80-er AJAX flow
+      (drawer + toast + badge) ekhanei chole; alada kono add route
+      nei. WhatsApp float / side-cart tab-er sathe overlap hole
+      footer-er guard (PR #65/#75) oi float duto lukay — bar-er
+      button GUARDED list-e ache. */ %>
+<div class="sticky-buy-bar" id="sticky-buy-bar" hidden>
+  <img src="/uploads/<%= product.image %>" alt="" aria-hidden="true" onerror="this.remove()">
+  <span class="sticky-buy-name"><%= product.name %></span>
+  <span class="sticky-buy-price" id="sticky-buy-price">৳<%= product.price %></span>
+  <button type="button" class="btn-primary" id="sticky-buy-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>>Add to Cart</button>
 </div>
 
 <% if (product.description) { %>
@@ -206,6 +242,7 @@
         </a>
         <div class="product-card-foot">
           <p class="price">৳<%= p.price %></p>
+          <%- include('partials/delivery-badge', { p: p, deliveryInside: deliveryCharge, deliveryOutside: deliveryChargeOutside }) %>
         </div>
       </div>
     <% }) %>
@@ -222,7 +259,7 @@
   try {
     var recent = JSON.parse(localStorage.getItem('goince-recent') || '[]');
     recent = recent.filter(function (it) { return it.id !== <%= product.id %>; });
-    recent.unshift({ id: <%= product.id %>, name: <%- JSON.stringify(product.name) %>, price: <%= product.price %>, image: <%- JSON.stringify(product.image || 'no-image.png') %>, stock: <%= product.stock %>, hasOptions: <%= ((variants && variants.length > 0) || (options && options.length > 0)) ? 'true' : 'false' %> });
+    recent.unshift({ id: <%= product.id %>, name: <%- JSON.stringify(product.name) %>, price: <%= product.price %>, image: <%- JSON.stringify(product.image || 'no-image.png') %>, stock: <%= product.stock %>, freeDelivery: <%= product.free_shipping ? 'true' : 'false' %>, hasOptions: <%= ((variants && variants.length > 0) || (options && options.length > 0)) ? 'true' : 'false' %> });
     localStorage.setItem('goince-recent', JSON.stringify(recent.slice(0, 4)));
   } catch (e) {}
   function swapImage(el, src) {
@@ -272,6 +309,9 @@
   const variantIdInput = document.getElementById('variant_id_input');
   const qtyInput = document.getElementById('quantity');
   const addBtn = document.getElementById('add-to-cart-btn');
+  const buyNowBtn = document.getElementById('buy-now-btn');
+  const stickyPriceEl = document.getElementById('sticky-buy-price');
+  const stickyBuyBtn = document.getElementById('sticky-buy-btn');
 
   function updateVariantSelection() {
     const selection = {};
@@ -303,6 +343,8 @@
     msg.textContent = '';
     variantIdInput.value = match.id;
     priceEl.textContent = '৳' + Number(match.price).toFixed(2);
+    // B2: sticky bar-er daam-o variant-er sathe bodlay.
+    if (stickyPriceEl) stickyPriceEl.textContent = '৳' + Number(match.price).toFixed(2);
     // Variant-er nijer chobi thakle main chobi bodle jabe (lal/nil alada chobi)
     if (match.image) {
       const mainImg = document.getElementById('main-product-image');
@@ -327,6 +369,10 @@
       qtyInput.value = 1;
       addBtn.disabled = false;
       addBtn.textContent = 'Add to Cart';
+      // B3: Buy Now-o variant-er sathe chalu/bondho hoy — stock
+      // na thakle Buy Now-eo vul variant jabe na.
+      if (buyNowBtn) buyNowBtn.disabled = false;
+      if (stickyBuyBtn) stickyBuyBtn.disabled = false;
       form.style.display = '';
     } else if (allowBackorder) {
       stockEl.textContent = 'Pre-order — stock asle delivery hobe';
@@ -334,17 +380,91 @@
       qtyInput.value = 1;
       addBtn.disabled = false;
       addBtn.textContent = 'Pre-order Now';
+      if (buyNowBtn) buyNowBtn.disabled = false;
+      if (stickyBuyBtn) stickyBuyBtn.disabled = false;
       form.style.display = '';
     } else {
       stockEl.textContent = 'Out of stock — ei combination-ti ekhon nei';
       addBtn.disabled = true;
       addBtn.textContent = 'Out of Stock';
+      if (buyNowBtn) buyNowBtn.disabled = true;
+      if (stickyBuyBtn) stickyBuyBtn.disabled = true;
       form.style.display = '';
     }
   }
 
   selects.forEach(sel => sel.addEventListener('change', updateVariantSelection));
   <% } %>
+</script>
+
+<script>
+  // B2 sticky buy bar (feat/cart-buying): buy box (#buy-box-sentinel)
+  // viewport-er upore beriye gele bar dekhabe, na hole lukabe.
+  // Scroll listener rAF-throttle kora (footer-er guard gulor motoi).
+  // Bar-er button asol form-tai submit kore — alada kono add logic
+  // nei, tai PR #80-er AJAX flow (drawer + toast) ekhanei chole.
+  // Variant bechha na hole kichu add hoy na: buy box-e scroll kore
+  // selector-gulo dekhiye deya hoy (vul variant add hobe na).
+  // prefers-reduced-motion hole scroll smooth noy, instant.
+  (function () {
+    var bar = document.getElementById('sticky-buy-bar');
+    var btn = document.getElementById('sticky-buy-btn');
+    var form = document.getElementById('add-to-cart-form');
+    var sentinel = document.getElementById('buy-box-sentinel');
+    if (!bar || !form) return;
+    var header = document.querySelector('.site-header');
+    var raf = window.requestAnimationFrame || function (fn) { fn(); };
+    var ticking = false;
+    var reduced = false;
+    try {
+      reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) { reduced = false; }
+    function setBarTop() {
+      // Desktop-e bar header-er NICHE boshe; header-er asol height
+      // mepe neya hoy (mobile-e bar niche thake, top lage na).
+      if (window.matchMedia && window.matchMedia('(min-width: 769px)').matches && header) {
+        bar.style.top = header.offsetHeight + 'px';
+      } else {
+        bar.style.top = '';
+      }
+    }
+    function update() {
+      ticking = false;
+      var anchor = sentinel || form;
+      var r = anchor.getBoundingClientRect();
+      bar.hidden = !(r.bottom < 0);
+    }
+    function onScroll() {
+      if (!ticking) { ticking = true; raf(update); }
+    }
+    if (btn) {
+      btn.addEventListener('click', function () {
+        var variantInput = document.getElementById('variant_id_input');
+        var hasVariants = !!document.querySelector('.variant-attr-select');
+        if (hasVariants && variantInput && !variantInput.value) {
+          var target = document.querySelector('.variant-selectors') || form;
+          if (target.scrollIntoView) target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+          var first = document.querySelector('.variant-attr-select');
+          if (first && first.focus) first.focus({ preventScroll: true });
+          return;
+        }
+        // Asol form submit — footer-er AJAX delegation dhore ney
+        // (drawer + toast); requestSubmit na thakle main button-e
+        // click (submit event cholbe, tai AJAX-o cholbe).
+        if (form.requestSubmit) form.requestSubmit();
+        else {
+          var mainBtn = document.getElementById('add-to-cart-btn');
+          if (mainBtn && mainBtn.click) mainBtn.click();
+        }
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', function () { setBarTop(); onScroll(); }, { passive: true });
+    if (window.addEventListener) window.addEventListener('load', function () { setBarTop(); update(); });
+    setBarTop();
+    raf(function () { update(); });
+    update();
+  })();
 </script>
 
 <!-- Google Analytics: view_item event -->

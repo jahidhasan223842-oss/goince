@@ -29,9 +29,14 @@
 //      toast error, do NOT navigate, do NOT open the drawer. While a
 //      request is in flight the clicked button is disabled (no
 //      double-adds).
-//   6. OUT OF SCOPE (honest limit, same as PR #77): the drawer qty
-//      steppers / remove still reload to /cart — AJAX for those is a
-//      follow-up, not this PR.
+//   6. OUT OF SCOPE (honest limit, same as PR #77) — RESOLVED by
+//      feat/cart-buying (B5): the drawer qty steppers / remove are
+//      now AJAX (same JSON-branch pattern as this PR's add); the
+//      cart page itself still does full-page POST + redirect.
+//      See scripts/test-cart-buying.js for the drawer-stepper
+//      coverage; the "NOT intercepted" check below was updated to
+//      the CART-PAGE stepper (outside the drawer), which is still
+//      not intercepted.
 //   7. BODY IS URLENCODED, NOT MULTIPART: the CSRF middleware runs
 //      before any body parser that could read a multipart body, so a
 //      FormData (multipart) POST would fail CSRF; the JS converts the
@@ -587,13 +592,18 @@ function check(name, ok, detail) {
   await flushAll();
   check('behaviour: second add updates the badges to 2 and opens the drawer with the new item',
     sc.tab._badge.textContent === '2' && sc.drawer.innerHTML.includes('MLSM-202 Sewing Machine') && sc.drawerOpen());
-  // Non-add forms pass through untouched (no preventDefault, no fetch).
+  // UPDATED (feat/cart-buying, B5): drawer-er qty stepper ekhon
+  // AJAX-e intercept hoy (drawer-er vitore thakle) — tai ei check-ta
+  // CART PAGE-er stepper-er jonno (drawer-er baire): sheta ekhono
+  // intercept hoy na, sadharon POST-e /cart-e redirect hoy. Drawer
+  // stepper-er AJAX coverage scripts/test-cart-buying.js-e ache.
+  // Stub form-er closest nei (drawer-er baire) — tai pass-through.
   const otherForm = makeStubEl();
   otherForm.getAttribute = (k) => (k === 'action' ? '/cart/update/3' : k === 'method' ? 'POST' : null);
   const evOther = submitEvent(otherForm);
   const callsBefore = sc.fetchCalls.length;
   sc.fireDoc('submit', evOther);
-  check('behaviour: a NON add-to-cart form (e.g. drawer qty stepper) is NOT intercepted — no preventDefault, no fetch',
+  check('behaviour: a CART-PAGE qty stepper (outside the drawer) is NOT intercepted — no preventDefault, no fetch',
     evOther.prevented === false && sc.fetchCalls.length === callsBefore);
   // A form whose action is not /cart/add/ at all (e.g. notify-me) passes through too.
   const notifyForm = makeStubEl();

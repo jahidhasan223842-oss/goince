@@ -1,0 +1,13 @@
+<% /* ---------- Delivery badge (feat/cart-buying, B4) ----------
+      Per-product free delivery: product-er free_shipping flag on
+      thakle sobuj "🚚 Free Delivery" badge; na thakle zone charge-er
+      chhoto line (charge duto settings theke ase — deliveryInside /
+      deliveryOutside locals; na dile ৳60/৳120 default). Ektai
+      partial, shob card-e use hoy: homepage main grid, Best
+      Sellers, Recently Viewed (JS-e ekoi lekha toiri hoy),
+      Related (product + cart page), wishlist. Sobuj-ta site-er
+      age thekei thaka --success (#1f7a30) — notun rong noy; sada
+      lekha tar upore ~5.4:1 contrast. */ %>
+<% const _dbInside = (typeof deliveryInside !== 'undefined' && Number.isFinite(Number(deliveryInside))) ? Number(deliveryInside) : 60; %>
+<% const _dbOutside = (typeof deliveryOutside !== 'undefined' && Number.isFinite(Number(deliveryOutside))) ? Number(deliveryOutside) : 120; %>
+<% if (p && p.free_shipping) { %><span class="delivery-badge delivery-badge--free">🚚 Free Delivery</span><% } else { %><span class="delivery-badge" title="Delivery: ৳<%= _dbInside %> inside Dhaka / ৳<%= _dbOutside %> outside Dhaka">🚚 Delivery ৳<%= _dbInside %>–৳<%= _dbOutside %></span><% } %>
