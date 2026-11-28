@@ -1,0 +1,57 @@
+<%- include('../partials/admin-header') %>
+
+<h1>⚡ Flash Offers</h1>
+<p class="field-hint">Timed offers — a discounted price or a % off one product, between a start and end time. The shop shows a live countdown while the offer runs; when it ends, the normal price returns automatically. Set either a sale price or a discount % (sale price wins if both are set).</p>
+
+<form action="/admin/flash-offers/add" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
+  <label>Product</label>
+  <select name="product_id" required>
+    <option value="">Choose a product…</option>
+    <% products.forEach(p => { %>
+      <option value="<%= p.id %>"><%= p.name %> — ৳<%= p.price %></option>
+    <% }) %>
+  </select>
+  <label>Offer title (optional, e.g. "Eid Flash Sale")</label>
+  <input type="text" name="title" placeholder="Flash Sale">
+  <label>Discount (%) — leave blank to use a sale price instead</label>
+  <input type="number" name="discount_percent" min="1" max="90" step="0.01" placeholder="e.g. 20">
+  <label>Sale price (৳) — leave blank to use the discount % instead</label>
+  <input type="number" name="sale_price" min="0" step="0.01" placeholder="e.g. 799">
+  <label>Starts at (optional — blank = now)</label>
+  <input type="datetime-local" name="starts_at">
+  <label>Ends at (optional — blank = no end date)</label>
+  <input type="datetime-local" name="ends_at">
+  <button type="submit" class="btn-primary">Create Flash Offer</button>
+</form>
+
+<h2 style="margin-top:30px;">All Flash Offers</h2>
+<% if (!offers.length) { %>
+  <p class="field-hint">No flash offers yet — create one above.</p>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Product</th><th>Offer</th><th>Price</th><th>Runs</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+    <% const _now = new Date(); %>
+    <% offers.forEach(o => { %>
+      <% const _active = o.is_active && (!_now || true) && (!o.starts_at || new Date(o.starts_at) <= _now) && (!o.ends_at || new Date(o.ends_at) > _now); %>
+      <tr>
+        <td><strong><%= o.product_name %></strong></td>
+        <td><%= o.title || '—' %><br><small><%= o.sale_price !== null && o.sale_price !== undefined ? 'Sale price ৳' + o.sale_price : (o.discount_percent ? o.discount_percent + '% off' : '—') %></small></td>
+        <td>৳<%= o.product_price %><% if (o.sale_price !== null && o.sale_price !== undefined) { %> → <strong>৳<%= o.sale_price %></strong><% } else if (o.discount_percent) { %> → <strong>৳<%= (Number(o.product_price) * (1 - Number(o.discount_percent) / 100)).toFixed(2) %></strong><% } %></td>
+        <td><small><%= o.starts_at ? new Date(o.starts_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Now' %> → <%= o.ends_at ? new Date(o.ends_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'No end' %></small></td>
+        <td><span class="status-badge <%= _active ? 'status-delivered' : 'status-inactive' %>"><%= _active ? 'Live now' : (o.is_active ? 'Scheduled / Ended' : 'Off') %></span></td>
+        <td>
+          <div class="admin-actions">
+            <form action="/admin/flash-offers/toggle/<%= o.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm"><%= o.is_active ? 'Turn Off' : 'Turn On' %></button></form>
+            <form action="/admin/flash-offers/delete/<%= o.id %>" method="POST" style="display:inline" onsubmit="return confirm('Delete this flash offer?');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--danger">Delete</button></form>
+          </div>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

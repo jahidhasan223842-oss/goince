@@ -28,7 +28,9 @@
 <section class="analytics-panel analytics-attention-panel">
   <div class="analytics-panel-heading"><div><h2>Needs attention</h2><p>Reviews, messages and calls waiting for you</p></div></div>
   <% const _phoneQueue = Number((typeof phoneQueueCount !== 'undefined' ? phoneQueueCount : 0) || 0); %>
-  <% if (Number(pendingReviews || 0) === 0 && Number(unreadMessages || 0) === 0 && _phoneQueue === 0) { %>
+  <% const _unreadChats = Number((typeof unreadChats !== 'undefined' ? unreadChats : 0) || 0); %>
+  <% const _pendingReturns = Number((typeof pendingReturns !== 'undefined' ? pendingReturns : 0) || 0); %>
+  <% if (Number(pendingReviews || 0) === 0 && Number(unreadMessages || 0) === 0 && _phoneQueue === 0 && _unreadChats === 0 && _pendingReturns === 0) { %>
     <div class="analytics-small-empty">Nothing needs attention right now.</div>
   <% } else { %>
     <div class="analytics-attention-list">
@@ -51,6 +53,20 @@
           <span class="analytics-attention-icon">✉</span>
           <div><strong><%= Number(unreadMessages) %> unread <%= _plural(unreadMessages, 'message', 'messages') %></strong><span>Contact messages you have not opened yet</span></div>
           <a class="analytics-view-link" href="/admin/messages">Read →</a>
+        </div>
+      <% } %>
+      <% if (_unreadChats > 0) { %>
+        <div class="analytics-attention-row">
+          <span class="analytics-attention-icon">💬</span>
+          <div><strong><%= _unreadChats %> unread live-chat <%= _plural(_unreadChats, 'message', 'messages') %></strong><span>Customers are waiting for a reply in Live Chat</span></div>
+          <a class="analytics-view-link" href="/admin/chats">Reply →</a>
+        </div>
+      <% } %>
+      <% if (_pendingReturns > 0) { %>
+        <div class="analytics-attention-row">
+          <span class="analytics-attention-icon">↩️</span>
+          <div><strong><%= _pendingReturns %> return / cancel <%= _plural(_pendingReturns, 'request', 'requests') %> waiting</strong><span>Approve or reject from the order details page</span></div>
+          <a class="analytics-view-link" href="/admin/invoices">View →</a>
         </div>
       <% } %>
     </div>

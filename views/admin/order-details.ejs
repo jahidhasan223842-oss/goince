@@ -350,7 +350,7 @@
         <ul>
           <% returns.forEach(r => { %>
             <li>
-              <strong><%= r.status %></strong> — <%= r.reason %><br>
+              <strong><%= r.status %></strong> — <%= (r.request_type === 'cancel' ? 'Cancel request' : 'Return request') %> — <%= r.reason %><br>
               <small><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% if (r.created_by) { %> — <%= r.created_by %><% } %></small>
               <% if (_can('orders.manage')) { %>
               <form action="/admin/orders/<%= order.id %>/returns/<%= r.id %>/status" method="POST" class="inline-form" style="margin-top:4px;"><%- include('../partials/csrf-field') %>

@@ -12,6 +12,14 @@
   <label>Expiry Date (Optional)</label>
   <input type="date" name="expiry_date">
 
+  <h4 style="margin-top:14px;">Usage limits (optional — leave blank for no limit)</h4>
+  <label>Max total uses (e.g. 100 — coupon stops working after this many orders)</label>
+  <input type="number" name="max_total_uses" min="1" placeholder="No limit">
+  <label>Max uses per customer (e.g. 1 — one use per logged-in customer)</label>
+  <input type="number" name="max_uses_per_customer" min="1" placeholder="No limit">
+  <label>Minimum order amount (৳ — coupon only works on orders of at least this much)</label>
+  <input type="number" name="min_order_amount" min="1" step="0.01" placeholder="No minimum">
+
   <button type="submit" class="btn-primary">Add Coupon</button>
 </form>
 
@@ -19,7 +27,7 @@
 <div class="table-responsive">
 <table class="admin-table">
   <thead>
-    <tr><th>Code</th><th>Discount</th><th>Expiry</th><th>Status</th><th>Actions</th></tr>
+    <tr><th>Code</th><th>Discount</th><th>Expiry</th><th>Uses</th><th>Limits</th><th>Status</th><th>Actions</th></tr>
   </thead>
   <tbody>
     <% coupons.forEach(c => { %>
@@ -27,12 +35,24 @@
         <td><strong><%= c.code %></strong></td>
         <td><%= c.discount_percent %>%</td>
         <td><%= c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No expiry' %></td>
+        <td><%= c.uses || 0 %><%= c.max_total_uses ? ' / ' + c.max_total_uses : '' %></td>
+        <td><small>
+          <%= c.min_order_amount ? 'Min ৳' + c.min_order_amount : '' %>
+          <%= c.max_uses_per_customer ? (c.min_order_amount ? ' · ' : '') + 'Max ' + c.max_uses_per_customer + '/customer' : '' %>
+          <%= (!c.min_order_amount && !c.max_uses_per_customer && !c.max_total_uses) ? '—' : '' %>
+        </small></td>
         <td>
           <span class="status-badge <%= c.active ? 'status-delivered' : 'status-inactive' %>">
             <%= c.active ? 'Active' : 'Inactive' %>
           </span>
         </td>
         <td>
+          <form action="/admin/coupons/edit/<%= c.id %>" method="POST" style="margin-bottom:6px;"><%- include('../partials/csrf-field') %>
+            <label style="font-size:12px;">Max total uses <input type="number" name="max_total_uses" min="1" value="<%= c.max_total_uses || '' %>" placeholder="—" style="width:70px;"></label>
+            <label style="font-size:12px;">Per customer <input type="number" name="max_uses_per_customer" min="1" value="<%= c.max_uses_per_customer || '' %>" placeholder="—" style="width:70px;"></label>
+            <label style="font-size:12px;">Min ৳ <input type="number" name="min_order_amount" min="1" step="0.01" value="<%= c.min_order_amount || '' %>" placeholder="—" style="width:80px;"></label>
+            <button type="submit" class="btn-sm">Save limits</button>
+          </form>
           <div class="admin-actions">
             <form action="/admin/coupons/toggle/<%= c.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
               <button type="submit" class="btn-sm"><%= c.active ? 'Deactivate' : 'Activate' %></button>

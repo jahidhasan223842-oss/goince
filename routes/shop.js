@@ -15,6 +15,7 @@ const { marked } = require('marked');
 const { sendOrderConfirmation, sendMail } = require('../config/email');
 const { notifyAdmins } = require('../config/push');
 const ret = require('../lib/retention');
+const ops = require('../lib/admin-ops');
 const { buildCategoryTree, ancestorChain, visibleSubtreeIds, isEffectivelyVisible } = require('../lib/categories');
 
 // ---------- PRODUCT-PAGE BATCH (feat/product-page, PR #83) ----------
@@ -384,6 +385,13 @@ router.get('/', async (req, res) => {
       const [bannerRows] = await db.query("SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC");
       banners = bannerRows;
     } catch (e) { banners = []; }
+    // I11 (feat/admin-ops): active flash offers (expired ones are
+    // filtered out by getActiveFlashOffers — the normal price returns
+    // automatically). I10: log the search term for Analytics.
+    const flashOffers = await ops.getActiveFlashOffers(db);
+    if (search) {
+      try { await ops.logSearchTerm(db, search, viewerSessionKey(req), req.session.userId || null, totalProducts); } catch (e) { /* never break search */ }
+    }
     // Card hover-e 2nd chobi (feat/animations-delight, A5): main grid
     // + Best Sellers — ektai map, du jaygatei use hoy.
     const secondImages = await firstGalleryImages();
@@ -392,6 +400,8 @@ router.get('/', async (req, res) => {
     const deliveryCharges = await getDeliveryCharges();
     const indexLocals = {
       banners,
+      flashOffers,
+      flashOfferByProduct: Object.fromEntries(flashOffers.map((o) => [o.product_id, o])),
       secondImages,
       deliveryCharges,
       heroProduct,
@@ -586,6 +596,12 @@ router.get('/product/:id', async (req, res) => {
     }
 
     const deliveryCharges = await getDeliveryCharges();
+
+    // I11 (feat/admin-ops): active flash offer for this product, if
+    // any — the shop shows the offer price + a live countdown, and
+    // Add to Cart uses the offer price (see /cart/add/:id).
+    const flashOffer = await ops.getFlashOfferForProduct(db, product.id);
+    const flashPrice = flashOffer ? ops.offerPrice(flashOffer, product.price) : null;
 
     // ---------- PRODUCT-PAGE BATCH (feat/product-page, PR #83) ----------
     // D1 — product video (Admin > Products > Edit-er video field,
@@ -819,6 +835,8 @@ router.get('/product/:id', async (req, res) => {
       deliveryCharge: deliveryCharges.inside_dhaka,
       deliveryChargeOutside: deliveryCharges.outside_dhaka,
       descriptionHtml,
+      flashOffer: flashOffer || null,
+      flashPrice,
       siteName: 'Goince'
     });
   } catch (err) {
@@ -1001,8 +1019,16 @@ router.post('/cart/add/:id', async (req, res) => {
     }
     const product = rows[0];
 
-    // Variant select kora thakle, tar price/label niye ashi
+    // I11 (feat/admin-ops): an active flash offer replaces the base
+    // price (variants keep their own price — the offer is on the
+    // base product). Expired offers are already filtered out.
     let price = product.price;
+    if (!variantId) {
+      try {
+        const _offer = await ops.getFlashOfferForProduct(db, product.id);
+        if (_offer) price = ops.offerPrice(_offer, product.price);
+      } catch (e) { /* offer lookup never blocks add-to-cart */ }
+    }
     let variantLabel = null;
     if (variantId) {
       const [[variant]] = await db.query('SELECT * FROM product_variants WHERE id = ? AND product_id = ?', [variantId, productId]);
@@ -1338,6 +1364,10 @@ router.post('/wishlist/move-to-cart/:id', async (req, res) => {
 });
 
 // ---------- APPLY COUPON ----------
+// I5 (feat/admin-ops): limits are enforced here AND again at order
+// time — max total uses, max uses per customer, minimum order
+// amount (expiry/active as before). The cart subtotal is the
+// minimum-order yardstick at this step.
 router.post('/cart/apply-coupon', async (req, res) => {
   try {
     const code = (req.body.coupon_code || '').trim();
@@ -1349,8 +1379,17 @@ router.post('/cart/apply-coupon', async (req, res) => {
       req.session.couponError = 'Invalid ba expired coupon code.';
       req.session.coupon = null;
     } else {
-      req.session.coupon = { code: rows[0].code, discount_percent: rows[0].discount_percent };
-      req.session.couponError = null;
+      const cart = req.session.cart || [];
+      const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+      const counts = await ops.getCouponUseCounts(db, rows[0].id, req.session.userId || null);
+      const check = ops.validateCouponUse(rows[0], { subtotal, totalUses: counts.totalUses, userUses: counts.userUses, userId: req.session.userId || null });
+      if (!check.ok) {
+        req.session.couponError = check.reason;
+        req.session.coupon = null;
+      } else {
+        req.session.coupon = { code: rows[0].code, discount_percent: rows[0].discount_percent, id: rows[0].id };
+        req.session.couponError = null;
+      }
     }
     res.redirect('/cart');
   } catch (err) {
@@ -1363,6 +1402,26 @@ router.post('/cart/apply-coupon', async (req, res) => {
 router.post('/cart/remove-coupon', (req, res) => {
   req.session.coupon = null;
   res.redirect('/cart');
+});
+
+// ---------- PRODUCT COMPARE (I4, feat/admin-ops) ----------
+// Customers add up to 4 products (Compare buttons on the homepage
+// + product page store ids in localStorage; the compare bar links
+// here with ?ids=). The page loads the real products side by side:
+// price, compare-at price, stock, brand, weight, category.
+router.get('/compare', async (req, res) => {
+  const ids = ops.normalizeCompareIds(req.query.ids);
+  let products = [];
+  if (ids.length) {
+    try {
+      const [rows] = await db.query(
+        `SELECT p.*, c.name AS category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id IN (${ids.map(() => '?').join(',')})`,
+        ids);
+      const byId = new Map(rows.map((r) => [Number(r.id), r]));
+      products = ids.map((id) => byId.get(id)).filter(Boolean);
+    } catch (e) { products = []; }
+  }
+  res.render('compare', { products, ids, maxCompare: ops.MAX_COMPARE, siteName: 'Goince' });
 });
 
 // ---------- RETENTION (feat/retention, PR #88) ----------
@@ -1522,7 +1581,12 @@ router.get('/checkout', async (req, res) => {
   const deliveryZones = await getDeliveryZones();
   const deliveryCharges = await getDeliveryCharges();
   const flags = await getCartShippingFlags(cart);
-  const deliveryCharge = flags.allFreeShipping ? 0 : (deliveryZones.length ? deliveryZones[0].charge : deliveryCharges.inside_dhaka);
+  // I8 (feat/admin-ops): weight bands — a matching band replaces the
+  // zone charge; no match = the normal ৳60/৳120 zone charge.
+  const cartWeight = await ops.getCartTotalWeight(db, cart);
+  const weightBands = await ops.getWeightBands(db);
+  const baseCharge = deliveryZones.length ? deliveryZones[0].charge : deliveryCharges.inside_dhaka;
+  const deliveryCharge = flags.allFreeShipping ? 0 : ops.weightDeliveryCharge(cartWeight, weightBands, baseCharge, deliveryZones.length ? deliveryZones[0].slug : null);
   const total = subtotal - discount + deliveryCharge;
   const paymentMethods = await getPaymentMethods();
   const gateway = await getGatewayConfig();
@@ -1569,7 +1633,10 @@ router.post('/checkout', async (req, res) => {
   // item Free Delivery holeo — ekhon vul form-eo ৳0 delivery + thik
   // total dekhay, checkout page-er motoi.
   const flags = await getCartShippingFlags(cart);
-  const errorDeliveryCharge = flags.allFreeShipping ? 0 : defaultCharge;
+  // I8 (feat/admin-ops): weight bands, same rule as GET /checkout.
+  const cartWeight = await ops.getCartTotalWeight(db, cart);
+  const weightBands = await ops.getWeightBands(db);
+  const errorDeliveryCharge = flags.allFreeShipping ? 0 : ops.weightDeliveryCharge(cartWeight, weightBands, defaultCharge, zone ? zone.slug : null);
   // F4 (feat/retention): loyalty settings + balance — error re-render-eo
   // points box dekhabe, ar redeem hisab-e lagbe.
   let retentionSettings = ret.RETENTION_DEFAULTS;
@@ -1616,9 +1683,26 @@ router.post('/checkout', async (req, res) => {
     return renderCheckoutError('Sothik naam, thikana ar Bangladeshi mobile number (01XXXXXXXXX) dao.');
   }
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const coupon = req.session.coupon || null;
-  const discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
-  const deliveryCharge = flags.allFreeShipping ? 0 : (zone ? zone.charge : (deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka));
+  let coupon = req.session.coupon || null;
+  let discount = coupon ? (subtotal * coupon.discount_percent / 100) : 0;
+  // I5 (feat/admin-ops): re-validate the coupon at order time — a
+  // limit can have been hit between apply and place-order. A coupon
+  // that no longer qualifies blocks the order with a clear message
+  // (it is never silently dropped).
+  let couponRow = null;
+  if (coupon) {
+    try {
+      const [crows] = await db.query('SELECT * FROM coupons WHERE code = ?', [coupon.code]);
+      couponRow = crows[0] || null;
+      const counts = couponRow ? await ops.getCouponUseCounts(db, couponRow.id, req.session.userId || null) : { totalUses: 0, userUses: 0 };
+      const check = ops.validateCouponUse(couponRow, { subtotal, totalUses: counts.totalUses, userUses: counts.userUses, userId: req.session.userId || null });
+      if (!check.ok) {
+        req.session.coupon = null;
+        return renderCheckoutError(check.reason);
+      }
+    } catch (e) { /* coupon lookup failed — the order proceeds without re-validation */ }
+  }
+  const deliveryCharge = flags.allFreeShipping ? 0 : ops.weightDeliveryCharge(cartWeight, weightBands, (zone ? zone.charge : (deliveryCharges[delivery_area] || deliveryCharges.inside_dhaka)), zone ? zone.slug : null);
   // F4 (feat/retention): points redeem — balance / cap / payable
   // onujayi clamp kora (lib/retention.js pointsDiscountFor). Na
   // thakle ba loyalty off thakle ৳0.
@@ -1656,6 +1740,12 @@ router.post('/checkout', async (req, res) => {
       [userId, customer_name, email || null, normalizedPhone, fullAddress, payment_method || 'Cash on Delivery', transaction_id || null, zone ? zone.name : null, deliveryCharge, coupon ? coupon.code : null, discount, total, pointsRedeem.points, pointsDiscount]
     );
     const orderId = orderResult.insertId;
+
+    // I5 (feat/admin-ops): record the coupon use in the same
+    // transaction, so the usage counts can never drift from orders.
+    if (couponRow) {
+      await ops.recordCouponUse(connection, couponRow, userId, orderId);
+    }
 
     for (const item of cart) {
       await connection.query(

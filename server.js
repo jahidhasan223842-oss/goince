@@ -29,7 +29,7 @@ app.locals.assetUrl = createAssetUrl(path.join(__dirname, 'public'));
 
 // Site settings (Admin > Settings theke bodlano jay): hero, announcement,
 // address, Facebook link — kono code change chara-i homepage/footer bodle jabe.
-const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'delivery_charge_inside', 'delivery_charge_outside', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key'];
+const SITE_SETTING_KEYS = ['hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'delivery_charge_inside', 'delivery_charge_outside', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key', 'login_lockout_max_attempts', 'login_lockout_minutes'];
 const SITE_SETTING_DEFAULTS = {
   hero_title: 'সেরা পণ্য, ক্যাশ অন ডেলিভারি',
   hero_subtitle: 'ঢাকার ভিতরে ১–২ দিনে, ঢাকার বাইরে ৩–৫ দিনে ডেলিভারি। অর্ডারের আগে ফোনে কনফার্ম করা হয়।',
@@ -583,6 +583,115 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- Admin Ops batch tables (feat/admin-ops, batch 8) ----------
+// I1 sessions (persistent login/cart), I5 coupon_uses + coupon limit
+// columns, I7 admin_audit_log, I8 weight_delivery_bands, I9
+// chat_conversations.unread_admin, I10 search_logs + site_visits,
+// I11 flash_offers, I3 order_returns.request_type/admin_note, I15
+// users.failed_login_attempts/locked_until. Same pattern as the
+// retention tables above: CREATE TABLE IF NOT EXISTS on every start,
+// guarded column adds — the documented source is sql/admin_ops.sql.
+(async () => {
+  try {
+    const db = require('./config/db');
+    await db.query(`CREATE TABLE IF NOT EXISTS sessions (
+      session_id VARCHAR(128) NOT NULL PRIMARY KEY,
+      expires INT UNSIGNED NOT NULL,
+      data TEXT,
+      INDEX idx_sessions_expires (expires)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      admin_id INT DEFAULT NULL,
+      admin_email VARCHAR(255) DEFAULT NULL,
+      action VARCHAR(100) NOT NULL,
+      entity_type VARCHAR(50) DEFAULT NULL,
+      entity_id VARCHAR(100) DEFAULT NULL,
+      details TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_audit_admin (admin_email, created_at),
+      INDEX idx_audit_action (action, created_at)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS coupon_uses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      coupon_id INT NOT NULL,
+      coupon_code VARCHAR(100) NOT NULL,
+      user_id INT DEFAULT NULL,
+      order_id INT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cu_coupon (coupon_id),
+      INDEX idx_cu_coupon_user (coupon_id, user_id)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS weight_delivery_bands (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      zone_slug VARCHAR(100) DEFAULT NULL,
+      max_weight_kg DECIMAL(8,2) NOT NULL,
+      charge DECIMAL(10,2) NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS flash_offers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      title VARCHAR(255) DEFAULT NULL,
+      discount_percent DECIMAL(5,2) DEFAULT NULL,
+      sale_price DECIMAL(10,2) DEFAULT NULL,
+      starts_at DATETIME DEFAULT NULL,
+      ends_at DATETIME DEFAULT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+      INDEX idx_flash_product (product_id, is_active, ends_at)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS search_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      term VARCHAR(100) NOT NULL,
+      session_key VARCHAR(100) DEFAULT NULL,
+      user_id INT DEFAULT NULL,
+      results_count INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_search_term (term, created_at)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS site_visits (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_key VARCHAR(100) NOT NULL,
+      visit_date DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_visit_session_day (session_key, visit_date),
+      INDEX idx_visit_date (visit_date)
+    )`);
+    const colsOf = async (table) => {
+      const [cols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?", [table]);
+      return new Set((cols || []).map(c => c.COLUMN_NAME));
+    };
+    const addCols = async (table, cols) => {
+      const have = await colsOf(table);
+      for (const [col, def] of cols) {
+        if (!have.has(col)) await db.query(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+      }
+    };
+    await addCols('coupons', [
+      ['max_total_uses', 'INT DEFAULT NULL'],
+      ['max_uses_per_customer', 'INT DEFAULT NULL'],
+      ['min_order_amount', 'DECIMAL(10,2) DEFAULT NULL'],
+    ]);
+    await addCols('order_returns', [
+      ['request_type', "VARCHAR(20) NOT NULL DEFAULT 'return'"],
+      ['admin_note', 'VARCHAR(500) DEFAULT NULL'],
+    ]);
+    await addCols('chat_conversations', [
+      ['unread_admin', 'INT NOT NULL DEFAULT 0'],
+    ]);
+    await addCols('users', [
+      ['failed_login_attempts', 'INT NOT NULL DEFAULT 0'],
+      ['locked_until', 'DATETIME DEFAULT NULL'],
+    ]);
+  } catch (err) {
+    console.error('Admin Ops tables skip holo:', err.message);
+  }
+})();
+
 // ---------- WHMCS-style admin (fix/whmcs-style-admin): customer notes + ticket status ----------
 // Additive columns only, safe defaults — a missing table/column only logs,
 // the server never crashes on it.
@@ -661,11 +770,13 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // ---------- Security Headers (Helmet) ----------
-// contentSecurityPolicy off rakha hoyeche kaw Google Analytics, Facebook Pixel,
-// ebong EJS-er onek inline <script> block ache - CSP on thakle egulo block hoye
-// jete pare. Baki shob security header (clickjacking, MIME-sniffing protection
-// ityadi) thik-i thakbe.
-app.use(helmet({ contentSecurityPolicy: false, hsts: false }));
+// CSP (feat/admin-ops, I14): the policy lives in lib/admin-ops.js.
+// Inline scripts/styles are still allowed ('unsafe-inline') because
+// the EJS views use them everywhere — the policy still blocks object
+// embeds, framing and off-site form posts. HSTS stays off (same as
+// before — the live server terminates TLS in front of the app).
+const { cspPolicy } = require('./lib/admin-ops');
+app.use(helmet({ contentSecurityPolicy: { directives: Object.fromEntries(cspPolicy().split('; ').map((d) => { const [k, ...v] = d.split(' '); return [k, v]; })) }, hsts: false }));
 
 // ---------- HTTPS Force Redirect (SSL thik moto kaj korle-i .env e
 // FORCE_HTTPS=true kore চালু korben, nahole site বন্ধ হয়ে jete pare) ----------
@@ -723,6 +834,12 @@ app.use(session({
   secret: sessionSecret || crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: true,
+  // I1 (feat/admin-ops): sessions live in MySQL (lib/mysql-session-store.js),
+  // so a deploy restart no longer logs out admins or empties carts.
+  // If the sessions table/DB is unavailable, the store falls back to
+  // in-memory sessions for that call and retries MySQL later — the
+  // site never fails to start because of sessions.
+  store: (() => { try { return new (require('./lib/mysql-session-store'))(); } catch (e) { console.error('MySQL session store init failed — using in-memory sessions:', e.message); return undefined; } })(),
   cookie: {
     maxAge: 1000 * 60 * 60 * 24, // 1 din
     secure: process.env.FORCE_HTTPS === 'true' // HTTPS chalu thakle-i cookie-o শুধু HTTPS-e jabe
@@ -770,6 +887,21 @@ app.use(async (req, res, next) => {
   // the session and the footer shows it once, then it is cleared.
   res.locals.newsletterMsg = (req.session && req.session.newsletterMsg) || null;
   if (req.session) delete req.session.newsletterMsg;
+  // I10 (feat/admin-ops): one real visit row per session per day
+  // (Asia/Dhaka date), for the Analytics funnel. Once per session
+  // per day only — the flag rides in the (now persistent) session,
+  // so this costs one INSERT IGNORE a day per visitor, never per
+  // page. Admin pages and API calls are not counted as shop visits.
+  try {
+    if (req.session && req.sessionID && req.method === 'GET' && !req.path.startsWith('/admin') && !req.path.startsWith('/api/')) {
+      const dhakaDay = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+      if (req.session.visitLoggedDay !== dhakaDay) {
+        req.session.visitLoggedDay = dhakaDay;
+        const dbVisit = require('./config/db');
+        dbVisit.query('INSERT IGNORE INTO site_visits (session_key, visit_date) VALUES (?, ?)', [String(req.sessionID), dhakaDay]).catch(() => {});
+      }
+    }
+  } catch (e) { /* visit logging never breaks a page */ }
   // Mini-cart drawer (fix/mini-cart-drawer-hover): the shop footer
   // partial is on every shop page, so the drawer needs the cart LINES
   // + subtotal without a new query or route — the session cart already

@@ -368,6 +368,11 @@ a { text-decoration: none; color: inherit; }
 .product-card:focus-within { transform: translateY(-10px); box-shadow: 0 0 0 2px var(--mega-hover-gold), 0 18px 36px rgba(0, 0, 0, 0.28); }
 .product-card:focus-within .product-card-foot { background: var(--card-foot-hover); }
 .product-card .btn-card:focus-visible { background: var(--success); color: #fff; outline: 2px solid var(--text-strong); outline-offset: 2px; }
+/* Compare (feat/admin-ops, I4): the "In Compare" state reads as
+   selected — gold background, dark text — so the customer can see
+   at a glance which products are already in the compare tray. */
+.btn-card--compare.compare-btn--on { background: #f0a500 !important; color: #111 !important; border-color: #f0a500 !important; }
+.flash-countdown { font-weight: 700; color: #b45309; }
 .product-card .btn-card:active { background: #176327; color: #fff; }
 .product-card .price { padding: 6px 12px 14px; color: var(--accent-text); font-weight: bold; }
 .product-card .price-row { padding: 6px 12px 14px; margin-bottom: 0; flex-wrap: wrap; }

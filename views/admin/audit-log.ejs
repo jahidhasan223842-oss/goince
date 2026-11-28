@@ -1,0 +1,50 @@
+<%- include('../partials/admin-header') %>
+
+<h1>📋 Audit Log</h1>
+<p class="field-hint">Every admin action, recorded — who did what, when. Passwords and secrets are never stored here.</p>
+
+<form method="GET" action="/admin/audit-log" class="admin-form admin-form--wide" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
+  <div>
+    <label>Admin email</label>
+    <input type="text" name="admin" value="<%= adminFilter %>" placeholder="e.g. admin@goince.com">
+  </div>
+  <div>
+    <label>Action</label>
+    <input type="text" name="action" value="<%= actionFilter %>" placeholder="e.g. order.status">
+  </div>
+  <button type="submit" class="btn-primary">Filter</button>
+  <% if (adminFilter || actionFilter) { %><a href="/admin/audit-log" class="btn-secondary">Clear</a><% } %>
+</form>
+
+<p style="margin-top:16px;"><strong><%= totalCount %></strong> <%= Number(totalCount) === 1 ? 'entry' : 'entries' %> — page <%= page %> of <%= totalPages %></p>
+
+<% if (!rows.length) { %>
+  <div class="empty-state">
+    <span class="empty-state-icon">📋</span>
+    <strong>No audit entries yet</strong>
+    <p>Admin actions (order status changes, product edits, coupon changes, settings saves…) will appear here.</p>
+  </div>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>What</th><th>Details</th></tr></thead>
+  <tbody>
+    <% rows.forEach(r => { %>
+      <tr>
+        <td style="white-space:nowrap;"><%= new Date(r.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></td>
+        <td><%= r.admin_email || '—' %></td>
+        <td><code><%= r.action %></code></td>
+        <td><%= r.entity_type ? r.entity_type + ' #' + (r.entity_id || '') : '—' %></td>
+        <td><small><%= r.details || '' %></small></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<div style="margin-top:16px; display:flex; gap:8px;">
+  <% if (page > 1) { %><a href="/admin/audit-log?page=<%= page - 1 %><% if (adminFilter) { %>&admin=<%= encodeURIComponent(adminFilter) %><% } %><% if (actionFilter) { %>&action=<%= encodeURIComponent(actionFilter) %><% } %>" class="btn-secondary">← Previous</a><% } %>
+  <% if (page < totalPages) { %><a href="/admin/audit-log?page=<%= page + 1 %><% if (adminFilter) { %>&admin=<%= encodeURIComponent(adminFilter) %><% } %><% if (actionFilter) { %>&action=<%= encodeURIComponent(actionFilter) %><% } %>" class="btn-secondary">Next →</a><% } %>
+</div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

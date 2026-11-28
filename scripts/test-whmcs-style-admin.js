@@ -18,7 +18,8 @@
 //   5. Messages: status filter pills, detail page, reply marks Answered,
 //      status change works, read marks Answered.
 //   6. Source checks: convention comment, CSS rules, permission registry
-//      (23 permissions — feat/retention added campaigns.manage).
+//      (26 permissions — feat/retention added campaigns.manage,
+//      feat/admin-ops added analytics.view, audit.view, flash-offers.manage).
 //
 // Run:  node scripts/test-whmcs-style-admin.js
 // Exit code 0 = all checks passed.
@@ -250,8 +251,12 @@ async function waitForServer(tries = 50) {
     has(dash.text, 'admin-topbar') && has(dash.text, 'action="/admin/search"') &&
     has(dash.text, 'admin-bell-btn') && has(dash.text, 'admin-user-btn'),
     'top bar pieces missing');
-  check('bell badge shows total 8 (1 pending + 2 queue + 3 unread + 2 reviews)',
-    has(dash.text, 'admin-bell-badge">8'), 'badge not found');
+  // feat/admin-ops: the bell total now also counts unread live-chat
+  // messages (0 in this fixture) + pending return/cancel requests
+  // (1 here — the stub returns 1 for the order_returns count, the
+  // same fixture pattern as the 1 pending order).
+  check('bell badge shows total 9 (1 pending + 2 queue + 3 unread + 2 reviews + 0 unread chats + 1 pending return)',
+    has(dash.text, 'admin-bell-badge">9'), 'badge not found');
   check('bell menu lists pending orders, phone queue and unread messages',
     has(dash.text, '/admin/orders?status=Pending') && has(dash.text, '/admin/activity') &&
     has(dash.text, '/admin/messages') && has(dash.text, 'waiting for a phone call'));
@@ -370,8 +375,8 @@ async function waitForServer(tries = 50) {
     headerSrc.includes('admin-topbar') && headerSrc.includes('admin-bell-btn') &&
     headerSrc.includes('admin-breadcrumb') && headerSrc.includes('admin-nav-group-btn'));
   const { ALL_PERMISSIONS } = require('../lib/permissions');
-  check('permission registry has 23 permissions (22 + campaigns.manage, feat/retention)',
-    ALL_PERMISSIONS.length === 23, 'got ' + ALL_PERMISSIONS.length);
+  check('permission registry has 26 permissions (23 + analytics.view + audit.view + flash-offers.manage, feat/admin-ops)',
+    ALL_PERMISSIONS.length === 26, 'got ' + ALL_PERMISSIONS.length);
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'style.css'), 'utf8');
   check('CSS has the shell rules (topbar, bell badge, nav badge, breadcrumb, tabs)',
     css.includes('.admin-topbar') && css.includes('.admin-bell-badge') && css.includes('.admin-nav-badge') &&

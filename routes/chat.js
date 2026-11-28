@@ -49,7 +49,15 @@ router.post('/chat/send', async (req, res) => {
       'INSERT INTO chat_messages (conversation_id, sender, message) VALUES (?, ?, ?)',
       [conversation.id, 'customer', message]
     );
-    await db.query('UPDATE chat_conversations SET last_message_at = NOW() WHERE id = ?', [conversation.id]);
+    // I9 (feat/admin-ops): a customer message is an unread admin
+    // notification until an admin opens the conversation (Admin >
+    // Live Chat shows the badge; the bell counts it too). Guarded:
+    // old DBs have no unread_admin column yet.
+    try {
+      await db.query('UPDATE chat_conversations SET last_message_at = NOW(), unread_admin = unread_admin + 1 WHERE id = ?', [conversation.id]);
+    } catch (e) {
+      await db.query('UPDATE chat_conversations SET last_message_at = NOW() WHERE id = ?', [conversation.id]);
+    }
 
     res.json({ success: true });
   } catch (err) {

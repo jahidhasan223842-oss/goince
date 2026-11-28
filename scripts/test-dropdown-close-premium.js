@@ -621,13 +621,13 @@ function buildDoc() {
   const topnavHrefs = [...rendered.matchAll(/<a href="([^"]+)" class="admin-topnav-menu-link/g)].map((m) => m[1]);
   const expectedHrefs = [
     '/admin/products', '/admin/products/import', '/admin/attributes', '/admin/stock-alerts',
-    '/admin/categories', '/admin/banners', '/admin/inventory',
-    '/admin/invoices', '/admin/activity', '/admin/reports', '/admin/customers',
+    '/admin/categories', '/admin/banners', '/admin/flash-offers', '/admin/inventory',
+    '/admin/invoices', '/admin/activity', '/admin/reports', '/admin/analytics', '/admin/customers',
     '/admin/coupons', '/admin/abandoned-carts', '/admin/payment-methods', '/admin/delivery-zones',
     '/admin/chats', '/admin/messages', '/admin/reviews', '/admin/campaigns',
-    '/admin/settings', '/admin/test-email', '/admin/staff', '/admin/roles',
+    '/admin/audit-log', '/admin/settings', '/admin/test-email', '/admin/staff', '/admin/roles',
   ];
-  check('rendered top-nav menus still contain the same 23 links in the same order (21 + Abandoned Carts + Campaigns, feat/retention)',
+  check('rendered top-nav menus still contain the same 26 links in the same order (23 + Flash Offers + Analytics + Audit Log, feat/admin-ops)',
     JSON.stringify(topnavHrefs) === JSON.stringify(expectedHrefs),
     `got ${JSON.stringify(topnavHrefs)}`);
   check('rendered header still has the bell menu, profile menu, search panel and Dashboard link',
