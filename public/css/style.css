@@ -2891,29 +2891,50 @@ html:not([data-theme="dark"]) body.admin-login-body { --surface: #f7f9fb; }
   .search-form button:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
 }
 
-/* --- "Login / Sign Up" button: DU RONG-er hover, du pash theke
-   (fix/mini-cart-drawer-hover, donal: cursor niye asle du pash
-   theke 2 colour-e hover hobe) — INTERPRETATION (donal thik kore
-   dite parben): bam dik theke garo NEEL (var(--navy)) ar dan dik
-   theke garo SONALI (var(--mega-hover-gold) #966e00 — mega menu-r
-   hover-er-i rong) — prottekta button-er ordhek jure, majhkhane
-   eshe milbe; majher tuku sonali base-i thake. Sada lekha uporei
-   thake. Kaj kore ::before (bam ordhek, navy) + ::after (dan
-   ordhek, dark gold) diye — duitai .25s spring-e slide kore dhoke
-   ar mouse sorale slide kore beriye jay. z-index: -1 + isolation:
-   isolate — pseudo-duita button-er sonali background-er UPORE
-   kintu lekhar NICHE boshe, tai lekha kokhono dhaka pore na;
-   isolation na thakle -1 pseudo header-er background-er pichone
-   chole jeto ar dekha jeto na. Uporer .btn-nav-solid:hover rule
-   (accent-hover) eyi rule-er cheye kom specific (0,2,0 vs 0,3,0),
-   tai hover-e base sonali-i thake. Shudhu header-er button —
-   login page-er nijer button-e noy. :focus-visible-e hover-er
-   motoi treatment, jate keyboard-eo eki jinish dekha jay. */
+/* --- "My Account" button: DU RONG-er hover, du pash theke
+   (fix/mini-cart-drawer-hover, fix/my-account-button; donal: cursor
+   niye asle du pash theke 2 colour-e hover hobe) — INTERPRETATION
+   (donal thik kore dite parben): bam dik theke GOVIR BEGUNI
+   (#7c3aed) ar dan dik theke MAGENTA (#db2777) — prottekta button-er
+   ordhek jure, majhkhane eshe milbe; majher tuku sonali base-i
+   thake. Rong duita AASE EKTU ASTE — .5s-e slide kore dhoke
+   (fix/my-account-button, donal: "colour ta aser somoy ektu
+   slow hobe jate eta bojha jay" — rong asar somoy ektu slow
+   hobe, jate du pash theke duita rong asche ta sposto dekha jay;
+   .25s-e chokher poloke hoye jeto). .5s transition BASE rule-e
+   dewa (pseudo-duitar upore) — tai hover-e dhoka ar mouse-out-e
+   berono DUITAI .5s-e hoy (PR #72 lesson: :hover-e shudhu
+   likhle berono-ta hotath kore hoto). EI DUITA RONG PAGE-ER
+   KONO RONGER MOTO NOY
+   (fix/my-account-button, donal: page-e je colour use korecho ta
+   jeno ei khane hover-er somoy na ase, vinno ekta colour; ar
+   "onno colour-er sathe jeno na mile" — onno kono ronger sathe
+   jeno na meshe) — navy (header), sonali #966e00 (mega-menu /
+   pill / card ring), sobuj #1f7a30 (Add to Cart hover, WhatsApp,
+   call button) ar mint foot — konotai ekhane nei. Prothome dan
+   dik-e TEAL (#0f766e) chhilo, kintu teal page-er sobuj-gulor
+   khub kachakachhi (Add to Cart hover #1f7a30, WhatsApp sobuj,
+   mint foot) — mishe jeto, tai MAGENTA-te bodlano holo; magenta
+   page-er kono ronger kachakachhi-o noy. Sada lekha
+   uporei thake — duita rong-ei sada lekhar contrast 4.5:1-er
+   upore (beguni ~5.70:1, magenta ~4.60:1, WCAG AA), test-e hisheb
+   kore check kora ache. Kaj kore ::before (bam ordhek, beguni)
+   + ::after (dan ordhek, magenta) diye — duitai .25s spring-e
+   slide kore dhoke ar mouse sorale slide kore beriye jay.
+   z-index: -1 + isolation: isolate — pseudo-duita button-er
+   sonali background-er UPORE kintu lekhar NICHE boshe, tai
+   lekha kokhono dhaka pore na; isolation na thakle -1 pseudo
+   header-er background-er pichone chole jeto ar dekha jeto
+   na. Uporer .btn-nav-solid:hover rule (accent-hover) eyi
+   rule-er cheye kom specific (0,2,0 vs 0,3,0), tai hover-e
+   base sonali-i thake. Shudhu header-er button — login page-er
+   nijer button-e noy. :focus-visible-e hover-er motoi
+   treatment, jate keyboard-eo eki jinish dekha jay. */
 .main-nav .btn-nav-solid { position: relative; overflow: hidden; isolation: isolate; }
 .main-nav .btn-nav-solid::before,
-.main-nav .btn-nav-solid::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50%; z-index: -1; transition: transform .25s cubic-bezier(.22, 1.25, .36, 1); }
-.main-nav .btn-nav-solid::before { left: 0; background: var(--navy); transform: translateX(-102%); }
-.main-nav .btn-nav-solid::after { right: 0; background: var(--mega-hover-gold); transform: translateX(102%); }
+.main-nav .btn-nav-solid::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50%; z-index: -1; transition: transform .5s cubic-bezier(.22, 1.25, .36, 1); }
+.main-nav .btn-nav-solid::before { left: 0; background: #7c3aed; transform: translateX(-102%); }
+.main-nav .btn-nav-solid::after { right: 0; background: #db2777; transform: translateX(102%); }
 @media (hover: hover) {
   .main-nav .btn-nav-solid:hover { background: var(--accent); color: #fff !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
   .main-nav .btn-nav-solid:hover::before,

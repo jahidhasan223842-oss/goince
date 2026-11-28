@@ -10,7 +10,7 @@
 //      Logout) turn gold (var(--accent)) on hover, lift
 //      translateY(-2px), and grow a gold underline sliding in from
 //      the left (::after scaleX 0 -> 1). The header is navy in BOTH
-//      themes, so gold reads in both. The single "Login / Sign Up"
+//      themes, so gold reads in both. The single "My Account"
 //      solid button is excluded from the underline (bordered/solid
 //      button) but still lifts + deepens its shadow on hover; the
 //      Search button darkens + lifts. (fix/header-account-menu:
@@ -185,15 +185,20 @@ function ruleBody(source, selectorRe) {
     'no underline on :focus-visible');
 
   // ---------- 4. Header buttons: lift + shadow ----------
-  // UPDATED (fix/mini-cart-drawer-hover): the Login / Sign Up hover
-  // is no longer a plain accent-hover darken — it is the two-colour
-  // treatment (navy slides in from the left, dark gold from the
-  // right, white text, base gold kept). The old accent-hover rule
-  // is still in the file but the more specific .main-nav
-  // .btn-nav-solid:hover rule (0,3,0, later) wins, so the button
-  // never shows accent-hover. Assert the NEW end state here; the
-  // new suite (test-mini-cart-drawer.js) covers the pseudos.
-  check('buttons: single "Login / Sign Up" solid button gets the two-colour hover (navy left + dark gold right, white text) instead of the old accent-hover darken (fix/mini-cart-drawer-hover: no separate outline Login button)',
+  // UPDATED (fix/mini-cart-drawer-hover, fix/my-account-button):
+  // the "My Account" hover is the two-colour treatment — deep
+  // purple #7c3aed slides in from the left, magenta #db2777 from
+  // the right, white text, base gold kept. (The PR #77 pair was
+  // navy + dark gold — the page's own colours; donal said the
+  // page's colours must not appear here, and the new colours must
+  // not match any other colour on the page. Teal was tried first
+  // and dropped: too close to the page's greens.) The old
+  // accent-hover rule is still in the file but the more specific
+  // .main-nav .btn-nav-solid:hover rule (0,3,0, later) wins, so
+  // the button never shows accent-hover. Assert the NEW end state
+  // here; the new suite (test-mini-cart-drawer.js) covers the
+  // pseudos.
+  check('buttons: single "My Account" solid button gets the two-colour hover (purple #7c3aed left + magenta #db2777 right, white text) instead of the old accent-hover darken (fix/my-account-button: no separate outline Login button)',
     /\.main-nav \.btn-nav-solid:hover \{[^}]*background:\s*var\(--accent\);[^}]*color:\s*#fff !important/.test(hoverBlocks)
     && /\.main-nav \.btn-nav-solid:hover \{[^}]*box-shadow:/.test(hoverBlocks)
     && !/\.main-nav \.btn-nav-solid:hover \{[^}]*background:\s*var\(--accent-hover\)/.test(hoverBlocks)
@@ -361,7 +366,7 @@ function ruleBody(source, selectorRe) {
     check('shop header renders (EJS)', false, String(e && e.message));
   }
   if (html) {
-    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'class="theme-toggle-btn"', 'href="/login" class="btn-nav-solid">Login / Sign Up</a>'];
+    const order = ['Search products...', 'href="/">Home</a>', 'id="mega-menu-btn"', 'class="theme-toggle-btn"', 'href="/login" class="btn-nav-solid">My Account</a>'];
     let lastIdx = -1;
     let inOrder = true;
     for (const piece of order) {
@@ -369,7 +374,7 @@ function ruleBody(source, selectorRe) {
       if (i < 0 || i < lastIdx) { inOrder = false; break; }
       lastIdx = i;
     }
-    check('header render: logo, search, Home, Categories, theme toggle, single "Login / Sign Up" in order (NO Cart link)', inOrder && html.includes('class="logo"'));
+    check('header render: logo, search, Home, Categories, theme toggle, single "My Account" in order (NO Cart link)', inOrder && html.includes('class="logo"'));
     check('header render: no desktop Cart link in the nav (fix/header-cart-side-tab)', !html.includes('href="/cart">Cart'));
     check('header render: theme toggle present', html.includes('toggleGoinceTheme()'));
     check('header render: drawer Cart badge shows the count (2)', html.includes('<span class="badge">2</span>'));
@@ -410,7 +415,7 @@ function ruleBody(source, selectorRe) {
     // (fix/header-cart-side-tab + fix/header-account-menu): the nav
     // has NO Cart link any more, and Login + Sign Up are ONE button —
     // the stubbed nav mirrors the real one: Home, Categories wrap,
-    // single Login / Sign Up link.
+    // single "My Account" link.
     const nav = { children: [home, wrap, login] };
     const sandbox = {
       document: {

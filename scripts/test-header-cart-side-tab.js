@@ -182,7 +182,7 @@ function mobileTopRow(html) {
   if (outHtml) {
     check('header render logged-out: desktop nav has NO Cart link', !navBlock(outHtml).includes('/cart'));
     check('header render logged-out: mobile top row has NO cart icon', !mobileTopRow(outHtml).includes('/cart'));
-    check('header render logged-out: nav still has Home, Categories, Login, Sign Up', navBlock(outHtml).includes('href="/">Home</a>') && outHtml.includes('id="mega-menu-btn"') && navBlock(outHtml).includes('Login') && navBlock(outHtml).includes('Sign Up'));
+    check('header render logged-out: nav still has Home, Categories, My Account (fix/my-account-button — was "Login / Sign Up")', navBlock(outHtml).includes('href="/">Home</a>') && outHtml.includes('id="mega-menu-btn"') && navBlock(outHtml).includes('>My Account</a>'));
     check('header render logged-out: drawer Cart entry still present', outHtml.includes('href="/cart" class="shop-drawer-link"'));
     check('header render logged-out: no cart badge in the top bar (badge lives on the side tab + drawer)', !navBlock(outHtml).includes('badge') && !mobileTopRow(outHtml).includes('badge'));
   }

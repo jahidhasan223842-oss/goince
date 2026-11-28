@@ -34,7 +34,7 @@
 //      redirects with ?pw=.
 //   6. Header renders the avatar img when a photo exists and the
 //      initial-letter circle when it does not (desktop nav + drawer);
-//      logged-out visitors still get Login / Sign Up.
+//      logged-out visitors still get the "My Account" button.
 //   7. server.js: startup migration adds users.photo_url, and the
 //      global locals middleware exposes userPhotoUrl from the session.
 //
@@ -272,8 +272,9 @@ async function renderProfile(overrides) {
     check('header renders logged-out', false, String(e && e.message));
   }
   if (headerLoggedOut) {
-    check('header (logged out): Login / Sign Up buttons, no avatar',
+    check('header (logged out): "My Account" button, no avatar',
       headerLoggedOut.includes('href="/login"') && headerLoggedOut.includes('href="/signup"')
+      && headerLoggedOut.includes('>My Account</a>') && !headerLoggedOut.includes('>Login / Sign Up</a>')
       && !headerLoggedOut.includes('shop-user-avatar'));
   }
 

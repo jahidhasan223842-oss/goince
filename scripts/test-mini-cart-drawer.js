@@ -12,15 +12,29 @@
 // should also transition and hover up a bit.
 //
 // What was built (interpretations stated so donal can correct them):
-//   1. LOGIN / SIGN UP — TWO COLOURS FROM BOTH SIDES: the single
-//      solid gold header button gets a hover where a dark navy fill
-//      slides in from the LEFT and a dark gold fill (#966e00, the
-//      site's mega-hover-gold) slides in from the RIGHT, each
-//      covering half the button and meeting in the middle, white text
-//      staying on top. ::before (left half, navy) + ::after (right
-//      half, dark gold), .25s spring, sliding back out on mouse-out.
-//      Base button stays gold. :focus-visible matches hover. Only
-//      the header button — not the login page's own buttons.
+//   1. MY ACCOUNT — TWO COLOURS FROM BOTH SIDES: the single
+//      solid gold header button gets a hover where a deep purple
+//      fill (#7c3aed) slides in from the LEFT and a magenta fill
+//      (#db2777) slides in from the RIGHT, each covering half the
+//      button and meeting in the middle, white text staying on top.
+//      ::before (left half, purple) + ::after (right half,
+//      magenta), .5s spring (SLOW — donal: the colours must
+//      come in slowly so the two-sided sweep is clearly visible),
+//      sliding back out on mouse-out. Base button stays gold. :focus-visible matches hover. Only the
+//      header button — not the login page's own buttons.
+//      (fix/my-account-button, 2026-11-28: donal chose the "My
+//      Account" label and said the page's colours must NOT appear
+//      here at hover time — a different colour — and the new colours
+//      must NOT match/blend with any other colour on the page. The
+//      PR #77 pair (navy left + dark gold right) WAS the page's
+//      colours, so it was replaced. The first replacement pair was
+//      purple + TEAL, but teal is too close to the page's greens
+//      (Add to Cart hover #1f7a30, WhatsApp green, mint foot), so
+//      donal's "must not match" instruction replaced teal with
+//      MAGENTA, which is distinct from every colour on the page:
+//      navy, gold/amber/orange, green/mint, red badge, blue pills
+//      band. Both pass WCAG AA vs white text, computed in the
+//      tests below — purple ~5.70:1, magenta ~4.60:1.)
 //   2. ADD TO CART — ANOTHER COLOUR + TRANSITION + LIFT: hover
 //      colour is now GREEN — var(--success) #1f7a30, #176327 on
 //      press — the exact green pair already used by .btn-call
@@ -151,16 +165,37 @@ function ruleBody(topCss, selector) {
 
 const SPRING = 'cubic-bezier\\(\\.22, 1\\.25, \\.36, 1\\)';
 
+// WCAG contrast ratio between two #rrggbb colours (sRGB, relative
+// luminance). Used to prove the hover colours keep white text
+// readable (AA needs >= 4.5:1 for normal text).
+function contrastRatio(hexA, hexB) {
+  const lum = (hex) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const l1 = lum(hexA); const l2 = lum(hexB);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
 (async () => {
   console.log('Mini-cart drawer + hover polish (fix/mini-cart-drawer-hover) checks:');
 
-  // ---------- 1. Login / Sign Up — two colours from both sides ----------
+  // ---------- 1. My Account — two colours from both sides ----------
   const loginBase = ruleBody(cssTopLevel, '.main-nav .btn-nav-solid');
   check('login: header button is positioned + clipped + isolated (pseudos sit above the gold, below the text)', !!loginBase && /position:\s*relative/.test(loginBase) && /overflow:\s*hidden/.test(loginBase) && /isolation:\s*isolate/.test(loginBase));
-  check('login: ::before is the LEFT half, dark navy, slid out to the left', /\.main-nav \.btn-nav-solid::before \{[^}]*left:\s*0[^}]*background:\s*var\(--navy\)[^}]*transform:\s*translateX\(-102%\)/.test(cssTopLevel));
-  check('login: ::after is the RIGHT half, dark gold #966e00 (var(--mega-hover-gold)), slid out to the right', /\.main-nav \.btn-nav-solid::after \{[^}]*right:\s*0[^}]*background:\s*var\(--mega-hover-gold\)[^}]*transform:\s*translateX\(102%\)/.test(cssTopLevel));
+  check('login: ::before is the LEFT half, deep purple #7c3aed, slid out to the left (fix/my-account-button — NOT navy any more)', /\.main-nav \.btn-nav-solid::before \{[^}]*left:\s*0[^}]*background:\s*#7c3aed[^}]*transform:\s*translateX\(-102%\)/.test(cssTopLevel));
+  check('login: ::after is the RIGHT half, magenta #db2777, slid out to the right (fix/my-account-button — teal was too close to the page greens, so magenta)', /\.main-nav \.btn-nav-solid::after \{[^}]*right:\s*0[^}]*background:\s*#db2777[^}]*transform:\s*translateX\(102%\)/.test(cssTopLevel));
+  check('login: the hover pair uses NEITHER of the page colours — no navy, no gold #966e00 / mega-hover-gold, no green #1f7a30 / success, no teal #0f766e (dropped: too close to the page greens)', (() => {
+    const before = (cssTopLevel.match(/\.main-nav \.btn-nav-solid::before \{[^}]*\}/) || [''])[0];
+    const after = (cssTopLevel.match(/\.main-nav \.btn-nav-solid::after \{[^}]*\}/) || [''])[0];
+    const pair = before + after;
+    return !/var\(--navy\)/.test(pair) && !/var\(--mega-hover-gold\)/.test(pair) && !/#966e00/.test(pair)
+      && !/var\(--success\)/.test(pair) && !/#1f7a30/.test(pair) && !/var\(--accent\)/.test(pair) && !/#0f766e/.test(pair);
+  })());
+  check('login: BOTH hover colours pass WCAG AA vs white text (contrast >= 4.5:1, computed)', contrastRatio('#7c3aed', '#ffffff') >= 4.5 && contrastRatio('#db2777', '#ffffff') >= 4.5, `purple ${contrastRatio('#7c3aed', '#ffffff').toFixed(2)}:1, magenta ${contrastRatio('#db2777', '#ffffff').toFixed(2)}:1`);
   check('login: each pseudo covers exactly half the button (width: 50%)', (cssTopLevel.match(/\.main-nav \.btn-nav-solid::(?:before|after) \{[^}]*width:\s*50%/) || []).length >= 1 && /\.main-nav \.btn-nav-solid::before,[\s\S]*?width:\s*50%/.test(cssTopLevel));
-  check('login: pseudos slide with a .25s spring transition (declared on the pseudos, not only on :hover)', new RegExp(`\\.main-nav \\.btn-nav-solid::before,[\\s\\S]*?transition:\\s*transform \\.25s ${SPRING}`).test(cssTopLevel));
+  check('login: pseudos slide with a SLOW .5s spring transition (fix/my-account-button: donal wants the colours to come in slowly so the sweep is clearly visible; declared on the pseudos, not only on :hover, so in AND out are both .5s)', new RegExp(`\\.main-nav \\.btn-nav-solid::before,[\\s\\S]*?transition:\\s*transform \\.5s ${SPRING}`).test(cssTopLevel));
   check('login: pseudos sit behind the text (z-index: -1)', /\.main-nav \.btn-nav-solid::before,[\s\S]*?z-index:\s*-1/.test(cssTopLevel));
   check('login: hover slides BOTH halves in (translateX(0)) inside @media (hover: hover)', /\.main-nav \.btn-nav-solid:hover::before,[\s\S]*?\.main-nav \.btn-nav-solid:hover::after \{[^}]*transform:\s*translateX\(0\)/.test(hoverBlocks));
   check('login: hover keeps the gold base (NOT accent-hover) and turns the text white', /\.main-nav \.btn-nav-solid:hover \{[^}]*background:\s*var\(--accent\);[^}]*color:\s*#fff !important/.test(hoverBlocks));
