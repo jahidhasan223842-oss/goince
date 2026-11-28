@@ -165,8 +165,11 @@ const checkoutLocals = {
     && /deliveryInside: deliveryCharges\.inside_dhaka, deliveryOutside: deliveryCharges\.outside_dhaka,/.test(shopRoutes));
   check('E2 route: POST /checkout still stores lastOrderId in the session (E9 gate)',
     /req\.session\.lastOrderId = orderId;/.test(shopRoutes));
-  check('guard: free-delivery rule untouched — ৳0 only when EVERY cart item is free_shipping, else the zone charge',
-    /const deliveryCharge = flags\.allFreeShipping \? 0 : \(zone \? zone\.charge/.test(shopRoutes)
+  // feat/admin-ops I8: the delivery-charge line is now weight-aware
+  // (a matching weight band replaces the zone charge); the
+  // allFreeShipping ? 0 rule itself is unchanged.
+  check('guard: free-delivery rule untouched — ৳0 only when EVERY cart item is free_shipping, else the zone charge (or a matching weight band)',
+    /const deliveryCharge = flags\.allFreeShipping \? 0 : ops\.weightDeliveryCharge\(cartWeight, weightBands, \(zone \? zone\.charge/.test(shopRoutes)
     && /allFreeShipping: rows\.length > 0 && rows\.every\(r => r\.free_shipping\)/.test(shopRoutes));
   check('guard: no payment gateway added — gateway option still only renders when configured (unchanged block)',
     /const gatewayMethodName = 'Online Payment \(Gateway\)';/.test(shopRoutes)

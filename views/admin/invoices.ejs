@@ -33,7 +33,10 @@
   <% }) %>
 </div>
 
-<p><strong><%= totalCount %></strong> <%= Number(totalCount) === 1 ? 'invoice' : 'invoices' %><%= _statusFilter ? ' with status ' + _statusFilter : '' %> — page <%= page %> of <%= totalPages %></p>
+<p><strong><%= totalCount %></strong> <%= Number(totalCount) === 1 ? 'invoice' : 'invoices' %><%= _statusFilter ? ' with status ' + _statusFilter : '' %> — page <%= page %> of <%= totalPages %>
+&nbsp; <a href="/admin/orders/export?tab=<%= tab %><%= _statusQs %>" class="btn-secondary">⇩ Export Orders CSV</a>
+&nbsp; <a href="/admin/invoices/export?tab=<%= tab %><%= _statusQs %>" class="btn-secondary">⇩ Export Invoices CSV</a></p>
+<p class="field-hint">The CSV contains the same filtered list shown here (payment tab + status filter).</p>
 
 <% if (!rows.length) { %>
   <div class="empty-state">

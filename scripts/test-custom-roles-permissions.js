@@ -120,7 +120,7 @@ check('owner has every registry permission',
 
 console.log('Unit (registry invariants)');
 check('all permission ids unique', new Set(ALL_PERMISSIONS).size === ALL_PERMISSIONS.length, String(ALL_PERMISSIONS.length));
-check('registry has 23 permissions (22 + campaigns.manage, feat/retention)', ALL_PERMISSIONS.length === 23, String(ALL_PERMISSIONS.length));
+check('registry has 26 permissions (23 + analytics.view + audit.view + flash-offers.manage, feat/admin-ops)', ALL_PERMISSIONS.length === 26, String(ALL_PERMISSIONS.length));
 check('every group has at least one item', PERMISSION_GROUPS.every((g) => g.items.length > 0));
 check('filterGrantable strips permissions the saver lacks',
   JSON.stringify(filterGrantable(['orders.view', 'settings.manage', 'bogus.perm'], ['orders.view'])) === JSON.stringify(['orders.view']));

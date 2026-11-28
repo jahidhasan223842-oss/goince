@@ -215,6 +215,15 @@
   <input type="password" name="vapid_private_key" placeholder="leave blank to keep the current one" autocomplete="new-password">
   <p class="field-hint">Generate a VAPID key pair once with <code>npx web-push generate-vapid-keys</code> and paste both keys here. Until BOTH keys are saved and push is enabled, the customer subscribe prompt stays off and never errors. (The admin order push uses the .env VAPID keys — this is only for customers.)</p>
 
+  <hr style="margin:20px 0;">
+  <h3>🔐 Admin Ops — Customer Login Lockout</h3>
+  <p class="field-hint">After this many failed login attempts, a customer account locks for this long. A successful login resets the counter. This never locks admins out — customer login only.</p>
+  <% const _ao = (typeof adminOps !== 'undefined' && adminOps) || {}; %>
+  <label>Failed login attempts before lockout (default 5)</label>
+  <input type="number" name="login_lockout_max_attempts" min="1" max="20" value="<%= _ao.loginLockoutMaxAttempts || '5' %>">
+  <label>Lockout time (minutes, default 15)</label>
+  <input type="number" name="login_lockout_minutes" min="1" max="1440" value="<%= _ao.loginLockoutMinutes || '15' %>">
+
   <button type="submit" class="btn-primary" style="padding:14px 32px; font-size:16px; width:100%;">💾 Save Settings</button>
 </form>
 

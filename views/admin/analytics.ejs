@@ -1,0 +1,76 @@
+<%- include('../partials/admin-header') %>
+
+<h1>📈 Analytics</h1>
+<p class="field-hint">Real numbers only — nothing here is estimated or made up. Visitors and top search terms are counted from <strong><%= countingFrom %></strong> (the day this feature went live); a period before that honestly shows 0 for those two rows.</p>
+
+<div style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+  <span style="font-weight:600; color:var(--text-muted); font-size:13px;">Period:</span>
+  <% [[7,'Last 7 days'],[30,'Last 30 days'],[90,'Last 90 days']].forEach(([d, label]) => { %>
+    <a href="/admin/analytics?days=<%= d %>" class="btn-sm <%= days === d ? 'btn-sm--primary' : '' %>" style="text-decoration:none;"><%= label %></a>
+  <% }) %>
+  <span class="field-hint" style="margin:0;"><%= from %> → <%= to %></span>
+</div>
+
+<h2>Conversion funnel</h2>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Step</th><th>Count</th><th>Conversion from previous step</th><th>Where it comes from</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Visitors</strong></td><td><%= funnel.visitors.toLocaleString() %></td><td>—</td><td>Distinct shop visits (site_visits, one row per session per day)</td></tr>
+    <tr><td><strong>Viewed a product</strong></td><td><%= funnel.viewers.toLocaleString() %></td><td><%= funnel.viewRate === null ? 'Not enough data yet' : funnel.viewRate + '%' %></td><td>Distinct sessions in product_view_history</td></tr>
+    <tr><td><strong>Reached checkout</strong></td><td><%= funnel.checkouts.toLocaleString() %></td><td><%= funnel.checkoutRate === null ? 'Not enough data yet' : funnel.checkoutRate + '%' %></td><td>Checkout visits recorded (abandoned_carts) or orders placed</td></tr>
+    <tr><td><strong>Orders placed</strong></td><td><%= funnel.orders.toLocaleString() %></td><td><%= funnel.orderRate === null ? 'Not enough data yet' : funnel.orderRate + '%' %></td><td>Non-cancelled orders</td></tr>
+    <tr><td><strong>Overall conversion</strong></td><td><%= funnel.orders.toLocaleString() %> / <%= funnel.visitors.toLocaleString() %></td><td><%= funnel.overallRate === null ? 'Not enough data yet' : funnel.overallRate + '%' %></td><td>Orders ÷ visitors</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 style="margin-top:28px;">Top search terms</h2>
+<% if (!topSearches.length) { %>
+  <p class="field-hint">No searches recorded in this period yet — terms customers type in the shop search box will appear here, most-searched first.</p>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Search term</th><th>Searches</th></tr></thead>
+  <tbody>
+    <% topSearches.forEach(t => { %>
+      <tr><td><strong><%= t.term %></strong></td><td><%= t.searches %></td></tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+
+<h2 style="margin-top:28px;">Top products by revenue</h2>
+<% if (!topProducts.length) { %>
+  <p class="field-hint">No orders in this period yet.</p>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Product</th><th>Units sold</th><th>Revenue</th></tr></thead>
+  <tbody>
+    <% topProducts.forEach(p => { %>
+      <tr><td><%= p.product_name %></td><td><%= p.units %></td><td>৳<%= Number(p.revenue).toFixed(2) %></td></tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+
+<h2 style="margin-top:28px;">Orders per day</h2>
+<% if (!daily.length) { %>
+  <p class="field-hint">No orders in this period yet.</p>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Day</th><th>Orders</th><th>Revenue</th></tr></thead>
+  <tbody>
+    <% daily.forEach(d => { %>
+      <tr><td><%= new Date(d.day).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td><td><%= d.orders %></td><td>৳<%= Number(d.revenue).toFixed(2) %></td></tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

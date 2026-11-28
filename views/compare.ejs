@@ -1,0 +1,76 @@
+<%- include('partials/header') %>
+
+<h1 class="page-title">Compare Products</h1>
+<p class="field-hint">Add up to <%= maxCompare %> products with the ⇄ Compare button on any product card or product page — they stay in your browser (no login needed).</p>
+
+<% if (!products.length) { %>
+  <div class="empty-state">
+    <span class="empty-state-icon">⇄</span>
+    <strong>No products to compare yet</strong>
+    <p>Pick 2–<%= maxCompare %> products with the ⇄ Compare button, then come back here.</p>
+    <a href="/" class="btn-primary">Browse products</a>
+  </div>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table compare-table">
+    <thead>
+      <tr>
+        <th></th>
+        <% products.forEach(p => { %>
+          <th><a href="/product/<%= p.id %>"><%= p.name %></a></th>
+        <% }) %>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Photo</strong></td>
+        <% products.forEach(p => { %>
+          <td><a href="/product/<%= p.id %>"><img src="/uploads/<%= p.image %>" alt="<%= p.name %>" style="max-width:120px; max-height:120px; object-fit:contain;" onerror="this.src='/uploads/no-image.png'"></a></td>
+        <% }) %>
+      </tr>
+      <tr>
+        <td><strong>Price</strong></td>
+        <% products.forEach(p => { %>
+          <td><strong>৳<%= p.price %></strong><% if (p.compare_at_price && p.compare_at_price > p.price) { %> <span class="compare-price">৳<%= p.compare_at_price %></span><% } %></td>
+        <% }) %>
+      </tr>
+      <tr>
+        <td><strong>Stock</strong></td>
+        <% products.forEach(p => { %>
+          <td><%= p.stock > 0 ? p.stock + ' in stock' : 'Out of stock' %></td>
+        <% }) %>
+      </tr>
+      <tr>
+        <td><strong>Brand</strong></td>
+        <% products.forEach(p => { %><td><%= p.brand || '—' %></td><% }) %>
+      </tr>
+      <tr>
+        <td><strong>Category</strong></td>
+        <% products.forEach(p => { %><td><%= p.category_name || '—' %></td><% }) %>
+      </tr>
+      <tr>
+        <td><strong>Weight</strong></td>
+        <% products.forEach(p => { %><td><%= p.weight_kg ? p.weight_kg + ' kg' : '—' %></td><% }) %>
+      </tr>
+      <tr>
+        <td><strong>Description</strong></td>
+        <% products.forEach(p => { %><td><%= p.short_description || (p.description ? String(p.description).slice(0, 120) : '—') %></td><% }) %>
+      </tr>
+      <tr>
+        <td></td>
+        <% products.forEach(p => { %>
+          <td>
+            <% if (p.stock > 0) { %>
+              <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
+            <% } else { %><span class="card-stock-out">Out of stock</span><% } %>
+            <br><a href="/compare?ids=<%= ids.filter(i => i !== p.id).join(',') %>">Remove from compare</a>
+          </td>
+        <% }) %>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:16px;"><a href="/" class="back-link">&larr; Continue shopping</a> &nbsp;·&nbsp; <a href="/compare">Clear all</a></p>
+<% } %>
+
+<%- include('partials/footer') %>

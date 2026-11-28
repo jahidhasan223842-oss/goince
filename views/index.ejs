@@ -34,6 +34,50 @@
     </section>
   <% }) %>
 <% } %>
+<% /* I11 (feat/admin-ops): flash offers — only active offers reach
+      the template (expired ones are filtered in the route), with a
+      live countdown to ends_at. */ %>
+<% if (typeof flashOffers !== 'undefined' && flashOffers && flashOffers.length > 0) { %>
+  <section class="flash-offers" style="margin:16px 0;">
+    <div class="section-heading"><h2>⚡ Flash Offers — limited time!</h2></div>
+    <div class="product-grid product-grid--fill">
+      <% flashOffers.forEach(o => { %>
+        <% const _fp = (typeof flashOfferByProduct !== 'undefined' && flashOfferByProduct[o.product_id]) ? flashOfferByProduct[o.product_id] : o; %>
+        <% const _prod = (typeof products !== 'undefined' ? products.find(pp => pp.id == o.product_id) : null) || (typeof bestSellers !== 'undefined' ? bestSellers.find(pp => pp.id == o.product_id) : null); %>
+        <% if (_prod) { %>
+          <div class="product-card">
+            <a href="/product/<%= _prod.id %>">
+              <img src="/uploads/<%= _prod.image %>" alt="<%= _prod.name %>" loading="lazy" onerror="this.src='/uploads/no-image.png'">
+              <h3><%= _prod.name %></h3>
+            </a>
+            <div class="product-card-foot">
+              <div class="price-row">
+                <p class="price">৳<%= (o.sale_price !== null && o.sale_price !== undefined) ? o.sale_price : (Number(_prod.price) * (1 - Number(o.discount_percent || 0) / 100)).toFixed(2) %></p>
+                <p class="compare-price">৳<%= _prod.price %></p>
+              </div>
+              <% if (o.title) { %><p><strong><%= o.title %></strong></p><% } %>
+              <% if (o.ends_at) { %><p class="flash-countdown" data-ends="<%= new Date(o.ends_at).toISOString() %>">Ends soon — hurry!</p><% } %>
+              <a href="/product/<%= _prod.id %>" class="btn-card">View Offer →</a>
+            </div>
+          </div>
+        <% } %>
+      <% }) %>
+    </div>
+  </section>
+  <script>
+    (function () {
+      function tick() {
+        document.querySelectorAll('.flash-countdown[data-ends]').forEach(function (el) {
+          var ms = new Date(el.getAttribute('data-ends')).getTime() - Date.now();
+          if (ms <= 0) { el.textContent = 'Offer ended'; return; }
+          var h = Math.floor(ms / 3600000), m = Math.floor(ms % 3600000 / 60000), s = Math.floor(ms % 60000 / 1000);
+          el.textContent = 'Ends in ' + h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+        });
+      }
+      tick(); setInterval(tick, 1000);
+    })();
+  </script>
+<% } %>
 <% } %>
 
 <div class="category-bar" id="products">
@@ -198,6 +242,7 @@
             <form action="/cart/add/<%= p.id %>" method="POST"><%- include('partials/csrf-field') %><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-card">🛒 Add to Cart</button></form>
           <% } %>
         <% } %>
+        <button type="button" class="btn-card btn-card--compare" data-compare-id="<%= p.id %>" style="margin-top:6px; background:transparent; color:var(--text-muted); border:1px solid var(--border);">⇄ Compare</button>
       </div>
     </div>
   <% }) %>

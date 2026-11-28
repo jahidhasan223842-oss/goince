@@ -9,6 +9,7 @@ const { buildInvoicePdf } = require('../lib/invoice-pdf');
 const { getWhatsAppConfig, sendInvoiceDocument, NOT_CONFIGURED: WHATSAPP_NOT_CONFIGURED } = require('../lib/whatsapp');
 const { isEmailConfigured, sendInvoiceEmail, sendMail } = require('../config/email');
 const ret = require('../lib/retention');
+const ops = require('../lib/admin-ops');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
@@ -20,6 +21,17 @@ const { validateProfileDetails, validateEmailChange, cropProfilePhoto } = requir
 function requireAdmin(req, res, next) {
   if (req.session.isAdmin) return next();
   res.redirect('/admin/login');
+}
+
+// I7 (feat/admin-ops): one-line audit writer for admin mutations.
+// Never throws and never logs secrets (lib/admin-ops.js strips
+// password/token/secret keys from details).
+function audit(req, action, entityType, entityId, details) {
+  return ops.logAdminAction(db, {
+    adminId: req.session ? req.session.adminId : null,
+    adminEmail: req.session ? req.session.adminEmail : null,
+    action, entityType, entityId, details,
+  });
 }
 
 // Stale-admin fix (fix/whmcs-top-nav): admin pages are private, per-admin
@@ -54,16 +66,21 @@ router.use(async (req, res, next) => {
       return Number((r && r.c) || 0);
     } catch (e) { return 0; }
   };
-  const [pendingOrders, phoneQueue, unreadMessages, pendingReviews, openOrders] = await Promise.all([
+  const [pendingOrders, phoneQueue, unreadMessages, pendingReviews, openOrders, unreadChats, pendingReturns] = await Promise.all([
     count("SELECT COUNT(*) AS c FROM orders WHERE status = 'Pending'"),
     count("SELECT COUNT(*) AS c FROM orders WHERE status != 'Cancelled' AND (phone_confirmed = 0 OR phone_confirmed IS NULL)"),
     count('SELECT COUNT(*) AS c FROM contact_messages WHERE is_read = 0'),
     count("SELECT COUNT(*) AS c FROM reviews WHERE status = 'pending'"),
     count("SELECT COUNT(*) AS c FROM orders WHERE status NOT IN ('Delivered', 'Cancelled')"),
+    // I9 (feat/admin-ops): customer live-chat messages the admin has
+    // not opened yet — bell badge + Live Chat nav badge.
+    count('SELECT COALESCE(SUM(unread_admin), 0) AS c FROM chat_conversations'),
+    // I3 (feat/admin-ops): return / cancel requests waiting for a decision.
+    count("SELECT COUNT(*) AS c FROM order_returns WHERE status = 'Pending'"),
   ]);
   res.locals.adminNotifications = {
-    pendingOrders, phoneQueue, unreadMessages, pendingReviews, openOrders,
-    total: pendingOrders + phoneQueue + unreadMessages + pendingReviews,
+    pendingOrders, phoneQueue, unreadMessages, pendingReviews, openOrders, unreadChats, pendingReturns,
+    total: pendingOrders + phoneQueue + unreadMessages + pendingReviews + unreadChats + pendingReturns,
   };
   next();
 });
@@ -655,11 +672,18 @@ router.get('/dashboard', requireAdmin, requirePermission('dashboard.view'), asyn
       ? ((Number(currentSummary.revenue) - Number(previousSummary.revenue)) / Number(previousSummary.revenue)) * 100
       : (Number(currentSummary.revenue) > 0 ? null : 0);
 
+    // I9/I3 (feat/admin-ops): unread live-chat messages + pending
+    // return/cancel requests — shown as attention cards on the
+    // dashboard. Guarded: a missing column/table shows 0, never a 500.
+    let unreadChats = 0, pendingReturns = 0;
+    try { const [[uc]] = await db.query('SELECT COALESCE(SUM(unread_admin), 0) AS c FROM chat_conversations'); unreadChats = Number((uc && uc.c) || 0); } catch (e) { /* stays 0 */ }
+    try { const [[pr]] = await db.query("SELECT COUNT(*) AS c FROM order_returns WHERE status = 'Pending'"); pendingReturns = Number((pr && pr.c) || 0); } catch (e) { /* stays 0 */ }
+
     res.render('admin/dashboard', {
       totalProducts, totalRevenue, totalCustomers, pendingOrders, todaysPendingCount,
       lowStockProducts, lowStockCount, outOfStockCount,
       pendingDue, pendingDueOrders, pendingReviews, unreadMessages, phoneQueueCount, todaysSummary, periodProfit,
-      dashboardCategorySales, topCustomers, shippedOrders, shippedTotal,
+      dashboardCategorySales, topCustomers, shippedOrders, shippedTotal, unreadChats, pendingReturns,
       dashboard: {
         range, from, to, prevFrom, prevTo, currentSummary, previousSummary,
         newCustomers: Number(newCustomers || 0), salesTrend, topProducts,
@@ -860,6 +884,7 @@ router.post('/products/add', requireAdmin, requirePermission('products.manage'),
       await db.query('INSERT INTO product_videos (product_id, filename) VALUES (?, ?)', [result.insertId, req.files.video[0].filename]);
     }
     await saveRelatedProducts(result.insertId, req.body.related_ids);
+    await audit(req, 'product.add', 'product', result.insertId, { name, price });
 
     // Add any extra gallery images to the product_images table
     if (req.files && req.files.gallery) {
@@ -952,6 +977,7 @@ router.post('/products/edit/:id', requireAdmin, requirePermission('products.mana
     if (oldP && newStock !== oldP.stock) {
       await logStockChange(id, null, newStock - oldP.stock, newStock, 'manual');
     }
+    await audit(req, 'product.edit', 'product', id, { name, price });
     // F2/F6 (feat/retention): 0 -> stock firle Notify Me subscriber-der
     // email (ekbar proti restock-e); daam komle wishlist-er customer-der
     // email (ekbar proti price-drop-e). Email configure na thakle
@@ -1286,6 +1312,7 @@ router.post('/products/:id/options/delete/:optionId', requireAdmin, requirePermi
 // ---------- DELETE PRODUCT ----------
 router.post('/products/delete/:id', requireAdmin, requirePermission('products.manage'), async (req, res) => {
   await db.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+  await audit(req, 'product.delete', 'product', req.params.id, {});
   res.redirect('/admin/products');
 });
 
@@ -1705,6 +1732,35 @@ router.get('/orders', requireAdmin, requirePermission('orders.view'), (req, res)
   res.redirect('/admin/invoices' + qs);
 });
 
+router.get('/orders/export', requireAdmin, requirePermission('orders.view'), async (req, res) => {
+  try {
+    const { whereSql, params } = ordersCsvWhere(req);
+    const [orders] = await db.query('SELECT * FROM orders' + whereSql + ' ORDER BY created_at DESC', params);
+    const csv = ops.toCsv([
+      { key: 'id', label: 'Order ID' }, { key: 'invoiceNo', label: 'Invoice No' },
+      { key: 'date', label: 'Date' }, { key: 'customer_name', label: 'Customer' },
+      { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' },
+      { key: 'address', label: 'Address' }, { key: 'delivery_zone', label: 'Delivery Zone' },
+      { key: 'delivery_charge', label: 'Delivery Charge' }, { key: 'coupon_code', label: 'Coupon' },
+      { key: 'discount_amount', label: 'Discount' }, { key: 'total_amount', label: 'Total' },
+      { key: 'payment_method', label: 'Payment Method' }, { key: 'payment_status', label: 'Payment Status' },
+      { key: 'status', label: 'Order Status' },
+    ], orders.map(o => ({
+      ...o, invoiceNo: invoiceNo(o.id),
+      date: o.created_at ? new Date(o.created_at).toISOString().slice(0, 19).replace('T', ' ') : '',
+      delivery_charge: Number(o.delivery_charge || 0).toFixed(2),
+      discount_amount: Number(o.discount_amount || 0).toFixed(2),
+      total_amount: Number(o.total_amount || 0).toFixed(2),
+    })));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="goince-orders.csv"');
+    res.send(csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('There was a problem exporting orders: ' + err.message);
+  }
+});
+
 // ---------- INVOICES ----------
 // An invoice IS an order (invoice no. GOINCE-00035 = order #35) — no separate
 // invoices table. Shared loader for the invoices page, print/PDF invoice and
@@ -1983,6 +2039,7 @@ router.post('/orders/:id/status', requireAdmin, requirePermission('orders.manage
   if (status === 'Cancelled' && !reason) return res.redirect(dest + '?err=cancel-reason');
   await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id = ?', [status, status === 'Cancelled' ? reason : null, req.params.id]);
   await recordStatusChange(req.params.id, order.status, status, status === 'Cancelled' ? ('Cancelled: ' + reason) : null, req.session.adminEmail);
+  await audit(req, 'order.status', 'order', req.params.id, { from: order.status, to: status });
   // F3/F4/F5/F8 (feat/retention): status change -> customer email +
   // push (if enabled + email/configured); Delivered -> loyalty points
   // for the real order + referral reward for the friend's first
@@ -2019,6 +2076,7 @@ router.post('/orders/bulk-status', requireAdmin, requirePermission('orders.manag
   const [orders] = await db.query('SELECT id, status FROM orders WHERE id IN (' + ids.map(() => '?').join(',') + ')', ids);
   await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id IN (' + ids.map(() => '?').join(',') + ')', [status, status === 'Cancelled' ? reason : null, ...ids]);
   for (const o of orders) await recordStatusChange(o.id, o.status, status, status === 'Cancelled' ? ('Cancelled (bulk): ' + reason) : 'Bulk status update', req.session.adminEmail);
+  await audit(req, 'order.bulk-status', 'order', ids.join(','), { to: status, count: ids.length });
   // F3/F4/F5 (feat/retention): same hooks as the single-status route.
   try {
     const settings = await ret.getRetentionSettings(db);
@@ -2126,6 +2184,7 @@ router.post('/orders/:id/returns/:returnId/status', requireAdmin, requirePermiss
   if (!RETURN_STATUSES.includes(status)) return res.redirect('/admin/orders/' + req.params.id + '?err=invalid-status');
   try {
     await db.query('UPDATE order_returns SET status = ? WHERE id = ? AND order_id = ?', [status, req.params.returnId, req.params.id]);
+    await audit(req, 'order.return-status', 'order', req.params.id, { returnId: req.params.returnId, to: status });
   } catch (e) { /* table not migrated yet */ }
   res.redirect('/admin/orders/' + req.params.id + '?msg=return-updated');
 });
@@ -2177,8 +2236,16 @@ router.post('/orders/:id/refresh-tracking', requireAdmin, requirePermission('ord
 });
 
 // ---------- COUPONS LIST ----------
+// I5 (feat/admin-ops): each coupon shows its limits + real usage
+// count (coupon_uses ledger) — a coupon with no limits shows "—".
 router.get('/coupons', requireAdmin, requirePermission('coupons.manage'), async (req, res) => {
   const [coupons] = await db.query('SELECT * FROM coupons ORDER BY created_at DESC');
+  let usageByCoupon = {};
+  try {
+    const [urows] = await db.query('SELECT coupon_id, COUNT(*) AS uses FROM coupon_uses GROUP BY coupon_id');
+    urows.forEach(r => { usageByCoupon[r.coupon_id] = Number(r.uses || 0); });
+  } catch (e) { /* ledger not migrated yet — usage stays 0 */ }
+  coupons.forEach(c => { c.uses = usageByCoupon[c.id] || 0; });
   res.render('admin/coupons', { coupons, siteName: 'Goince' });
 });
 
@@ -2186,10 +2253,12 @@ router.get('/coupons', requireAdmin, requirePermission('coupons.manage'), async 
 router.post('/coupons/add', requireAdmin, requirePermission('coupons.manage'), async (req, res) => {
   try {
     const { code, discount_percent, expiry_date } = req.body;
-    await db.query(
-      'INSERT INTO coupons (code, discount_percent, expiry_date) VALUES (?, ?, ?)',
-      [code.toUpperCase().trim(), discount_percent, expiry_date || null]
+    const limits = ops.parseCouponLimits(req.body);
+    const [result] = await db.query(
+      'INSERT INTO coupons (code, discount_percent, expiry_date, max_total_uses, max_uses_per_customer, min_order_amount) VALUES (?, ?, ?, ?, ?, ?)',
+      [code.toUpperCase().trim(), discount_percent, expiry_date || null, limits.max_total_uses, limits.max_uses_per_customer, limits.min_order_amount]
     );
+    await audit(req, 'coupon.add', 'coupon', result.insertId, { code: code.toUpperCase().trim(), discount_percent, ...limits });
     res.redirect('/admin/coupons');
   } catch (err) {
     console.error(err);
@@ -2197,15 +2266,32 @@ router.post('/coupons/add', requireAdmin, requirePermission('coupons.manage'), a
   }
 });
 
+// ---------- EDIT COUPON LIMITS ----------
+router.post('/coupons/edit/:id', requireAdmin, requirePermission('coupons.manage'), async (req, res) => {
+  try {
+    const limits = ops.parseCouponLimits(req.body);
+    const discount = parseInt(req.body.discount_percent, 10);
+    const sets = ['max_total_uses = ?', 'max_uses_per_customer = ?', 'min_order_amount = ?'];
+    const params = [limits.max_total_uses, limits.max_uses_per_customer, limits.min_order_amount];
+    if (Number.isFinite(discount) && discount >= 1 && discount <= 100) { sets.push('discount_percent = ?'); params.push(discount); }
+    if (req.body.expiry_date !== undefined) { sets.push('expiry_date = ?'); params.push(req.body.expiry_date || null); }
+    await db.query(`UPDATE coupons SET ${sets.join(', ')} WHERE id = ?`, [...params, req.params.id]);
+    await audit(req, 'coupon.edit', 'coupon', req.params.id, { ...limits });
+  } catch (err) { console.error(err); }
+  res.redirect('/admin/coupons');
+});
+
 // ---------- TOGGLE COUPON ACTIVE/INACTIVE ----------
 router.post('/coupons/toggle/:id', requireAdmin, requirePermission('coupons.manage'), async (req, res) => {
   await db.query('UPDATE coupons SET active = NOT active WHERE id = ?', [req.params.id]);
+  await audit(req, 'coupon.toggle', 'coupon', req.params.id, {});
   res.redirect('/admin/coupons');
 });
 
 // ---------- DELETE COUPON ----------
 router.post('/coupons/delete/:id', requireAdmin, requirePermission('coupons.manage'), async (req, res) => {
   await db.query('DELETE FROM coupons WHERE id = ?', [req.params.id]);
+  await audit(req, 'coupon.delete', 'coupon', req.params.id, {});
   res.redirect('/admin/coupons');
 });
 
@@ -2504,6 +2590,9 @@ router.get('/chats', requireAdmin, requirePermission('chats.manage'), async (req
 router.get('/chats/:id', requireAdmin, requirePermission('chats.manage'), async (req, res) => {
   const [[conversation]] = await db.query('SELECT * FROM chat_conversations WHERE id = ?', [req.params.id]);
   if (!conversation) return res.redirect('/admin/chats');
+  // I9 (feat/admin-ops): an admin has now seen this conversation —
+  // clear its unread counter (guarded: old DBs have no column yet).
+  try { await db.query('UPDATE chat_conversations SET unread_admin = 0 WHERE id = ?', [req.params.id]); } catch (e) { /* ignore */ }
   const [messages] = await db.query(
     'SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC',
     [req.params.id]
@@ -2586,7 +2675,37 @@ router.post('/payment-methods/delete/:id', requireAdmin, requirePermission('paym
 // ==================== DELIVERY ZONES ====================
 router.get('/delivery-zones', requireAdmin, requirePermission('delivery-zones.manage'), async (req, res) => {
   const [zones] = await db.query('SELECT * FROM delivery_zones ORDER BY sort_order, id');
-  res.render('admin/delivery-zones', { zones, siteName: 'Goince' });
+  // I8 (feat/admin-ops): weight bands live on this page too.
+  let bands = [];
+  try { [bands] = await db.query('SELECT * FROM weight_delivery_bands ORDER BY max_weight_kg ASC, id ASC'); } catch (e) { bands = []; }
+  res.render('admin/delivery-zones', { zones, bands, siteName: 'Goince' });
+});
+
+// ---------- WEIGHT-BASED DELIVERY BANDS (I8) ----------
+// A band replaces the zone charge when the cart's total weight fits
+// it (lightest matching band wins); no matching band = normal zone
+// charge (৳60/৳120) — the default never changes.
+router.post('/delivery-zones/weight-bands/add', requireAdmin, requirePermission('delivery-zones.manage'), async (req, res) => {
+  const parsed = ops.parseWeightBand(req.body);
+  if (parsed.ok) {
+    try {
+      const [result] = await db.query(
+        'INSERT INTO weight_delivery_bands (zone_slug, max_weight_kg, charge) VALUES (?, ?, ?)',
+        [parsed.band.zone_slug, parsed.band.max_weight_kg, parsed.band.charge]);
+      await audit(req, 'delivery.weight-band-add', 'weight_band', result.insertId, parsed.band);
+    } catch (e) { console.error(e); }
+  }
+  res.redirect('/admin/delivery-zones');
+});
+router.post('/delivery-zones/weight-bands/delete/:id', requireAdmin, requirePermission('delivery-zones.manage'), async (req, res) => {
+  await db.query('DELETE FROM weight_delivery_bands WHERE id = ?', [req.params.id]);
+  await audit(req, 'delivery.weight-band-delete', 'weight_band', req.params.id, {});
+  res.redirect('/admin/delivery-zones');
+});
+router.post('/delivery-zones/weight-bands/toggle/:id', requireAdmin, requirePermission('delivery-zones.manage'), async (req, res) => {
+  await db.query('UPDATE weight_delivery_bands SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
+  await audit(req, 'delivery.weight-band-toggle', 'weight_band', req.params.id, {});
+  res.redirect('/admin/delivery-zones');
 });
 router.post('/delivery-zones/add', requireAdmin, requirePermission('delivery-zones.manage'), async (req, res) => {
   const name = (req.body.name || '').trim();
@@ -2595,8 +2714,9 @@ router.post('/delivery-zones/add', requireAdmin, requirePermission('delivery-zon
   if (name && !isNaN(charge)) {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now();
     const [[maxOrder]] = await db.query('SELECT COALESCE(MAX(sort_order), 0) AS m FROM delivery_zones');
-    await db.query('INSERT INTO delivery_zones (name, slug, charge, delivery_time, sort_order) VALUES (?, ?, ?, ?, ?)',
+    const [zres] = await db.query('INSERT INTO delivery_zones (name, slug, charge, delivery_time, sort_order) VALUES (?, ?, ?, ?, ?)',
       [name, slug, charge, deliveryTime, maxOrder.m + 1]);
+    await audit(req, 'delivery.zone-add', 'delivery_zone', zres.insertId, { name, charge });
   }
   res.redirect('/admin/delivery-zones');
 });
@@ -2606,6 +2726,7 @@ router.post('/delivery-zones/edit/:id', requireAdmin, requirePermission('deliver
   const deliveryTime = (req.body.delivery_time || '').trim() || null;
   if (name && !isNaN(charge)) {
     await db.query('UPDATE delivery_zones SET name = ?, charge = ?, delivery_time = ? WHERE id = ?', [name, charge, deliveryTime, req.params.id]);
+    await audit(req, 'delivery.zone-edit', 'delivery_zone', req.params.id, { name, charge });
   }
   res.redirect('/admin/delivery-zones');
 });
@@ -2615,6 +2736,7 @@ router.post('/delivery-zones/toggle/:id', requireAdmin, requirePermission('deliv
 });
 router.post('/delivery-zones/delete/:id', requireAdmin, requirePermission('delivery-zones.manage'), async (req, res) => {
   await db.query('DELETE FROM delivery_zones WHERE id = ?', [req.params.id]);
+  await audit(req, 'delivery.zone-delete', 'delivery_zone', req.params.id, {});
   res.redirect('/admin/delivery-zones');
 });
 
@@ -2622,7 +2744,7 @@ router.post('/delivery-zones/delete/:id', requireAdmin, requirePermission('deliv
 
 router.get('/settings', requireAdmin, requirePermission('settings.manage'), async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id', 'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_template_name', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id', 'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_template_name', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key', 'login_lockout_max_attempts', 'login_lockout_minutes')"
   );
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
@@ -2674,6 +2796,7 @@ router.get('/settings', requireAdmin, requirePermission('settings.manage'), asyn
     faviconUrl: get('favicon_url', '/icons/icon-192.png'),
     ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
     retention,
+    adminOps: { loginLockoutMaxAttempts: get('login_lockout_max_attempts', '5'), loginLockoutMinutes: get('login_lockout_minutes', '15') },
     products,
     message: null,
     pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
@@ -2949,6 +3072,10 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
     ['abandoned_cart_email_enabled', req.body.abandoned_cart_email_enabled === '1' ? '1' : '0'],
     ['abandoned_cart_cooldown_hours', String(Math.max(0, parseInt(req.body.abandoned_cart_cooldown_hours, 10) || 0))],
     ['campaigns_enabled', req.body.campaigns_enabled === '1' ? '1' : '0'],
+    // Admin Ops (feat/admin-ops, I15): customer login lockout — how
+    // many failed attempts lock the account, and for how long.
+    ['login_lockout_max_attempts', String(Math.min(20, Math.max(1, parseInt(req.body.login_lockout_max_attempts, 10) || 5)))],
+    ['login_lockout_minutes', String(Math.min(1440, Math.max(1, parseInt(req.body.login_lockout_minutes, 10) || 15)))],
     ['campaign_max_recipients', String(Math.min(500, Math.max(1, parseInt(req.body.campaign_max_recipients, 10) || 200)))],
     ['push_enabled', req.body.push_enabled === '1' ? '1' : '0'],
     ['vapid_public_key', (req.body.vapid_public_key || '').trim()],
@@ -2978,6 +3105,7 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
       [key, value, value]
     );
   }
+  await audit(req, 'settings.save', 'settings', null, { keys: settingsToSave.length });
 
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const [[gwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'gateway_store_password'");
@@ -3032,6 +3160,7 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
     faviconUrl: faviconUrl || '/icons/icon-192.png',
     ogImageUrl: ogImageUrl || '/icons/icon-512.png',
     retention,
+    adminOps: { loginLockoutMaxAttempts: String(Math.min(20, Math.max(1, parseInt(req.body.login_lockout_max_attempts, 10) || 5))), loginLockoutMinutes: String(Math.min(1440, Math.max(1, parseInt(req.body.login_lockout_minutes, 10) || 15))) },
     products,
     message: 'Settings updated! They will appear on the homepage and footer right away.',
     siteName: 'Goince'
@@ -3682,6 +3811,178 @@ router.get('/reports/export', requireAdmin, requirePermission('reports.view'), a
   } catch (err) {
     console.error(err);
     res.status(500).send('There was a problem exporting the report: ' + err.message);
+  }
+});
+
+// ==================== ADMIN OPS (feat/admin-ops, batch 8) ====================
+
+// ---------- I7: ADMIN AUDIT LOG ----------
+// Paginated (20/page), filterable by admin email or action text.
+// Shows who did what, when. Passwords/secrets are never stored
+// (lib/admin-ops.js strips them at write time).
+router.get('/audit-log', requireAdmin, requirePermission('audit.view'), async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const PER_PAGE = 20;
+  const adminFilter = String(req.query.admin || '').trim().slice(0, 100);
+  const actionFilter = String(req.query.action || '').trim().slice(0, 100);
+  const where = [];
+  const params = [];
+  if (adminFilter) { where.push('admin_email LIKE ?'); params.push('%' + adminFilter + '%'); }
+  if (actionFilter) { where.push('action LIKE ?'); params.push('%' + actionFilter + '%'); }
+  const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+  let rows = [], totalCount = 0;
+  try {
+    const [[c]] = await db.query('SELECT COUNT(*) AS cnt FROM admin_audit_log' + whereSql, params);
+    totalCount = Number(c.cnt || 0);
+    const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+    [rows] = await db.query(
+      'SELECT * FROM admin_audit_log' + whereSql + ' ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?',
+      [...params, PER_PAGE, (safePage - 1) * PER_PAGE]
+    );
+    return res.render('admin/audit-log', { rows, page: safePage, totalPages, totalCount, perPage: PER_PAGE, adminFilter, actionFilter, siteName: 'Goince' });
+  } catch (e) {
+    return res.render('admin/audit-log', { rows: [], page: 1, totalPages: 1, totalCount: 0, perPage: PER_PAGE, adminFilter, actionFilter, siteName: 'Goince' });
+  }
+});
+
+// ---------- I10: IN-ADMIN ANALYTICS ----------
+// REAL data only. Visitors = distinct site_visits sessions (counting
+// starts when this batch deploys — the page says so, and a period
+// before that honestly shows 0). Viewers = distinct
+// product_view_history sessions; checkouts = abandoned_carts rows
+// (recorded on checkout reach) + orders placed in the period;
+// orders = non-cancelled orders. Top search terms come from the
+// search_logs table (also starting now); top products by real revenue.
+router.get('/analytics', requireAdmin, requirePermission('analytics.view'), async (req, res) => {
+  const days = [7, 30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+  const from = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+  const to = new Date().toISOString().slice(0, 10);
+  const q = async (sql, params) => {
+    try { const [rows] = await db.query(sql, params || []); return rows; } catch (e) { return []; }
+  };
+  const one = async (sql, params) => { const rows = await q(sql, params); return rows[0] || {}; };
+  const visitorsRow = await one('SELECT COUNT(DISTINCT session_key) AS c FROM site_visits WHERE visit_date BETWEEN ? AND ?', [from, to]);
+  const viewersRow = await one('SELECT COUNT(DISTINCT session_key) AS c FROM product_view_history WHERE DATE(viewed_at) BETWEEN ? AND ?', [from, to]);
+  const checkoutCartsRow = await one('SELECT COUNT(*) AS c FROM abandoned_carts WHERE DATE(created_at) BETWEEN ? AND ?', [from, to]);
+  const ordersRow = await one("SELECT COUNT(*) AS c FROM orders WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'Cancelled'", [from, to]);
+  const funnel = ops.computeFunnel({
+    visitors: Number(visitorsRow.c || 0),
+    viewers: Number(viewersRow.c || 0),
+    // Checkout reach = abandoned-cart records (checkout reached, order
+    // or not) plus orders placed — orders are also in abandoned_carts
+    // only when the buyer reached checkout, which they always did, so
+    // the larger of the two avoids double-counting the same visit.
+    checkouts: Math.max(Number(checkoutCartsRow.c || 0), Number(ordersRow.c || 0)),
+    orders: Number(ordersRow.c || 0),
+  });
+  const topSearches = await ops.getTopSearchTerms(db, 10, days);
+  const topProducts = await q(
+    `SELECT oi.product_name, SUM(oi.quantity) AS units, SUM(oi.quantity * oi.price) AS revenue
+     FROM order_items oi JOIN orders o ON o.id = oi.order_id
+     WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'Cancelled'
+     GROUP BY oi.product_name ORDER BY revenue DESC LIMIT 5`, [from, to]);
+  const daily = await q(
+    `SELECT DATE(created_at) AS day, COUNT(*) AS orders, COALESCE(SUM(total_amount), 0) AS revenue
+     FROM orders WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'Cancelled'
+     GROUP BY DATE(created_at) ORDER BY day ASC`, [from, to]);
+  res.render('admin/analytics', {
+    days, from, to, funnel, topSearches, topProducts, daily,
+    // The first visit/search row is written by this deploy, so the
+    // honest "counting from" date is today — never a made-up history.
+    countingFrom: to,
+    siteName: 'Goince',
+  });
+});
+
+// ---------- I11: FLASH OFFERS ----------
+// Admin creates a timed offer (one product, % off OR a sale price,
+// start/end time). Expired offers stop showing automatically
+// (lib/admin-ops.js isOfferActive + the shop query filter).
+router.get('/flash-offers', requireAdmin, requirePermission('flash-offers.manage'), async (req, res) => {
+  const [products] = await db.query('SELECT id, name, price FROM products ORDER BY created_at DESC');
+  let offers = [];
+  try {
+    [offers] = await db.query(
+      `SELECT fo.*, p.name AS product_name, p.price AS product_price
+       FROM flash_offers fo JOIN products p ON p.id = fo.product_id
+       ORDER BY fo.ends_at ASC, fo.id DESC`);
+  } catch (e) { offers = []; }
+  res.render('admin/flash-offers', { products, offers, siteName: 'Goince' });
+});
+router.post('/flash-offers/add', requireAdmin, requirePermission('flash-offers.manage'), async (req, res) => {
+  try {
+    const productId = parseInt(req.body.product_id, 10);
+    const discount = parseFloat(req.body.discount_percent);
+    const salePrice = parseFloat(req.body.sale_price);
+    const title = (req.body.title || '').trim() || null;
+    const startsAt = (req.body.starts_at || '').trim() || null;
+    const endsAt = (req.body.ends_at || '').trim() || null;
+    if (!Number.isFinite(productId)) return res.redirect('/admin/flash-offers');
+    const [result] = await db.query(
+      'INSERT INTO flash_offers (product_id, title, discount_percent, sale_price, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [productId, title, Number.isFinite(discount) && discount > 0 ? discount : null,
+       Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : null, startsAt, endsAt]);
+    await audit(req, 'flash-offer.add', 'flash_offer', result.insertId, { productId, title, discount_percent: discount, sale_price: salePrice, ends_at: endsAt });
+  } catch (e) { console.error(e); }
+  res.redirect('/admin/flash-offers');
+});
+router.post('/flash-offers/toggle/:id', requireAdmin, requirePermission('flash-offers.manage'), async (req, res) => {
+  await db.query('UPDATE flash_offers SET is_active = NOT is_active WHERE id = ?', [req.params.id]);
+  await audit(req, 'flash-offer.toggle', 'flash_offer', req.params.id, {});
+  res.redirect('/admin/flash-offers');
+});
+router.post('/flash-offers/delete/:id', requireAdmin, requirePermission('flash-offers.manage'), async (req, res) => {
+  await db.query('DELETE FROM flash_offers WHERE id = ?', [req.params.id]);
+  await audit(req, 'flash-offer.delete', 'flash_offer', req.params.id, {});
+  res.redirect('/admin/flash-offers');
+});
+
+// ---------- I6: ORDERS / INVOICES CSV EXPORT ----------
+// Exports the SAME filtered list the Orders page shows (tab +
+// status filter), with correct CSV escaping (lib/admin-ops.js
+// toCsv — quotes, commas, newlines and formula-injection guards).
+function ordersCsvWhere(req) {
+  const tab = ['all', 'paid', 'unpaid', 'cancelled'].includes(req.query.tab) ? req.query.tab : 'all';
+  const where = [];
+  const params = [];
+  if (tab === 'paid') where.push("payment_status = 'Paid'");
+  if (tab === 'unpaid') where.push("payment_status != 'Paid' AND status != 'Cancelled'");
+  if (tab === 'cancelled') where.push("status = 'Cancelled'");
+  const statusFilter = String(req.query.status || '');
+  if (statusFilter && ORDER_STATUSES.includes(statusFilter)) { where.push('status = ?'); params.push(statusFilter); }
+  return { whereSql: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
+}
+router.get('/invoices/export', requireAdmin, requirePermission('orders.view'), async (req, res) => {
+  try {
+    const { whereSql, params } = ordersCsvWhere(req);
+    const [orders] = await db.query('SELECT * FROM orders' + whereSql + ' ORDER BY created_at DESC', params);
+    let advancesByOrder = {};
+    try {
+      const [advRows] = await db.query('SELECT order_id, COALESCE(SUM(amount), 0) AS total FROM order_payments GROUP BY order_id');
+      advRows.forEach(r => { advancesByOrder[r.order_id] = Number(r.total || 0); });
+    } catch (e) { /* advances stay 0 */ }
+    const csv = ops.toCsv([
+      { key: 'invoiceNo', label: 'Invoice No' }, { key: 'id', label: 'Order ID' },
+      { key: 'date', label: 'Date' }, { key: 'customer_name', label: 'Customer' },
+      { key: 'phone', label: 'Phone' }, { key: 'total_amount', label: 'Total' },
+      { key: 'paid', label: 'Paid' }, { key: 'due', label: 'Due' },
+      { key: 'payment_status', label: 'Payment Status' }, { key: 'status', label: 'Order Status' },
+    ], orders.map(o => ({
+      invoiceNo: invoiceNo(o.id), id: o.id,
+      date: o.created_at ? new Date(o.created_at).toISOString().slice(0, 19).replace('T', ' ') : '',
+      customer_name: o.customer_name, phone: o.phone,
+      total_amount: Number(o.total_amount || 0).toFixed(2),
+      paid: paidAmount(o, advancesByOrder[o.id] || 0).toFixed(2),
+      due: dueAmount(o, advancesByOrder[o.id] || 0).toFixed(2),
+      payment_status: o.payment_status || 'Unpaid', status: o.status,
+    })));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="goince-invoices.csv"');
+    res.send(csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('There was a problem exporting invoices: ' + err.message);
   }
 });
 

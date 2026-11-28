@@ -8,6 +8,7 @@ const { cropProfilePhoto, validateProfileDetails, validateEmailChange } = requir
 const { customerDisplayName, formatMemberSince } = require('../lib/customer-profile');
 const { isEmailConfigured } = require('../config/email');
 const ret = require('../lib/retention');
+const ops = require('../lib/admin-ops');
 const fs = require('fs');
 const path = require('path');
 
@@ -119,10 +120,38 @@ router.post('/login', async (req, res) => {
     }
 
     const user = rows[0];
+    // I15 (feat/admin-ops): customer login lockout — after N failed
+    // attempts (Admin > Settings, default 5) the account locks for a
+    // configurable time (default 15 minutes). Admins are NOT locked
+    // by this mechanism (customer login only). The lockout columns
+    // may not exist on an old DB yet — every write is guarded.
+    let lockCfg = ops.ADMIN_OPS_DEFAULTS;
+    try {
+      const [srows] = await db.query(
+        "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('login_lockout_max_attempts', 'login_lockout_minutes')");
+      const settings = {};
+      (srows || []).forEach((r) => { settings[r.setting_key] = r.setting_value; });
+      lockCfg = settings;
+    } catch (e) { /* defaults stand */ }
+    const lockState = ops.isAccountLocked(user, new Date());
+    if (lockState.locked) {
+      return res.render('auth/login', { error: `Too many failed login attempts — your account is locked for ${lockState.minutesLeft} more minute(s). Please try again later.`, siteName: 'Goince' });
+    }
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
+      try {
+        const next = ops.nextFailedLoginState(user, lockCfg, new Date());
+        await db.query('UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?',
+          [next.attempts, next.lockedUntil, user.id]);
+        if (next.lockedUntil) {
+          const mins = ops.lockoutSettings(lockCfg).lockMinutes;
+          return res.render('auth/login', { error: `Too many failed login attempts — your account is locked for ${mins} minutes. Please try again later.`, siteName: 'Goince' });
+        }
+      } catch (e) { /* lockout bookkeeping never blocks the login page */ }
       return res.render('auth/login', { error: 'Incorrect email or password.', siteName: 'Goince' });
     }
+    // Successful login resets the failure counter + lock.
+    try { await db.query('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?', [user.id]); } catch (e) { /* ignore */ }
 
     // Admin je customer ke block kore rekheche, take login korte deya jabe na
     if (user.is_blocked) {
@@ -281,10 +310,56 @@ router.get('/account/orders/:id', requireCustomer, async (req, res) => {
     );
     if (!order) return res.redirect('/account');
     const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
-    res.render('auth/order-detail', { order, items, siteName: 'Goince' });
+    // I3 (feat/admin-ops): this order's return / cancel requests, so
+    // the customer sees their request status (Pending/Approved/...).
+    let returns = [];
+    try { [returns] = await db.query('SELECT * FROM order_returns WHERE order_id = ? ORDER BY created_at DESC, id DESC', [req.params.id]); } catch (e) { returns = []; }
+    const returnMsg = req.query.return === 'saved' ? 'Your request has been sent — the shop will review it.' :
+      req.query.return === 'exists' ? 'You already have a pending request for this order.' : null;
+    const returnErr = req.query.return === 'reason' ? 'Please write a reason for your request.' :
+      req.query.return === 'closed' ? 'This order can no longer be returned or cancelled.' : null;
+    res.render('auth/order-detail', { order, items, returns, returnMsg, returnErr, siteName: 'Goince' });
   } catch (err) {
     console.error('Order detail error:', err);
     res.status(500).send('Order details load korte problem hoyeche.');
+  }
+});
+
+// ---------- REQUEST RETURN / CANCEL (I3, feat/admin-ops) ----------
+// A logged-in customer requests a return or a cancellation from
+// their own order, with a reason. The request lands in
+// order_returns (status Pending) and the admin approves/rejects it
+// from Admin > Orders > order details. Delivered orders can only
+// be returned (the 24-hour return policy wording is unchanged —
+// see /return-policy); Cancelled/Delivered-past-window orders are
+// refused here with a plain message. One pending request per order.
+router.post('/account/orders/:id/return', requireCustomer, async (req, res) => {
+  const dest = '/account/orders/' + req.params.id;
+  try {
+    const [[order]] = await db.query(
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+      [req.params.id, req.session.userId]
+    );
+    if (!order) return res.redirect('/account');
+    const type = req.body.request_type === 'cancel' ? 'cancel' : 'return';
+    const reason = (req.body.reason || '').trim();
+    if (!reason) return res.redirect(dest + '?return=reason');
+    if (order.status === 'Cancelled' || order.status === 'Delivered' && type === 'cancel') {
+      return res.redirect(dest + '?return=closed');
+    }
+    const [[existing]] = await db.query(
+      "SELECT id FROM order_returns WHERE order_id = ? AND status = 'Pending' LIMIT 1",
+      [req.params.id]
+    );
+    if (existing) return res.redirect(dest + '?return=exists');
+    await db.query(
+      'INSERT INTO order_returns (order_id, reason, status, created_by, request_type) VALUES (?, ?, ?, ?, ?)',
+      [req.params.id, reason, 'Pending', req.session.userEmail || req.session.userName || null, type]
+    );
+    res.redirect(dest + '?return=saved');
+  } catch (err) {
+    console.error('Return request error:', err);
+    res.redirect(dest);
   }
 });
 

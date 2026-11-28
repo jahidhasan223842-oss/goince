@@ -36,6 +36,43 @@
   <h3>Total: ৳<%= order.total_amount %></h3>
 </div>
 
+<% if (typeof returnMsg !== 'undefined' && returnMsg) { %><p class="success-msg" style="text-align:left;"><%= returnMsg %></p><% } %>
+<% if (typeof returnErr !== 'undefined' && returnErr) { %><p class="error-msg" style="text-align:left;"><%= returnErr %></p><% } %>
+
+<% const _returns = (typeof returns !== 'undefined' && returns) ? returns : []; %>
+<% if (_returns.length) { %>
+  <h2>Return / Cancel Requests</h2>
+  <ul>
+    <% _returns.forEach(r => { %>
+      <li><strong><%= r.status %></strong> — <%= (r.request_type === 'cancel' ? 'Cancel request' : 'Return request') %> — <%= r.reason %> <small>(<%= new Date(r.created_at).toLocaleString() %>)</small></li>
+    <% }) %>
+  </ul>
+<% } %>
+
+<% if (order.status !== 'Cancelled' && order.status !== 'Delivered') { %>
+  <h2>Request a Return or Cancellation</h2>
+  <p class="field-hint">Changed your mind or need to return something? Tell us why — the shop will review your request. Our return policy: you may request a return within <strong>24 hours</strong> of delivery. <a href="/return-policy">Read the full return policy</a>.</p>
+  <form action="/account/orders/<%= order.id %>/return" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
+    <label>What do you want to do?</label>
+    <select name="request_type">
+      <option value="return">Return this order</option>
+      <option value="cancel">Cancel this order</option>
+    </select>
+    <label>Reason</label>
+    <textarea name="reason" rows="3" placeholder="e.g. Wrong size — I need a bigger one." required></textarea>
+    <button type="submit" class="btn-primary">Send Request</button>
+  </form>
+<% } else if (order.status === 'Delivered') { %>
+  <h2>Request a Return</h2>
+  <p class="field-hint">This order was delivered. You may request a return within <strong>24 hours</strong> of delivery — <a href="/return-policy">read the full return policy</a>.</p>
+  <form action="/account/orders/<%= order.id %>/return" method="POST" class="admin-form" style="max-width:500px;"><%- include('../partials/csrf-field') %>
+    <input type="hidden" name="request_type" value="return">
+    <label>Reason</label>
+    <textarea name="reason" rows="3" placeholder="e.g. The product arrived damaged." required></textarea>
+    <button type="submit" class="btn-primary">Request Return</button>
+  </form>
+<% } %>
+
 <a href="/account" class="back-link">&larr; Back to My Orders</a>
 
 <%- include('../partials/footer') %>

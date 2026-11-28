@@ -41,4 +41,48 @@
 </table>
 </div>
 
+
+<h2 style="margin-top:40px;">⚖️ Weight-Based Delivery Bands</h2>
+<p class="field-hint">When a cart's total weight fits a band, that band's charge replaces the zone charge at checkout. The lightest matching band wins; if no band matches, the normal zone charge (Inside Dhaka ৳60 / Outside Dhaka ৳120, or the zone's own charge) applies unchanged. A band with no zone applies to every zone.</p>
+
+<form action="/admin/delivery-zones/weight-bands/add" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
+  <label>Zone (optional — leave blank for all zones)</label>
+  <select name="zone_slug">
+    <option value="">All zones</option>
+    <% zones.forEach(z => { %><option value="<%= z.slug %>"><%= z.name %></option><% }) %>
+  </select>
+  <label>Up to this weight (kg) — e.g. 2 means carts up to 2 kg</label>
+  <input type="number" name="max_weight_kg" min="0.01" step="0.01" placeholder="e.g. 2" required>
+  <label>Delivery charge for this band (৳)</label>
+  <input type="number" name="charge" min="0" step="0.01" placeholder="e.g. 80" required>
+  <button type="submit" class="btn-primary">Add Weight Band</button>
+</form>
+
+<% const _bands = (typeof bands !== 'undefined' && bands) ? bands : []; %>
+<% if (_bands.length) { %>
+<div class="table-responsive" style="margin-top:16px;">
+<table class="admin-table">
+  <thead><tr><th>Zone</th><th>Up to</th><th>Charge</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+    <% _bands.forEach(b => { %>
+      <tr>
+        <td><%= b.zone_slug || 'All zones' %></td>
+        <td><%= b.max_weight_kg %> kg</td>
+        <td>৳<%= b.charge %></td>
+        <td><span class="status-badge <%= b.is_active ? 'status-delivered' : 'status-inactive' %>"><%= b.is_active ? 'Active' : 'Inactive' %></span></td>
+        <td>
+          <div class="admin-actions">
+            <form action="/admin/delivery-zones/weight-bands/toggle/<%= b.id %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm"><%= b.is_active ? 'Deactivate' : 'Activate' %></button></form>
+            <form action="/admin/delivery-zones/weight-bands/delete/<%= b.id %>" method="POST" style="display:inline" onsubmit="return confirm('Delete this weight band?');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm btn-sm--danger">Delete</button></form>
+          </div>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } else { %>
+<p class="field-hint">No weight bands yet — delivery always uses the zone charge.</p>
+<% } %>
+
 <%- include('../partials/admin-footer') %>
