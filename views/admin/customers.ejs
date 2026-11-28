@@ -5,11 +5,20 @@
   <a href="/admin/customers/add" class="btn-primary">+ Add New Customer</a>
 </div>
 
+<% if (typeof winbackMsg !== 'undefined' && winbackMsg) { %><p class="success-msg" style="text-align:left;"><%= winbackMsg %></p><% } %>
+
 <form method="GET" action="/admin/customers" class="admin-search-form">
   <input type="text" name="q" value="<%= q || '' %>" placeholder="Search by name, email or phone...">
   <button type="submit" class="btn-primary">Search</button>
   <% if (q) { %> <a href="/admin/customers">Clear</a> <% } %>
 </form>
+
+<div style="margin:0 0 16px;">
+  <form action="/admin/winback/run<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" style="display:inline"><%- include('../partials/csrf-field') %>
+    <button type="submit" class="btn-sm" title="Issue a win-back coupon + email to customers who have not ordered in X days (Settings > Retention)">💌 Run win-back check</button>
+  </form>
+  <span class="field-hint">Issues a real coupon (WINBACK-…) to customers with no order in X days — at most once per customer per period.</span>
+</div>
 
 <% if (customers.length === 0) { %>
   <div class="empty-state">

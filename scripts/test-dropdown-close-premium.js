@@ -623,11 +623,11 @@ function buildDoc() {
     '/admin/products', '/admin/products/import', '/admin/attributes', '/admin/stock-alerts',
     '/admin/categories', '/admin/banners', '/admin/inventory',
     '/admin/invoices', '/admin/activity', '/admin/reports', '/admin/customers',
-    '/admin/coupons', '/admin/payment-methods', '/admin/delivery-zones',
-    '/admin/chats', '/admin/messages', '/admin/reviews',
+    '/admin/coupons', '/admin/abandoned-carts', '/admin/payment-methods', '/admin/delivery-zones',
+    '/admin/chats', '/admin/messages', '/admin/reviews', '/admin/campaigns',
     '/admin/settings', '/admin/test-email', '/admin/staff', '/admin/roles',
   ];
-  check('rendered top-nav menus still contain the same 21 links in the same order',
+  check('rendered top-nav menus still contain the same 23 links in the same order (21 + Abandoned Carts + Campaigns, feat/retention)',
     JSON.stringify(topnavHrefs) === JSON.stringify(expectedHrefs),
     `got ${JSON.stringify(topnavHrefs)}`);
   check('rendered header still has the bell menu, profile menu, search panel and Dashboard link',

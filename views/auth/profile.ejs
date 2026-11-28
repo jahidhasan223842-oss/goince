@@ -21,7 +21,39 @@
   <div class="customer-stats">
     <div class="customer-stat"><span class="customer-stat-num"><%= (typeof ordersCount !== 'undefined' && ordersCount) || 0 %></span><span class="customer-stat-label">Total Orders</span></div>
     <div class="customer-stat"><span class="customer-stat-num">৳<%= (typeof totalSpent !== 'undefined' && totalSpent) || 0 %></span><span class="customer-stat-label">Total Spent</span></div>
+    <% if (typeof loyaltyEnabled !== 'undefined' && loyaltyEnabled) { %>
+    <div class="customer-stat"><span class="customer-stat-num"><%= (typeof pointsBalance !== 'undefined' && pointsBalance) || 0 %></span><span class="customer-stat-label">Loyalty Points<% if (typeof pointsValue !== 'undefined' && pointsValue > 0) { %> (worth ৳<%= pointsValue %>)<% } %></span></div>
+    <% } %>
   </div>
+
+  <% /* F4/F5/F9 (feat/retention): loyalty + referral + win-back. */ %>
+  <% if (typeof loyaltyEnabled !== 'undefined' && loyaltyEnabled) { %>
+  <div class="customer-profile-card">
+    <h2>🎁 Loyalty Points</h2>
+    <p>You have <strong><%= (typeof pointsBalance !== 'undefined' && pointsBalance) || 0 %> points</strong><% if (typeof pointsValue !== 'undefined' && pointsValue > 0) { %> — worth <strong>৳<%= pointsValue %></strong> off your next order<% } %>.</p>
+    <p class="field-hint" style="margin:0;">You earn 1 point for every ৳<%= (typeof loyaltyEarnPer !== 'undefined' && loyaltyEarnPer) || 100 %> you spend on a delivered order. At checkout, <%= (typeof loyaltyRedeemPoints !== 'undefined' && loyaltyRedeemPoints) || 100 %> points = ৳<%= (typeof loyaltyRedeemTaka !== 'undefined' && loyaltyRedeemTaka) || 10 %> off.</p>
+  </div>
+  <% } %>
+  <% if (typeof referralEnabled !== 'undefined' && referralEnabled && typeof referralLink !== 'undefined' && referralLink) { %>
+  <div class="customer-profile-card">
+    <h2>👥 Refer a Friend</h2>
+    <p>Share your link — when a friend signs up with it and their first order is delivered, you earn <strong><%= (typeof referralRewardPoints !== 'undefined' && referralRewardPoints) || 200 %> loyalty points</strong>.</p>
+    <p style="word-break:break-all;"><strong>Your link:</strong> <a href="<%= referralLink %>"><%= referralLink %></a></p>
+    <% if (typeof referralCode !== 'undefined' && referralCode) { %><p class="field-hint" style="margin:0;">Your code: <strong><%= referralCode %></strong></p><% } %>
+  </div>
+  <% } %>
+  <% if (typeof winbackCoupon !== 'undefined' && winbackCoupon) { %>
+  <div class="customer-profile-card">
+    <h2>💌 We Miss You — Special Offer</h2>
+    <p>It's been a while! Use code <strong><%= winbackCoupon.code %></strong> at checkout for <strong><%= winbackCoupon.discount_percent %>% off</strong><% if (winbackCoupon.expiry_date) { %> (valid until <%= new Date(winbackCoupon.expiry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %>)<% } %>.</p>
+  </div>
+  <% } %>
+  <% if (typeof newsletterSubscribed !== 'undefined') { %>
+  <div class="customer-profile-card">
+    <h2>✉️ Newsletter</h2>
+    <p class="field-hint" style="margin:0;"><%= newsletterSubscribed ? 'You are subscribed to Goince offers by email. Thank you!' : 'You are not subscribed to email offers yet — sign up from the footer form at the bottom of any page.' %></p>
+  </div>
+  <% } %>
 
   <div class="customer-quick-links">
     <a href="/account" class="btn-secondary">📦 My Orders</a>

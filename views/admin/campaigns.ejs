@@ -1,0 +1,67 @@
+<%- include('../partials/admin-header') %>
+
+<h1>📧 Email Campaigns &amp; Newsletter</h1>
+<p class="field-hint">Send a simple email to newsletter subscribers or to all customers. Campaigns only send when "Email campaigns" is enabled in Settings, and never to more than the per-send cap — so a wrong click cannot mail the whole list at once. Emails only actually leave the shop once a Gmail App Password is set in the live .env file.</p>
+
+<% if (typeof msg !== 'undefined' && msg) { %><p class="success-msg" style="text-align:left;"><%= msg %></p><% } %>
+<% if (typeof emailConfigured !== 'undefined' && !emailConfigured) { %><p class="error-msg" style="text-align:left;">Email is not configured yet — set EMAIL_USER and EMAIL_PASS (Gmail App Password) in the live .env file first. Campaigns will be recorded but no email will be sent until then.</p><% } %>
+<% if (typeof campaignsEnabled !== 'undefined' && !campaignsEnabled) { %><p class="field-hint"><strong>Campaigns are OFF.</strong> Enable "Email campaigns" in <a href="/admin/settings">Settings &gt; Retention</a> to send.</p><% } %>
+
+<form action="/admin/campaigns/send<%- typeof csrfToken !== 'undefined' && csrfToken ? '?_csrf=' + csrfToken : '' %>" method="POST" class="admin-form admin-form--wide"><%- include('../partials/csrf-field') %>
+  <label>Send to</label>
+  <select name="audience">
+    <option value="subscribers">Newsletter subscribers (<%= (typeof subscribers !== 'undefined' && subscribers) ? subscribers.length : 0 %> signed up)</option>
+    <option value="customers">All customers with an email (<%= (typeof customerCount !== 'undefined' && customerCount) || 0 %>)</option>
+  </select>
+  <p class="field-hint">At most <%= (typeof campaignCap !== 'undefined' && campaignCap) || 200 %> recipients per send.</p>
+
+  <label>Subject</label>
+  <input type="text" name="subject" placeholder="e.g. Eid offer — 10% off everything" required>
+
+  <label>Message</label>
+  <textarea name="body" rows="6" placeholder="Write the email message…" required></textarea>
+
+  <button type="submit" class="btn-primary" <%= (typeof campaignsEnabled !== 'undefined' && !campaignsEnabled) ? 'disabled' : '' %>>📧 Send Campaign</button>
+</form>
+
+<h2 style="margin-top:30px;">Newsletter Subscribers (<%= (typeof subscribers !== 'undefined' && subscribers) ? subscribers.length : 0 %>)</h2>
+<% if (!subscribers || subscribers.length === 0) { %>
+  <p class="field-hint">No subscribers yet — customers can sign up from the footer form on the shop.</p>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Email</th><th>Source</th><th>Signed up</th></tr></thead>
+  <tbody>
+    <% subscribers.forEach(s => { %>
+      <tr>
+        <td><%= s.email %></td>
+        <td><%= s.source || 'footer' %></td>
+        <td><%= s.created_at ? new Date(s.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '' %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+
+<h2 style="margin-top:30px;">Sent Campaigns</h2>
+<% if (!campaigns || campaigns.length === 0) { %>
+  <p class="field-hint">No campaigns sent yet.</p>
+<% } else { %>
+<div class="table-responsive">
+<table class="admin-table">
+  <thead><tr><th>Subject</th><th>Audience</th><th>Recipients</th><th>Status</th><th>Sent</th></tr></thead>
+  <tbody>
+    <% campaigns.forEach(c => { %>
+      <tr>
+        <td><strong><%= c.subject %></strong></td>
+        <td><%= c.audience %></td>
+        <td><%= c.recipient_count %></td>
+        <td><%= c.status %></td>
+        <td><%= c.sent_at ? new Date(c.sent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>

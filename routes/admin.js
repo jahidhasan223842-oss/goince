@@ -7,7 +7,8 @@ const { sendSms, SMS_NOT_CONFIGURED } = require('../lib/sms');
 const { invoiceNo, paidAmount, dueAmount } = require('../lib/invoice');
 const { buildInvoicePdf } = require('../lib/invoice-pdf');
 const { getWhatsAppConfig, sendInvoiceDocument, NOT_CONFIGURED: WHATSAPP_NOT_CONFIGURED } = require('../lib/whatsapp');
-const { isEmailConfigured, sendInvoiceEmail } = require('../config/email');
+const { isEmailConfigured, sendInvoiceEmail, sendMail } = require('../config/email');
+const ret = require('../lib/retention');
 const db = require('../config/db');
 const upload = require('../config/upload');
 const { isConfigured: isPushConfigured } = require('../config/push');
@@ -927,7 +928,7 @@ router.post('/products/edit/:id', requireAdmin, requirePermission('products.mana
     const id = req.params.id;
     const mainImage = (req.files && req.files.image) ? req.files.image[0].filename : null;
     // Stock history-r jonno purono stock age-i niye rakha (UPDATE-er pore ar pawa jabe na)
-    const [[oldP]] = await db.query('SELECT stock FROM products WHERE id = ?', [id]);
+    const [[oldP]] = await db.query('SELECT stock, price FROM products WHERE id = ?', [id]);
 
     const advValues = [adv.sku, adv.cost_price, adv.brand, adv.tags, adv.weight_kg, adv.status, adv.scheduled_at, adv.is_featured, adv.is_new, adv.free_shipping, adv.cod_allowed, adv.low_stock_threshold, adv.slug, adv.meta_title, adv.meta_description, adv.image_alt, adv.barcode, adv.delivery_time, adv.allow_backorder];
     const advSet = 'sku=?, cost_price=?, brand=?, tags=?, weight_kg=?, status=?, scheduled_at=?, is_featured=?, is_new=?, free_shipping=?, cod_allowed=?, low_stock_threshold=?, slug=?, meta_title=?, meta_description=?, image_alt=?, barcode=?, delivery_time=?, allow_backorder=?';
@@ -946,14 +947,25 @@ router.post('/products/edit/:id', requireAdmin, requirePermission('products.mana
       await db.query('INSERT INTO product_videos (product_id, filename) VALUES (?, ?)', [id, req.files.video[0].filename]);
     }
     await saveRelatedProducts(id, req.body.related_ids);
-    // Stock bodlale history-te likha + stock asle Notify Me list-ke janano
+    // Stock bodlale history-te likha
     const newStock = parseInt(stock, 10) || 0;
     if (oldP && newStock !== oldP.stock) {
       await logStockChange(id, null, newStock - oldP.stock, newStock, 'manual');
-      if (oldP.stock <= 0 && newStock > 0) {
-        await db.query('UPDATE stock_alerts SET notified = 1 WHERE product_id = ? AND notified = 0', [id]);
-      }
     }
+    // F2/F6 (feat/retention): 0 -> stock firle Notify Me subscriber-der
+    // email (ekbar proti restock-e); daam komle wishlist-er customer-der
+    // email (ekbar proti price-drop-e). Email configure na thakle
+    // helper-gulo chup chap skip kore — product save kokhono atkabe na.
+    try {
+      const settings = await ret.getRetentionSettings(db);
+      const siteUrl = `${req.protocol}://${req.get('host')}`;
+      if (oldP && ret.shouldNotifyBackInStock(oldP.stock, newStock)) {
+        await ret.notifyBackInStock(db, id, settings, sendMail, siteUrl);
+      }
+      if (oldP && oldP.price !== undefined && price !== undefined) {
+        await ret.notifyPriceDrop(db, id, oldP.price, price, settings, sendMail, siteUrl);
+      }
+    } catch (e) { console.error('Retention product hook failed:', e.message); }
 
     // New gallery images are added alongside the existing ones (they are not removed)
     if (req.files && req.files.gallery) {
@@ -1971,6 +1983,26 @@ router.post('/orders/:id/status', requireAdmin, requirePermission('orders.manage
   if (status === 'Cancelled' && !reason) return res.redirect(dest + '?err=cancel-reason');
   await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id = ?', [status, status === 'Cancelled' ? reason : null, req.params.id]);
   await recordStatusChange(req.params.id, order.status, status, status === 'Cancelled' ? ('Cancelled: ' + reason) : null, req.session.adminEmail);
+  // F3/F4/F5/F8 (feat/retention): status change -> customer email +
+  // push (if enabled + email/configured); Delivered -> loyalty points
+  // for the real order + referral reward for the friend's first
+  // delivered order. All guarded — admin action never breaks.
+  try {
+    const settings = await ret.getRetentionSettings(db);
+    const siteUrl = `${req.protocol}://${req.get('host')}`;
+    await ret.notifyOrderStatus(db, order, status, settings, sendMail, siteUrl);
+    if (order.user_id) {
+      await ret.notifyCustomerPush(db, order.user_id, {
+        title: `Goince order #${req.params.id} — ${status}`,
+        body: `Your order status changed to ${status}.`,
+        url: '/track-order',
+      }, settings);
+    }
+    if (status === 'Delivered' && order.user_id) {
+      await ret.awardPointsForOrder(db, req.params.id, settings);
+      await ret.completeReferralReward(db, order.user_id, settings);
+    }
+  } catch (e) { console.error('Retention order-status hook failed:', e.message); }
   res.redirect(dest);
 });
 
@@ -1987,6 +2019,19 @@ router.post('/orders/bulk-status', requireAdmin, requirePermission('orders.manag
   const [orders] = await db.query('SELECT id, status FROM orders WHERE id IN (' + ids.map(() => '?').join(',') + ')', ids);
   await db.query('UPDATE orders SET status = ?, cancel_reason = ? WHERE id IN (' + ids.map(() => '?').join(',') + ')', [status, status === 'Cancelled' ? reason : null, ...ids]);
   for (const o of orders) await recordStatusChange(o.id, o.status, status, status === 'Cancelled' ? ('Cancelled (bulk): ' + reason) : 'Bulk status update', req.session.adminEmail);
+  // F3/F4/F5 (feat/retention): same hooks as the single-status route.
+  try {
+    const settings = await ret.getRetentionSettings(db);
+    const siteUrl = `${req.protocol}://${req.get('host')}`;
+    const [fullOrders] = await db.query('SELECT * FROM orders WHERE id IN (' + ids.map(() => '?').join(',') + ')', ids);
+    for (const o of fullOrders) {
+      await ret.notifyOrderStatus(db, o, status, settings, sendMail, siteUrl);
+      if (status === 'Delivered' && o.user_id) {
+        await ret.awardPointsForOrder(db, o.id, settings);
+        await ret.completeReferralReward(db, o.user_id, settings);
+      }
+    }
+  } catch (e) { console.error('Retention bulk-status hook failed:', e.message); }
   res.redirect('/admin/orders?msg=bulk-updated');
 });
 
@@ -2180,7 +2225,15 @@ router.get('/customers', requireAdmin, requirePermission('customers.manage'), as
   }
   sql += ` GROUP BY users.id ORDER BY users.created_at DESC`;
   const [customers] = await db.query(sql, params);
-  res.render('admin/customers', { customers, q, siteName: 'Goince' });
+  // F9 (feat/retention): win-back run result, e.g. ?winback=issued:2&emailed=1
+  let winbackMsg = null;
+  const wb = String(req.query.winback || '');
+  const wbm = /^issued:(\d+)$/.exec(wb);
+  if (wbm) {
+    const emailed = /^(\d+)$/.exec(String(req.query.emailed || ''));
+    winbackMsg = `Win-back offers issued: ${wbm[1]}${emailed ? `, emails sent: ${emailed[1]}` : ''}. Coupons are in Admin > Coupons (WINBACK-…).`;
+  }
+  res.render('admin/customers', { customers, q, winbackMsg, siteName: 'Goince' });
 });
 
 // ---------- ADD CUSTOMER PAGE ----------
@@ -2342,6 +2395,98 @@ router.post('/customers/:id/notes', requireAdmin, requirePermission('customers.m
   res.redirect('/admin/customers/' + req.params.id + '?tab=notes');
 });
 
+// ==================== RETENTION (feat/retention, PR #88) ====================
+// F1 — Abandoned carts: Admin > Sales > Abandoned Carts. Real carts
+// that reached /checkout but were never ordered. "Send recovery
+// email" respects the one-email rule (lib/retention.js
+// sendAbandonedCartEmail) — an already-emailed cart can never be
+// mailed twice, even from a double-click.
+router.get('/abandoned-carts', requireAdmin, requirePermission('customers.manage'), async (req, res) => {
+  let carts = [];
+  try {
+    [carts] = await db.query(
+      `SELECT a.*, u.name AS customer_name FROM abandoned_carts a
+       LEFT JOIN users u ON u.id = a.user_id
+       ORDER BY a.updated_at DESC LIMIT 200`);
+    for (const c of carts) {
+      try { c.items = JSON.parse(c.cart_json || '[]'); } catch (e) { c.items = []; }
+      c.subtotal = (c.items || []).reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
+    }
+  } catch (e) { carts = []; }
+  res.render('admin/abandoned-carts', {
+    carts,
+    msg: req.query.msg === 'sent' ? 'Recovery email sent.' :
+      req.query.msg === 'already' ? 'This cart was already emailed once — no second email was sent.' :
+      req.query.msg === 'noemail' ? 'This cart has no email address — the recovery email cannot be sent.' :
+      req.query.msg === 'failed' ? 'The email could not be sent — check that email is configured in Settings (Gmail App Password).' : null,
+    siteName: 'Goince',
+  });
+});
+
+router.post('/abandoned-carts/:id/email', requireAdmin, requirePermission('customers.manage'), async (req, res) => {
+  const settings = await ret.getRetentionSettings(db);
+  const siteUrl = `${req.protocol}://${req.get('host')}`;
+  const r = await ret.sendAbandonedCartEmail(db, req.params.id, sendMail, siteUrl, settings);
+  res.redirect('/admin/abandoned-carts?msg=' + (r.sent ? 'sent' : (r.reason === 'already-emailed' ? 'already' : (r.reason === 'no-email' ? 'noemail' : 'failed'))));
+});
+
+// F7 — Email campaigns / newsletter: Admin > Communication >
+// Campaigns. Lists subscribers + sent campaigns; sending needs the
+// campaigns toggle ON in Settings and never exceeds the per-send cap
+// (admin setting, hard-capped at 500 in lib/retention.js).
+router.get('/campaigns', requireAdmin, requirePermission('campaigns.manage'), async (req, res) => {
+  let subscribers = [];
+  let campaigns = [];
+  let customerCount = 0;
+  try {
+    [subscribers] = await db.query('SELECT * FROM newsletter_subscribers WHERE subscribed = 1 ORDER BY created_at DESC LIMIT 500');
+  } catch (e) { subscribers = []; }
+  try {
+    [campaigns] = await db.query('SELECT * FROM email_campaigns ORDER BY created_at DESC LIMIT 50');
+  } catch (e) { campaigns = []; }
+  try {
+    const [[r]] = await db.query("SELECT COUNT(DISTINCT email) AS c FROM users WHERE email IS NOT NULL AND email != ''");
+    customerCount = Number((r && r.c) || 0);
+  } catch (e) { customerCount = 0; }
+  const settings = await ret.getRetentionSettings(db);
+  res.render('admin/campaigns', {
+    subscribers, campaigns, customerCount,
+    campaignsEnabled: ret.isOn(settings, 'campaigns_enabled'),
+    campaignCap: ret.campaignRecipientCap(settings.campaign_max_recipients),
+    emailConfigured: isEmailConfigured(),
+    msg: req.query.msg === 'sent' ? 'Campaign sent.' :
+      req.query.msg === 'disabled' ? 'Campaigns are OFF — enable "Email campaigns" in Settings first.' :
+      req.query.msg === 'empty' ? 'Subject and message are both required.' :
+      req.query.msg === 'failed' ? 'The campaign could not be sent — check that email is configured in Settings (Gmail App Password).' : null,
+    siteName: 'Goince',
+  });
+});
+
+router.post('/campaigns/send', requireAdmin, requirePermission('campaigns.manage'), async (req, res) => {
+  const settings = await ret.getRetentionSettings(db);
+  const r = await ret.sendCampaign(db, {
+    subject: req.body.subject,
+    body: req.body.body,
+    audience: req.body.audience,
+    createdBy: req.session.adminEmail || null,
+  }, settings, sendMail);
+  if (r.error === 'disabled') return res.redirect('/admin/campaigns?msg=disabled');
+  if (r.error === 'empty') return res.redirect('/admin/campaigns?msg=empty');
+  if (r.error) return res.redirect('/admin/campaigns?msg=failed');
+  res.redirect('/admin/campaigns?msg=sent');
+});
+
+// F9 — Win-back run: issues a real coupon (existing coupons table)
+// + email to every customer with no order in X days (Settings >
+// Retention). One offer per customer per X days — re-running does
+// not re-issue. Result is shown on the Customers page.
+router.post('/winback/run', requireAdmin, requirePermission('campaigns.manage'), async (req, res) => {
+  const settings = await ret.getRetentionSettings(db);
+  const siteUrl = `${req.protocol}://${req.get('host')}`;
+  const r = await ret.issueWinbackOffers(db, settings, sendMail, siteUrl);
+  res.redirect(`/admin/customers?winback=issued:${r.issued}&emailed=${r.emailed}`);
+});
+
 // ==================== LIVE CHAT ====================
 
 // ---------- CONVERSATION LIST ----------
@@ -2477,13 +2622,21 @@ router.post('/delivery-zones/delete/:id', requireAdmin, requirePermission('deliv
 
 router.get('/settings', requireAdmin, requirePermission('settings.manage'), async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id', 'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_template_name')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id', 'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_template_name', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key')"
   );
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
     const found = rows.find(r => r.setting_key === key);
     return found ? found.setting_value : fallback;
   };
+  // Retention settings (feat/retention, F4–F9): defaults from
+  // lib/retention.js when a key was never saved.
+  const retention = Object.assign({}, ret.RETENTION_DEFAULTS);
+  for (const k of ret.RETENTION_SETTING_KEYS) {
+    const v = get(k, undefined);
+    if (v !== undefined) retention[k] = v;
+  }
+  retention.vapidPrivateKeySet = !!get('vapid_private_key', '');
   res.render('admin/settings', {
     shopPhone: get('shop_phone', ''),
     deliveryChargeInside: get('delivery_charge_inside', '60'),
@@ -2520,6 +2673,7 @@ router.get('/settings', requireAdmin, requirePermission('settings.manage'), asyn
     logoUrl: get('logo_url', '/icons/icon-192.png'),
     faviconUrl: get('favicon_url', '/icons/icon-192.png'),
     ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
+    retention,
     products,
     message: null,
     pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
@@ -2777,10 +2931,35 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
     ['pathao_store_id', (req.body.pathao_store_id || '').trim()],
     ['whatsapp_phone_number_id', (req.body.whatsapp_phone_number_id || '').trim()],
     ['whatsapp_template_name', (req.body.whatsapp_template_name || '').trim() || 'invoice_pdf'],
+    // Retention (feat/retention, F4–F9): every toggle/rate is an admin
+    // setting, never hardcoded. Numbers are clamped to sane ranges.
+    ['loyalty_enabled', req.body.loyalty_enabled === '1' ? '1' : '0'],
+    ['loyalty_earn_per', String(Math.max(1, parseInt(req.body.loyalty_earn_per, 10) || 100))],
+    ['loyalty_redeem_points', String(Math.max(1, parseInt(req.body.loyalty_redeem_points, 10) || 100))],
+    ['loyalty_redeem_taka', String(Math.max(1, parseInt(req.body.loyalty_redeem_taka, 10) || 10))],
+    ['loyalty_max_redeem_taka', String(Math.max(0, parseInt(req.body.loyalty_max_redeem_taka, 10) || 0))],
+    ['referral_enabled', req.body.referral_enabled === '1' ? '1' : '0'],
+    ['referral_reward_points', String(Math.max(0, parseInt(req.body.referral_reward_points, 10) || 0))],
+    ['winback_enabled', req.body.winback_enabled === '1' ? '1' : '0'],
+    ['winback_days', String(Math.max(1, parseInt(req.body.winback_days, 10) || 60))],
+    ['winback_discount_percent', String(Math.min(100, Math.max(1, parseInt(req.body.winback_discount_percent, 10) || 10)))],
+    ['order_status_email_enabled', req.body.order_status_email_enabled === '1' ? '1' : '0'],
+    ['back_in_stock_enabled', req.body.back_in_stock_enabled === '1' ? '1' : '0'],
+    ['price_drop_enabled', req.body.price_drop_enabled === '1' ? '1' : '0'],
+    ['abandoned_cart_email_enabled', req.body.abandoned_cart_email_enabled === '1' ? '1' : '0'],
+    ['abandoned_cart_cooldown_hours', String(Math.max(0, parseInt(req.body.abandoned_cart_cooldown_hours, 10) || 0))],
+    ['campaigns_enabled', req.body.campaigns_enabled === '1' ? '1' : '0'],
+    ['campaign_max_recipients', String(Math.min(500, Math.max(1, parseInt(req.body.campaign_max_recipients, 10) || 200)))],
+    ['push_enabled', req.body.push_enabled === '1' ? '1' : '0'],
+    ['vapid_public_key', (req.body.vapid_public_key || '').trim()],
     ['logo_url', logoUrl || '/icons/icon-192.png'],
     ['favicon_url', faviconUrl || '/icons/icon-192.png'],
     ['og_image_url', ogImageUrl || '/icons/icon-512.png']
   ];
+  // VAPID private key: blank keeps the saved one (never shown in the form)
+  if ((req.body.vapid_private_key || '').trim()) {
+    settingsToSave.push(['vapid_private_key', (req.body.vapid_private_key || '').trim()]);
+  }
   // If the gateway password is left blank, the previous one stays (it is never shown in the form)
   if ((req.body.gateway_store_password || '').trim()) {
     settingsToSave.push(['gateway_store_password', (req.body.gateway_store_password || '').trim()]);
@@ -2811,6 +2990,11 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
   const [[paPwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'pathao_password'");
   const courierPathaoPasswordSet = !!((req.body.pathao_password || '').trim() || (paPwRow && paPwRow.setting_value));
   const [[waTokenRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'whatsapp_access_token'");
+  const [[vapidPrivRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'vapid_private_key'");
+  // Retention re-render values: re-read what was just saved (a form
+  // never echoes the private VAPID key back — only whether one is set).
+  const retention = await ret.getRetentionSettings(db);
+  retention.vapidPrivateKeySet = !!(vapidPrivRow && vapidPrivRow.setting_value);
   res.render('admin/settings', {
     shopPhone,
     deliveryChargeInside: safeInside,
@@ -2847,6 +3031,7 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
     logoUrl: logoUrl || '/icons/icon-192.png',
     faviconUrl: faviconUrl || '/icons/icon-192.png',
     ogImageUrl: ogImageUrl || '/icons/icon-512.png',
+    retention,
     products,
     message: 'Settings updated! They will appear on the homepage and footer right away.',
     siteName: 'Goince'

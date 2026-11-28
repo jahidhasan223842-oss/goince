@@ -77,6 +77,15 @@
         <p><a href="/terms">Terms &amp; Conditions</a></p>
         <p><a href="/privacy-policy">Privacy Policy</a></p>
       </div>
+      <div>
+        <h3>✉️ Newsletter</h3>
+        <p>Get Goince offers by email.</p>
+        <% if (typeof newsletterMsg !== 'undefined' && newsletterMsg) { %><p class="success-msg" style="text-align:left;"><%= newsletterMsg %></p><% } %>
+        <form action="/newsletter/subscribe" method="POST" style="display:flex; gap:8px;"><%- include('csrf-field') %>
+          <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address" style="flex:1; min-width:0;">
+          <button type="submit" class="btn-primary">Subscribe</button>
+        </form>
+      </div>
     </div>
     <div class="container">
       <p class="footer-trust">✅ Cash on Delivery &nbsp;·&nbsp; 🚚 Fast Delivery &nbsp;·&nbsp; 🔄 24h Return (defective/wrong product) &nbsp;·&nbsp; 💬 WhatsApp Support</p>
@@ -107,7 +116,9 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
   </a>
   <% } %>
 
+  <script>window.GOINCE_CSRF_TOKEN = "<%= (typeof csrfToken !== 'undefined' && csrfToken) || '' %>";</script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/theme.js') : '/js/theme.js' %>"></script>
+  <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/customer-push.js') : '/js/customer-push.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/mega-menu.js') : '/js/mega-menu.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/product-gallery.js') : '/js/product-gallery.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/click-ripple.js') : '/js/click-ripple.js' %>"></script>

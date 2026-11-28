@@ -161,8 +161,9 @@
     <div class="notify-me-box" style="margin-top:16px; padding:14px; border:1px solid #f0a500; border-radius:8px; background:#fff8e6;">
       <p style="margin:0 0 8px; font-weight:600;">🔔 Stock শেষ — আসলেই জানতে চান?</p>
       <% if (typeof notify !== 'undefined' && notify === 'ok') { %><p style="color:green;">ধন্যবাদ! স্টক আসলেই আপনাকে জানানো হবে।</p><% } %>
-      <form action="/product/<%= product.id %>/notify-me" method="POST" style="display:flex; gap:8px;"><%- include('partials/csrf-field') %>
-        <input type="tel" name="phone" required pattern="^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$" placeholder="আপনার মোবাইল নম্বর (01XXXXXXXXX)" style="flex:1; padding:10px; border:1px solid #ccc; border-radius:4px;">
+      <form action="/product/<%= product.id %>/notify-me" method="POST" style="display:flex; gap:8px; flex-wrap:wrap;"><%- include('partials/csrf-field') %>
+        <input type="tel" name="phone" required pattern="^(01[3-9][0-9]{8}|\+8801[3-9][0-9]{8})$" placeholder="আপনার মোবাইল নম্বর (01XXXXXXXXX)" style="flex:1; min-width:180px; padding:10px; border:1px solid #ccc; border-radius:4px;">
+        <input type="email" name="email" placeholder="Email (optional — stock asle email-e janano hobe)" style="flex:1; min-width:180px; padding:10px; border:1px solid #ccc; border-radius:4px;">
         <button type="submit" class="btn-primary">Notify Me</button>
       </form>
     </div>

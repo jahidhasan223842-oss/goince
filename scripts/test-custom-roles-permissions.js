@@ -87,6 +87,11 @@ const PRODUCTS_BLOCK = ['products.manage', 'products.variants', 'categories.mana
 
 function expectedSet(roleName) {
   const out = new Set();
+  // feat/retention added 'campaigns.manage' — a NEW permission with no
+  // old AREA_ROLES area. Per lib/permissions.js, Owner always gets
+  // EVERY registry permission live, while Manager/Staff sets are frozen
+  // snapshots, so only the owner expectation gains new registry ids.
+  if (roleName === 'owner') for (const p of ALL_PERMISSIONS) out.add(p);
   for (const [area, roles] of Object.entries(AREA_ROLES)) {
     if (!roles.includes(roleName)) continue;
     for (const perm of (AREA_TO_PERMS[area] || [])) {
@@ -115,7 +120,7 @@ check('owner has every registry permission',
 
 console.log('Unit (registry invariants)');
 check('all permission ids unique', new Set(ALL_PERMISSIONS).size === ALL_PERMISSIONS.length, String(ALL_PERMISSIONS.length));
-check('registry has 22 permissions', ALL_PERMISSIONS.length === 22, String(ALL_PERMISSIONS.length));
+check('registry has 23 permissions (22 + campaigns.manage, feat/retention)', ALL_PERMISSIONS.length === 23, String(ALL_PERMISSIONS.length));
 check('every group has at least one item', PERMISSION_GROUPS.every((g) => g.items.length > 0));
 check('filterGrantable strips permissions the saver lacks',
   JSON.stringify(filterGrantable(['orders.view', 'settings.manage', 'bogus.perm'], ['orders.view'])) === JSON.stringify(['orders.view']));
