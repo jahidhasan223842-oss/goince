@@ -180,7 +180,31 @@
     // even though payment_method itself has no ✓/error display.
     var paymentEl = self.el('payment_method');
     if (paymentEl && paymentEl.addEventListener) {
-      paymentEl.addEventListener('change', function () { self.validateForm(true); });
+      paymentEl.addEventListener('change', function () {
+        // PR #92 — defense in depth: the Transaction ID box must
+        // follow the payment method even if the inline
+        // onchange="toggleTxnField()" attribute is ever blocked
+        // again. It was, site-wide, by Helmet's script-src-attr
+        // 'none' default (PR #90) — the live checkout stopped
+        // revealing the Transaction ID field while this listener
+        // (addEventListener) kept working. toggleTxnField is
+        // idempotent — it only sets display / required / text —
+        // so running it twice (inline attribute + this listener)
+        // is harmless. Guarded: the inline script that defines
+        // it loads after this file, so check at event time.
+        if (typeof window !== 'undefined' && typeof window.toggleTxnField === 'function') window.toggleTxnField();
+        self.validateForm(true);
+      });
+    }
+    // PR #92 — same for the delivery zone: its only wiring was the
+    // inline onchange="updateTotal()". suggestZone() calls
+    // updateTotal only after a district change, not when the
+    // customer changes the zone by hand.
+    var zoneEl = self.el('delivery_area');
+    if (zoneEl && zoneEl.addEventListener) {
+      zoneEl.addEventListener('change', function () {
+        if (typeof window !== 'undefined' && typeof window.updateTotal === 'function') window.updateTotal();
+      });
     }
     if (self.form.addEventListener) {
       self.form.addEventListener('submit', function (ev) {
