@@ -375,8 +375,8 @@ async function waitForServer(tries = 50) {
     headerSrc.includes('admin-topbar') && headerSrc.includes('admin-bell-btn') &&
     headerSrc.includes('admin-breadcrumb') && headerSrc.includes('admin-nav-group-btn'));
   const { ALL_PERMISSIONS } = require('../lib/permissions');
-  check('permission registry has 26 permissions (23 + analytics.view + audit.view + flash-offers.manage, feat/admin-ops)',
-    ALL_PERMISSIONS.length === 26, 'got ' + ALL_PERMISSIONS.length);
+  check('permission registry has 27 permissions (26 + backups.manage, feat/payments-messaging)',
+    ALL_PERMISSIONS.length === 27, 'got ' + ALL_PERMISSIONS.length);
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'style.css'), 'utf8');
   check('CSS has the shell rules (topbar, bell badge, nav badge, breadcrumb, tabs)',
     css.includes('.admin-topbar') && css.includes('.admin-bell-badge') && css.includes('.admin-nav-badge') &&

@@ -82,6 +82,13 @@
     <h3>Total: <%= _tk(total) %></h3>
     <a href="/" class="back-link">&larr; Continue Shopping</a>
     <a href="/checkout" class="btn-primary">Proceed to Checkout</a>
+    <% /* E6 (feat/payments-messaging): express checkout — sudhu
+          gateway configure thakle dekhay. /checkout?pay=gateway-e
+          giye gateway method age thekei beche neya thake. */ %>
+    <% if (typeof gateway !== 'undefined' && gateway && gateway.configured) { %>
+      <a href="/checkout?pay=gateway" class="btn-primary" style="margin-top:8px;">⚡ Pay with SSLCommerz</a>
+      <p class="field-hint" style="margin-top:4px;">Pay online by card / bKash / Nagad — no Transaction ID needed.</p>
+    <% } %>
   </div>
 <% } %>
 

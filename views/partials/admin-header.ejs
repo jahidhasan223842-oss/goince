@@ -89,6 +89,7 @@
     ['/admin/reports', 'Sales', 'Reports'],
     ['/admin/analytics', 'Sales', 'Analytics'],
     ['/admin/audit-log', 'System', 'Audit Log'],
+    ['/admin/backups', 'System', 'Backups'],
     ['/admin/flash-offers', 'Shop', 'Flash Offers'],
     ['/admin/customers', 'Sales', 'Customers'],
     ['/admin/coupons', 'Sales', 'Coupons'],
@@ -141,8 +142,9 @@
       { href: '/admin/reviews', label: '⭐ Reviews', perm: 'reviews.manage', badge: 'pendingReviews' },
       { href: '/admin/campaigns', label: '📧 Campaigns', perm: 'campaigns.manage' },
     ] },
-    { key: 'system', label: 'System', perms: ['settings.manage', 'test-email.send', 'staff.manage', 'audit.view'], links: [
+    { key: 'system', label: 'System', perms: ['settings.manage', 'test-email.send', 'staff.manage', 'audit.view', 'backups.manage'], links: [
       { href: '/admin/audit-log', label: '📋 Audit Log', perm: 'audit.view' },
+      { href: '/admin/backups', label: '💾 Backups', perm: 'backups.manage' },
       { href: '/admin/settings', label: '⚙️ Settings', perm: 'settings.manage' },
       { href: '/admin/test-email', label: '📧 Test Email', perm: 'test-email.send' },
       { href: '/admin/staff', label: '👤 Staff & Roles', perm: 'staff.manage' },

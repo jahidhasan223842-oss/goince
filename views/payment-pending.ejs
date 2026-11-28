@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+
+<% const _tk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
+<% const _isPaid = order.payment_status === 'Paid'; %>
+
+<div class="order-success">
+  <% if (_isPaid) { %>
+    <h1>✅ Payment Received</h1>
+    <p>Thank you! Your online payment for order <strong>#<%= order.id %></strong> is confirmed — the order is marked <strong>Paid</strong>.</p>
+  <% } else { %>
+    <h1>💳 Payment Pending</h1>
+    <p>Your order <strong>#<%= order.id %></strong> is saved, but it is <strong>not paid yet</strong>.</p>
+    <% if (message) { %><p><%= message %></p><% } %>
+    <% if (error === 'init') { %><p style="color:#b91c1c;">The payment page could not be opened — please try again. If it keeps failing, pay by Cash on Delivery or bKash on a new order, or call us.</p><% } %>
+    <p>Total to pay: <strong><%= _tk(order.total_amount) %></strong> (<%= order.payment_method %>)</p>
+    <p>Order-er status jante <a href="/track-order">Track Order</a> page-e Order ID ar phone number dao.</p>
+    <% /* E1 (feat/payments-messaging): retry starts a FRESH
+         SSLCommerz session for the same unpaid order — it never
+         marks anything paid by itself. CSRF token included: this
+         is a normal shop form, unlike the gateway callbacks. */ %>
+    <form action="/payment/gateway/retry/<%= order.id %>" method="POST" style="display:inline;"><%- include('partials/csrf-field') %><button type="submit" class="btn-primary">🔁 Try Payment Again</button></form>
+  <% } %>
+  <a href="/track-order" class="btn-primary">Track Order</a>
+  <a href="/" class="btn-primary">Continue Shopping</a>
+</div>
+
+<%- include('partials/footer') %>

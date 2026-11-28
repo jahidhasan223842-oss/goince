@@ -692,6 +692,66 @@ const SITE_SETTING_DEFAULTS = {
   }
 })();
 
+// ---------- Payments & messaging batch tables (feat/payments-messaging, batch 9) ----------
+// E1 gateway_payment_attempts (every init + callback, so a gateway
+// order's payment story is visible) + orders.gateway_* columns
+// (the validated tran/val ids of a PAID gateway order — NULL
+// until validation succeeds); I12 backups (run history). Same
+// pattern as the batches above: CREATE TABLE IF NOT EXISTS on
+// every start, guarded column adds — the documented source is
+// sql/payments_messaging.sql. The daily backup timer starts here
+// too (lib/backups.js scheduleDailyBackups): one backup shortly
+// after boot when today has none yet, then every 24h.
+(async () => {
+  try {
+    const db = require('./config/db');
+    await db.query(`CREATE TABLE IF NOT EXISTS gateway_payment_attempts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      tran_id VARCHAR(100) DEFAULT NULL,
+      val_id VARCHAR(100) DEFAULT NULL,
+      status VARCHAR(50) DEFAULT NULL,
+      amount DECIMAL(10,2) DEFAULT NULL,
+      currency VARCHAR(10) DEFAULT NULL,
+      validated TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_gpa_order (order_id),
+      INDEX idx_gpa_tran (tran_id)
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS backups (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      filename VARCHAR(255) DEFAULT NULL,
+      size_bytes BIGINT NOT NULL DEFAULT 0,
+      triggered_by VARCHAR(20) DEFAULT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'ok',
+      error VARCHAR(500) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_backups_created (created_at)
+    )`);
+    const [oCols] = await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'");
+    const oNames = new Set((oCols || []).map(c => c.COLUMN_NAME));
+    for (const [col, def] of [
+      ['gateway_tran_id', 'VARCHAR(100) DEFAULT NULL'],
+      ['gateway_val_id', 'VARCHAR(100) DEFAULT NULL'],
+      ['gateway_status', 'VARCHAR(50) DEFAULT NULL'],
+    ]) if (!oNames.has(col)) await db.query(`ALTER TABLE orders ADD COLUMN ${col} ${def}`);
+  } catch (err) {
+    console.error('Payments & messaging tables skip holo:', err.message);
+  }
+  try {
+    const db = require('./config/db');
+    const backups = require('./lib/backups');
+    let retentionDays = 14;
+    try {
+      const [[row]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'backup_retention_days'");
+      retentionDays = parseInt(row && row.setting_value, 10) || 14;
+    } catch (e) { /* default 14 days */ }
+    backups.scheduleDailyBackups({ appRoot: __dirname, db, retentionDays });
+  } catch (err) {
+    console.error('Daily backup schedule skip holo:', err.message);
+  }
+})();
+
 // ---------- WHMCS-style admin (fix/whmcs-style-admin): customer notes + ticket status ----------
 // Additive columns only, safe defaults — a missing table/column only logs,
 // the server never crashes on it.
@@ -1004,7 +1064,18 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 // ---------- CSRF protection (session token; shob POST form-e hidden _csrf field lage) ----------
-app.use(csrfProtection);
+// E1 (feat/payments-messaging): SSLCommerz posts back to the four
+// /payment/* callback URLs from ITS OWN servers — no session, no
+// CSRF token. They are exempt here and safe without it: the only
+// thing a callback does is validate a val_id against SSLCommerz's
+// own server and mark an order paid on a VALID amount/tran_id
+// match — a forged callback can never pay an order, because the
+// server-side validation would fail.
+const GATEWAY_CALLBACK_PATHS = new Set(['/payment/success', '/payment/fail', '/payment/cancel', '/payment/ipn']);
+app.use((req, res, next) => {
+  if (GATEWAY_CALLBACK_PATHS.has(req.path)) return next();
+  return csrfProtection(req, res, next);
+});
 
 // ---------- Routes ----------
 app.use('/', shopRoutes);

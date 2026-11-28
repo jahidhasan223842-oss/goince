@@ -171,9 +171,24 @@ const checkoutLocals = {
   check('guard: free-delivery rule untouched — ৳0 only when EVERY cart item is free_shipping, else the zone charge (or a matching weight band)',
     /const deliveryCharge = flags\.allFreeShipping \? 0 : ops\.weightDeliveryCharge\(cartWeight, weightBands, \(zone \? zone\.charge/.test(shopRoutes)
     && /allFreeShipping: rows\.length > 0 && rows\.every\(r => r\.free_shipping\)/.test(shopRoutes));
-  check('guard: no payment gateway added — gateway option still only renders when configured (unchanged block)',
-    /const gatewayMethodName = 'Online Payment \(Gateway\)';/.test(shopRoutes)
-    && !/sslcommerz.*create|gateway.*charge|SSLCommerz.*api/i.test(shopRoutes.replace(/gatewayMethodName/g, '')));
+  // E1 (feat/payments-messaging, batch 9): the "no gateway" guard
+  // is RETIRED — the real SSLCommerz flow now exists. The
+  // replacement guard: a gateway order is saved Unpaid and only
+  // the validated callback may mark it Paid; COD + manual
+  // bKash/Nagad/Rocket (Transaction ID) are untouched, and the
+  // gateway option still only renders when configured.
+  check('E1 guard: gateway order redirects to SSLCommerz after the order is saved (no order-success render on that path)',
+    /if \(selectedMethod === gatewayMethodName\) \{/.test(shopRoutes)
+    && /ssl\.initiatePayment\(gwConfig/.test(shopRoutes)
+    && /return res\.redirect\(init\.gatewayUrl\);/.test(shopRoutes));
+  check('E1 guard: only the validated callback marks paid (markOrderPaidIfValidated) — success, fail, cancel and IPN routes all exist',
+    /router\.get\('\/payment\/success', handleGatewaySuccess\);/.test(shopRoutes)
+    && /router\.post\('\/payment\/ipn'/.test(shopRoutes)
+    && /ssl\.markOrderPaidIfValidated\(db, order, validation\)/.test(shopRoutes)
+    && /router\.get\('\/payment\/fail'/.test(shopRoutes)
+    && /router\.get\('\/payment\/cancel'/.test(shopRoutes));
+  check('E1 guard: COD + manual methods untouched — Transaction ID still required for manual, never for COD or gateway',
+    /const needsTransactionId = selectedMethod !== 'Cash on Delivery' && selectedMethod !== gatewayMethodName;/.test(shopRoutes));
   check('guard: no price change in this batch (no UPDATE products SET price)',
     !/UPDATE products SET price/.test(shopRoutes));
   check('guard: WELCOME10 coupon is never shown on the homepage',

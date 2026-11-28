@@ -299,9 +299,9 @@ function rulesWith(source, selector) {
     '/admin/invoices', '/admin/activity', '/admin/reports', '/admin/analytics', '/admin/customers',
     '/admin/coupons', '/admin/abandoned-carts', '/admin/payment-methods', '/admin/delivery-zones',
     '/admin/chats', '/admin/messages', '/admin/reviews', '/admin/campaigns',
-    '/admin/audit-log', '/admin/settings', '/admin/test-email', '/admin/staff', '/admin/roles',
+    '/admin/audit-log', '/admin/backups', '/admin/settings', '/admin/test-email', '/admin/staff', '/admin/roles',
   ];
-  check('rendered top-nav menus still contain the same 26 links in the same order (23 + Flash Offers + Analytics + Audit Log, feat/admin-ops)',
+  check('rendered top-nav menus still contain the same 27 links in the same order (26 + Backups, feat/payments-messaging)',
     JSON.stringify(topnavHrefs) === JSON.stringify(expectedHrefs),
     `got ${JSON.stringify(topnavHrefs)}`);
   check('rendered header still has the bell menu, profile menu, search panel and Dashboard link',

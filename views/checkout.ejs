@@ -127,7 +127,7 @@
           <% }) %>
         <% } %>
         <% if (gateway && gateway.configured && (gateway.mode === 'gateway' || gateway.mode === 'both')) { %>
-          <option value="Online Payment (Gateway)" data-gateway="1">💳 Online Payment — <%= {sslcommerz:'SSLCommerz',shurjopay:'ShurjoPay',bkash:'bKash PGW'}[gateway.provider] || 'Gateway' %> (Card / bKash / Nagad)</option>
+          <option value="Online Payment (Gateway)" data-gateway="1" <%= (typeof expressGateway !== 'undefined' && expressGateway) ? 'selected' : '' %>>💳 Online Payment — <%= {sslcommerz:'SSLCommerz',shurjopay:'ShurjoPay',bkash:'bKash PGW'}[gateway.provider] || 'Gateway' %> (Card / bKash / Nagad)</option>
         <% } %>
       </select>
 
@@ -141,7 +141,7 @@
         <p class="field-hint" style="margin:4px 0 0;">After sending money, write the Transaction ID you receive below — the order won't be confirmed without it.</p>
       </div>
       <div id="gateway-box" class="payment-number-box" style="display:none;">
-        <p>💳 Online payment-e gele card / bKash / Nagad diye pay korte parbe — Transaction ID lagbe na.</p>
+        <p>💳 Place Order chaple SSLCommerz-er payment page-e jabe — card / bKash / Nagad diye pay korte parbe, Transaction ID lagbe na. Order-ta <strong>Unpaid</strong> thakbe jotokkhon SSLCommerz payment-ta verify na kore.</p>
       </div>
 
       <div id="txn-field" style="display:none;">
@@ -348,6 +348,13 @@
       setTimeout(() => { btn.textContent = oldText; }, 1500);
     });
   }
+
+  // E6 (feat/payments-messaging): express checkout (?pay=gateway)
+  // theke asle gateway option age thekei selected thake — load-e
+  // toggleTxnField() ekbar chaliye gateway box-ta dekhiye dite
+  // hoy, na hole sudhu select bodlalei box-ta ashto. Guard: kono
+  // karone select na thakle chupchap kichu kore na.
+  if (document.getElementById('payment_method')) toggleTxnField();
 </script>
 
 <!-- Google Analytics: begin_checkout event -->

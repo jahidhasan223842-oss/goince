@@ -771,7 +771,9 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           // Buy Now (B3): ekoi form, kintu /checkout-e navigate
           // korte hobe — AJAX-e dhora jabe na, sadharon POST cholbe
           // (route /checkout-e redirect dey; no-JS-eo eki).
-          if (isAdd && submitter && submitter.name === 'buy_now') return;
+          // E6 (feat/payments-messaging): express-gateway button-o
+          // eki niyom — sadharon POST-e /checkout?pay=gateway-e jay.
+          if (isAdd && submitter && (submitter.name === 'buy_now' || submitter.name === 'express_gateway')) return;
           if (e.preventDefault) e.preventDefault();
           if (!isAdd) { drawerCartSubmit(form, action, submitter); return; }
           // Ekbar cholte thakle ditiyo submit ar neoa hoy na.

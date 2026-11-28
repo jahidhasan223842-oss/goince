@@ -1,0 +1,57 @@
+<%- include('../partials/admin-header') %>
+
+<h1>💾 Database Backups</h1>
+<p class="field-hint">A full database dump (mysqldump) runs automatically once a day, and you can run one by hand here. Backup files live on the server only — they are never public, and only an admin can download them from this page. How many days of backups to keep is set in <a href="/admin/settings">Settings &gt; Database Backups</a>.</p>
+
+<% if (backupMsg) { %><p style="color:#15803d; font-weight:600;"><%= backupMsg %></p><% } %>
+<% if (backupErr) { %><p style="color:#b91c1c; font-weight:600;"><%= backupErr %></p><% } %>
+
+<form method="POST" action="/admin/backups/run" style="margin:16px 0;"><%- include('../partials/csrf-field') %><button type="submit" class="btn-primary">▶ Run Backup Now</button></form>
+
+<h2>Backup files</h2>
+<% if (!files.length) { %>
+  <p class="field-hint">No backups yet — run one above, or wait for tonight's automatic backup.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead><tr><th>File</th><th>Size</th><th>Date</th><th>Actions</th></tr></thead>
+    <tbody>
+      <% files.forEach(f => { %>
+        <tr>
+          <td><%= f.filename %></td>
+          <td><%= (f.size / 1024).toFixed(1) %> KB</td>
+          <td><%= f.mtime ? new Date(f.mtime).toLocaleString('en-GB') : '—' %></td>
+          <td>
+            <a href="/admin/backups/download/<%= f.filename %>" class="btn-sm">⬇ Download</a>
+            <form method="POST" action="/admin/backups/delete/<%= f.filename %>" style="display:inline;" onsubmit="return confirm('Delete this backup file?');"><%- include('../partials/csrf-field') %><button type="submit" class="btn-sm">Delete</button></form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<h2 style="margin-top:28px;">Backup history</h2>
+<% if (!rows.length) { %>
+  <p class="field-hint">No backup runs recorded yet.</p>
+<% } else { %>
+  <div class="table-responsive">
+  <table class="admin-table">
+    <thead><tr><th>When</th><th>File</th><th>Started by</th><th>Status</th><th>Details</th></tr></thead>
+    <tbody>
+      <% rows.forEach(r => { %>
+        <tr>
+          <td><%= r.created_at ? new Date(r.created_at).toLocaleString('en-GB') : '—' %></td>
+          <td><%= r.filename || '—' %></td>
+          <td><%= r.triggered_by || '—' %></td>
+          <td><%= r.status || '—' %></td>
+          <td><%= r.error || (r.size_bytes ? (r.size_bytes / 1024).toFixed(1) + ' KB' : '—') %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

@@ -114,11 +114,18 @@ check('every other multipart form in the codebase carries ?_csrf= (photo was the
       const tokens = (t.match(/\?_csrf=' \+ csrfToken/g) || []).length;
       return forms.length > 0 && tokens >= forms.length;
     }));
+// E1 (feat/payments-messaging, batch 9): csrfProtection still
+// runs globally before the admin router, but through a wrapper
+// that exempts ONLY the four SSLCommerz callback paths (they post
+// from SSLCommerz's own servers with no session/token, and can
+// never pay an order without server-side validation).
 check('csrfProtection runs globally before the admin router (server.js order)',
   (() => {
-    const csrfAt = serverJs.indexOf('app.use(csrfProtection)');
+    const csrfAt = serverJs.indexOf('return csrfProtection(req, res, next);');
     const adminAt = serverJs.indexOf("app.use('/admin'");
-    return csrfAt > 0 && adminAt > csrfAt;
+    return csrfAt > 0 && adminAt > csrfAt
+      && serverJs.includes('GATEWAY_CALLBACK_PATHS')
+      && ['/payment/success', '/payment/fail', '/payment/cancel', '/payment/ipn'].every((p) => serverJs.includes("'" + p + "'"));
   })());
 
 // ------------------------------------------------- 2 — middleware, for real

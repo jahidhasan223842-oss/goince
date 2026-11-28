@@ -202,8 +202,18 @@ const dress = { id: 7, name: 'A.T.Z Two-Piece Tops', price: 310, image: 'dress.j
     && adminReviewsEjs.indexOf('Product Q&amp;A') < adminReviewsEjs.indexOf("include('../partials/admin-footer')"));
   check('footer: GoinceMiniCart bridge exposes refresh/open/toast for the bundle button (D2)',
     /window\.GoinceMiniCart = \{/.test(footerEjs) && /refresh: function \(cartCount, drawerHtml\)/.test(footerEjs));
-  check('view: NO "secure payment"/gateway badge claim anywhere in the trust badges (G3 — no gateway yet)',
-    !/Secure payment|secure payment|SSLCommerz/.test(productEjs));
+  // E1/E6 (feat/payments-messaging, batch 9): the "no gateway
+  // yet" guard is RETIRED — the real SSLCommerz flow now exists,
+  // so the product page has a real "Pay with SSLCommerz" express
+  // button. The G3 rule that survives: the TRUST BADGES still
+  // must not claim "secure payment" (they list only the real
+  // facts), and the express button itself only renders when the
+  // gateway is configured.
+  check('view: trust badges still make no "secure payment" claim (G3 — only the real facts)',
+    !/Secure payment|secure payment/.test(productEjs));
+  check('view E6: the SSLCommerz button is the express-checkout button, gated on gateway.configured (not a trust badge)',
+    /typeof gateway !== 'undefined' && gateway && gateway\.configured/.test(productEjs)
+    && productEjs.includes('name="express_gateway"') && productEjs.includes('Pay with SSLCommerz'));
   check('view: trust badges name the real facts — COD, manual bKash/Nagad/Rocket, 24h return, phone (G3)',
     productEjs.includes('Cash on Delivery available')
     && productEjs.includes('Pay by bKash / Nagad / Rocket (manual)')
