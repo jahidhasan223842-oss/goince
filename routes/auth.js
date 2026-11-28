@@ -310,8 +310,10 @@ router.get('/account/profile', requireCustomer, async (req, res) => {
     totalSpent,
     emailConfigured: isEmailConfigured(),
     profileOk: req.query.saved === 'details' || req.query.saved === 'photo'
-      || req.query.saved === 'removed' || req.query.saved === 'email',
+      || req.query.saved === 'removed' || req.query.saved === 'email'
+      || req.query.saved === 'account',
     profileMessage: req.query.saved === 'details' ? 'Profile details saved.' :
+      req.query.saved === 'account' ? 'Account created — your details are saved for next time.' :
       req.query.saved === 'photo' ? 'Profile photo saved.' :
       req.query.saved === 'removed' ? 'Profile photo removed.' :
       req.query.saved === 'email' ? 'Email changed successfully — use the new address to sign in next time.' :
