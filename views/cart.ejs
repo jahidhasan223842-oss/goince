@@ -4,6 +4,11 @@
 
 <h1 class="page-title">Your Cart</h1>
 <%- include('partials/checkout-steps', { step: 1 }) %>
+<% /* Offline notice (feat/mobile-pwa, H4): connection chole gele
+      shop-pwa.js ei div-ta dekhay — cart-er TAZA page-ta tokhon
+      ar load hobe na, kintu ja dekhacche ta last-known, ar checkout
+      korte connection lagbe. */ %>
+<div class="offline-notice" id="offline-notice" role="status" hidden>📶 You&rsquo;re offline — this cart was loaded when you were last online. Prices and stock may have changed; checkout needs a connection.</div>
 
 <% if (cart.length === 0) { %>
   <div class="empty-state">

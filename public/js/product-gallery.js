@@ -130,8 +130,52 @@
     });
   }
 
+  // Touch swipe (feat/mobile-pwa, H3): mobile-e stage-er upor angul
+  // dan/bam-e tanle ager/porer chobi ase. Niyom: shudhu jokhon zoom
+  // 1x (zoom kora thakle swipe chobi bodlay na — zoom kora chobi
+  // pan kora jay), shudhu horizontal swipe (|dx| >= 40px ar
+  // |dx| > |dy| — vertical scroll-e hat deoa hoy na), ar video
+  // slide cholle swipe hoy na. Swipe-er pore asa click-ta zoom
+  // toggle kore na (300ms suppress). Arrows / thumbnail / keyboard
+  // / zoom ager motoi chole; desktop-e kichu bodlay na.
+  var SWIPE_MIN_PX = 40;
+  var SWIPE_SUPPRESS_MS = 300;
+  var touchStartX = null;
+  var touchStartY = null;
+  var lastSwipeAt = 0;
+
+  function isVideoShowing() {
+    var v = document.getElementById('product-video');
+    return !!(v && !v.hidden);
+  }
+
+  function handleSwipeDelta(dx, dy) {
+    if (zoom !== 1) return false;
+    if (isVideoShowing()) return false;
+    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) <= Math.abs(dy)) return false;
+    step(dx < 0 ? 1 : -1);
+    return true;
+  }
+
+  stage.addEventListener('touchstart', function (e) {
+    var t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+  }, { passive: true });
+  stage.addEventListener('touchend', function (e) {
+    var t = e.changedTouches && e.changedTouches[0];
+    if (!t || touchStartX === null || touchStartY === null) return;
+    var dx = t.clientX - touchStartX;
+    var dy = t.clientY - touchStartY;
+    touchStartX = null;
+    touchStartY = null;
+    if (handleSwipeDelta(dx, dy)) lastSwipeAt = Date.now();
+  }, { passive: true });
+
   // Click/tap (chobi ba stage-er upor, button-e na): 1x <-> 2x toggle.
   stage.addEventListener('click', function (e) {
+    if (Date.now() - lastSwipeAt < SWIPE_SUPPRESS_MS) return;
     if (e.target !== img && e.target !== stage) return;
     setZoom(zoom === 1 ? 2 : 1);
   });
@@ -173,6 +217,8 @@
     setZoom: setZoom,
     getZoom: function () { return zoom; },
     getIndex: function () { return index; },
-    getImages: function () { return images.slice(); }
+    getImages: function () { return images.slice(); },
+    handleSwipeDelta: handleSwipeDelta,
+    getSwipeMinPx: function () { return SWIPE_MIN_PX; }
   };
 })();

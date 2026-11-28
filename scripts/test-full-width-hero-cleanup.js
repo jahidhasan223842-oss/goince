@@ -340,12 +340,21 @@ async function waitForServer(tries = 50) {
       let end = css.indexOf('\n@media', start + marker.length);
       if (end === -1) end = css.length;
       const block = css.slice(start, end);
-      if (block.includes('bottom: 88px;')) { block768 = block; break; }
+      // HONEST UPDATE (feat/mobile-pwa, 2026-11-28): the mobile
+      // WhatsApp float moved from bottom: 88px to bottom: 140px —
+      // the new mobile bottom nav (60px) + the raised sticky buy
+      // bar (~64px) now occupy the bottom 124px, so 88px would
+      // overlap the bar (and the overlap guard would hide the
+      // float on product pages). 140px clears both.
+      if (block.includes('bottom: 140px;')) { block768 = block; break; }
       from = start + marker.length;
     }
   }
   check('WhatsApp scroll-hide rules removed from <=768px block', block768 !== '' && !block768.includes('whatsapp-float--scroll {'));
-  check('mobile WhatsApp size/position rules kept', block768.includes('.whatsapp-float {') && block768.includes('bottom: 88px;'));
+  // HONEST UPDATE (feat/mobile-pwa, 2026-11-28): bottom: 88px ->
+  // 140px (see the finder above) — the float must clear the new
+  // mobile bottom nav (60px) + the raised sticky buy bar (~64px).
+  check('mobile WhatsApp size/position rules kept', block768.includes('.whatsapp-float {') && block768.includes('bottom: 140px;'));
   const opens = (css.match(/{/g) || []).length;
   const closes = (css.match(/}/g) || []).length;
   check('CSS braces balanced', opens === closes && opens > 0, `${opens} { vs ${closes} }`);

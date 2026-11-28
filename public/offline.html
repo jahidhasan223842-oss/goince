@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You&rsquo;re offline — Goince</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Offline page-er nijer halka style — /css/style.css cache-e na
+       thakleo page-ta porar moto thake. */
+    .offline-wrap { max-width: 560px; margin: 48px auto; padding: 0 16px; font-family: system-ui, -apple-system, sans-serif; text-align: center; }
+    .offline-wrap h1 { font-size: 24px; margin: 12px 0 8px; }
+    .offline-wrap p { color: #555; line-height: 1.6; }
+    .offline-notice-big { background: #f0a500; background: color-mix(in srgb, #f0a500 14%, #ffffff); border: 1px solid #f0a500; border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-weight: 600; }
+    .offline-cart { text-align: left; border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin: 16px 0; }
+    .offline-cart .mini-cart-item { list-style: none; }
+    .offline-saved-at { font-size: 13px; color: #777; }
+    .offline-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+    .offline-actions a, .offline-actions button { display: inline-block; padding: 12px 20px; border-radius: 6px; border: none; font-size: 16px; cursor: pointer; text-decoration: none; }
+    .offline-retry { background: #1a1a2e; color: #fff; }
+    .offline-home { background: #f0a500; color: #1a1a2e; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main class="offline-wrap">
+    <div style="font-size:48px;" aria-hidden="true">📶</div>
+    <h1>You&rsquo;re offline</h1>
+    <p>Internet connection nei — ei page-ta ekhon khola jacche na. Connection fire ele abar chesta korun.</p>
+    <div class="offline-notice-big">⚠️ Offline — niche ja dekhacche ta apnar cart-er LAST SAVED obostha (online thakte ja chhilo). Notun kichu jog hoy ni, daam/stock-o bodle thakte pare.</div>
+    <div id="offline-cart-box" hidden>
+      <h2 style="font-size:18px;">Your cart (last saved)</h2>
+      <p class="offline-saved-at" id="offline-saved-at"></p>
+      <div class="offline-cart" id="offline-cart"></div>
+      <p style="font-size:14px;">Checkout korte internet lagbe — connection fire ele abar chesta korun.</p>
+    </div>
+    <div id="offline-cart-empty" hidden>
+      <p>Apnar cart-e shesh bar online thakte kichu chhilo na (ba save hoy ni) — tai ekhane kichu dekhano jacche na.</p>
+    </div>
+    <div class="offline-actions">
+      <button type="button" class="offline-retry" onclick="location.reload()">Try again</button>
+      <a class="offline-home" href="/">Go to homepage</a>
+    </div>
+  </main>
+  <script>
+    // Offline cart snapshot (feat/mobile-pwa, H4): shop-pwa.js
+    // protibar cart bodle localStorage-e drawer-er TAZA HTML save
+    // kore ('goince-cart-snapshot-v1') — ekhane shudhu sei SAVE
+    // KORA jinisi dekhano hoy, kichu banano hoy na. Form/button
+    // disable kore deoa hoy — offline-e checkout/qty bodol hobe na.
+    (function () {
+      var box = document.getElementById('offline-cart-box');
+      var empty = document.getElementById('offline-cart-empty');
+      var holder = document.getElementById('offline-cart');
+      var savedAt = document.getElementById('offline-saved-at');
+      var raw = null;
+      try { raw = localStorage.getItem('goince-cart-snapshot-v1'); } catch (e) { raw = null; }
+      var data = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch (e) { data = null; }
+      if (data && data.html && data.count > 0) {
+        holder.innerHTML = data.html;
+        // Offline-e form submit / qty bodol / remove cholbe na.
+        var forms = holder.querySelectorAll('form');
+        for (var i = 0; i < forms.length; i++) {
+          forms[i].addEventListener('submit', function (e) { e.preventDefault(); });
+        }
+        var btns = holder.querySelectorAll('button, input, a.mini-cart-view, a.mini-cart-checkout');
+        for (var j = 0; j < btns.length; j++) {
+          if (btns[j].tagName === 'BUTTON' || btns[j].tagName === 'INPUT') btns[j].disabled = true;
+          else btns[j].addEventListener('click', function (e) { e.preventDefault(); });
+        }
+        if (data.savedAt) {
+          try { savedAt.textContent = 'Saved: ' + new Date(data.savedAt).toLocaleString(); } catch (e) {}
+        }
+        box.hidden = false;
+      } else {
+        empty.hidden = false;
+      }
+    })();
+  </script>
+</body>
+</html>

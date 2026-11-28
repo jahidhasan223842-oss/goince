@@ -42,6 +42,15 @@
   </script>
   <link rel="icon" type="image/png" sizes="192x192" href="<%= (typeof siteFaviconAbs !== 'undefined' && siteFaviconAbs) ? siteFaviconAbs : '/icons/icon-192.png' %>">
   <link rel="apple-touch-icon" href="<%= (typeof siteFaviconAbs !== 'undefined' && siteFaviconAbs) ? siteFaviconAbs : '/icons/icon-192.png' %>">
+  <% /* Shop PWA (feat/mobile-pwa, H1): shop-er nijer manifest —
+        /manifest.json admin-er (start_url /admin/dashboard, scope
+        /admin/) — shop-er ta alada (start_url /, scope /). Admin
+        header-er manifest link bodlano hoy ni. */ %>
+  <link rel="manifest" href="/manifest-shop.json">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta property="og:url" content="<%= (typeof pageUrl !== 'undefined' && pageUrl) ? pageUrl : '' %>">
   <meta property="og:image" content="<%= (typeof siteOgImageAbs !== 'undefined' && siteOgImageAbs) ? siteOgImageAbs : '/icons/icon-512.png' %>">
   <meta name="twitter:card" content="summary_large_image">
