@@ -253,10 +253,14 @@ const baseLocals = {
   check('sticky bar: the bar button is in BOTH overlap guards (WhatsApp float + side-cart tab hide when it covers them)',
     /#sort, \.cart-summary \.btn-primary, \.product-card \.btn-card, \.add-to-cart-form button, \.product-info \.btn-primary, \.sticky-buy-bar \.btn-primary, \.side-cart/.test(footerEjs)
     && /#sort, \.cart-summary \.btn-primary, \.product-card \.btn-card, \.add-to-cart-form button, \.product-info \.btn-primary, \.sticky-buy-bar \.btn-primary'/.test(footerEjs));
+  // HONEST UPDATE (feat/mobile-pwa, 2026-11-28): the mobile sticky
+  // bar no longer sits at bottom: 0 — the new mobile bottom nav
+  // (60px + safe-area) would cover its Add to Cart button. The bar
+  // now sits ABOVE the nav: bottom: calc(60px + safe-area).
   check('sticky bar css: fixed bar, desktop top under the header / mobile bottom, z-index 450 (below header 500, above content)',
     /\.sticky-buy-bar \{[^}]*position:\s*fixed[^}]*z-index:\s*450/.test(cssNoComments)
     && /@media \(min-width: 769px\)[\s\S]*?\.sticky-buy-bar \{[^}]*top:\s*64px/.test(cssNoComments)
-    && /@media \(max-width: 768px\)[\s\S]*?\.sticky-buy-bar \{[^}]*bottom:\s*0/.test(cssNoComments));
+    && /@media \(max-width: 768px\)[\s\S]*?\.sticky-buy-bar \{[^}]*bottom:\s*calc\(60px \+ env\(safe-area-inset-bottom/.test(cssNoComments));
 
   // ---------- 7. B3 — Buy Now: markup + route contract (source) ----------
   check('buy now: button is a second submit in the SAME add-to-cart form (name=buy_now, CSRF field shared)',

@@ -94,6 +94,28 @@
     </div>
   </footer>
 
+  <% /* ---------- Mobile bottom navigation (feat/mobile-pwa, H2) ----------
+        Mobile-only (≤768px, CSS-e lukano thake desktop-e): Home,
+        Categories, Cart, Account. Kono notun URL nei — shob ager
+        route (/, /cart, /account/profile ba /login); Categories kono
+        link noy, button — chaple header-er hamburger drawer khole
+        (shop-pwa.js #shop-menu-btn-ke click kore), jekhane sob
+        category ache. Cart badge ektai cartCount (side-cart badge-er
+        motoi — footer-er setCartCount-e update hoy). Fixed bottom
+        bar — footer-er niche padding (CSS) dey jate content dheke
+        na jay; sticky buy bar / WhatsApp float-er sathe overlap
+        kore na (CSS-e bar upore tola, float aro upore). */ %>
+  <nav class="mobile-bottom-nav" aria-label="Quick navigation">
+    <a href="/" class="mobile-nav-item"><span class="mobile-nav-icon" aria-hidden="true">🏠</span><span class="mobile-nav-label">Home</span></a>
+    <button type="button" class="mobile-nav-item" id="mobile-nav-cats" aria-label="Categories"><span class="mobile-nav-icon" aria-hidden="true">🗂️</span><span class="mobile-nav-label">Categories</span></button>
+    <a href="/cart" class="mobile-nav-item"><span class="mobile-nav-icon" aria-hidden="true">🛒</span><span class="mobile-nav-label">Cart</span><% if (typeof cartCount !== 'undefined' && cartCount > 0) { %><span class="mobile-nav-badge"><%= cartCount %></span><% } %></a>
+    <% if (typeof userName !== 'undefined' && userName) { %>
+    <a href="/account/profile" class="mobile-nav-item"><span class="mobile-nav-icon" aria-hidden="true">👤</span><span class="mobile-nav-label">Account</span></a>
+    <% } else { %>
+    <a href="/login" class="mobile-nav-item"><span class="mobile-nav-icon" aria-hidden="true">👤</span><span class="mobile-nav-label">Account</span></a>
+    <% } %>
+  </nav>
+
   <!-- ===== WhatsApp Chat Button ===== -->
   <%
     // Phone from Admin > Settings -> digits only, Bangladesh local format (01...) -> 880...
@@ -118,6 +140,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
 
   <script>window.GOINCE_CSRF_TOKEN = "<%= (typeof csrfToken !== 'undefined' && csrfToken) || '' %>";</script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/theme.js') : '/js/theme.js' %>"></script>
+  <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/shop-pwa.js') : '/js/shop-pwa.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/customer-push.js') : '/js/customer-push.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/mega-menu.js') : '/js/mega-menu.js' %>"></script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/product-gallery.js') : '/js/product-gallery.js' %>"></script>
@@ -401,6 +424,30 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           } else if (drawerBadge && drawerBadge.parentNode && drawerBadge.parentNode.removeChild) {
             drawerBadge.parentNode.removeChild(drawerBadge);
           }
+        }
+        // Mobile bottom nav badge (feat/mobile-pwa, H2): ektai
+        // cartCount — side-cart badge-er motoi create/remove.
+        var navCartLink = document.querySelector('.mobile-bottom-nav a[href="/cart"]');
+        var navBadge = document.querySelector('.mobile-nav-badge');
+        if (navCartLink) {
+          if (count > 0) {
+            if (!navBadge && document.createElement) {
+              navBadge = document.createElement('span');
+              navBadge.className = 'mobile-nav-badge';
+              if (navCartLink.appendChild) navCartLink.appendChild(navBadge);
+            }
+            if (navBadge) navBadge.textContent = String(count);
+          } else if (navBadge && navBadge.parentNode && navBadge.parentNode.removeChild) {
+            navBadge.parentNode.removeChild(navBadge);
+          }
+        }
+      }
+      // Offline cart snapshot (feat/mobile-pwa, H4): drawer-er TAZA
+      // HTML save kora hoy (shop-pwa.js) — offline hole offline.html
+      // sei snapshot-i dekhay. Cart bodle gele abar save hoy.
+      function saveOfflineSnapshot() {
+        if (typeof window !== 'undefined' && window.GoinceOfflineCart && window.GoinceOfflineCart.saveSnapshot) {
+          window.GoinceOfflineCart.saveSnapshot();
         }
       }
       // Drawer-er vitore HTML bodle gele (AJAX add-er pore drawer
@@ -694,6 +741,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
             if (drawer && typeof r.data.drawerHtml === 'string') {
               drawer.innerHTML = r.data.drawerHtml;
               rebindDrawerButtons();
+              saveOfflineSnapshot();
             }
           } else {
             showToast((r.data && r.data.error) || 'Could not update cart. Please try again.', true);
@@ -795,6 +843,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
               if (drawer && typeof r.data.drawerHtml === 'string') {
                 drawer.innerHTML = r.data.drawerHtml;
                 rebindDrawerButtons();
+                saveOfflineSnapshot();
               }
               restoreTab();
               openDrawer();
@@ -837,6 +886,7 @@ l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.4
           if (drawer && typeof drawerHtml === 'string') {
             drawer.innerHTML = drawerHtml;
             rebindDrawerButtons();
+            saveOfflineSnapshot();
           }
         },
         open: openDrawer,
