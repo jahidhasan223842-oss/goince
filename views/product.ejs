@@ -199,6 +199,9 @@
       <div class="product-card">
         <a href="/product/<%= p.id %>">
           <img src="/uploads/<%= p.image %>" alt="<%= p.name %>" onerror="this.src='/uploads/no-image.png'">
+          <% /* A5 hover preview (homepage-er motoi): 2nd gallery
+                chobi thaklei hover-e swap, na thakle ektai chobi. */ %>
+          <% if (typeof secondImages !== 'undefined' && secondImages && secondImages[p.id]) { %><img class="product-card-img-alt" src="/uploads/<%= secondImages[p.id] %>" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><% } %>
           <h3><%= p.name %></h3>
         </a>
         <div class="product-card-foot">
