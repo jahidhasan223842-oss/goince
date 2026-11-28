@@ -917,6 +917,104 @@ const checkoutLocals = {
       && free.els['btn-total-display'].textContent === '৳990');
   }
 
+  // ---------- 12. PR #92 — the checkout payment toggle must work
+  // WITHOUT the inline onchange attribute. After PR #90 the live
+  // checkout stopped revealing the Transaction ID field when
+  // bKash/Nagad was selected: Helmet's default `script-src-attr
+  // 'none'` blocked onchange="toggleTxnField()" (and every other
+  // inline on* handler) while inline <script> blocks still ran.
+  // The old suite only checked the source CONTAINS the attribute,
+  // so it could not catch this. This section runs the REAL inline
+  // toggle script + the REAL public/js/checkout.js boot in a
+  // stubbed DOM that — exactly like a browser under
+  // script-src-attr 'none' — has NO inline-handler support at
+  // all (fire() only triggers addEventListener listeners), then
+  // fires a change event on payment_method and asserts the field
+  // actually appears.
+  check('PR #92 source: checkout.js wires payment_method change -> window.toggleTxnField (defense in depth)',
+    checkoutJs.includes("window.toggleTxnField") && checkoutJs.includes("payment_method") && checkoutJs.includes("addEventListener('change'"));
+  check('PR #92 source: checkout.js wires delivery_area change -> window.updateTotal (was inline-only)',
+    checkoutJs.includes("window.updateTotal") && checkoutJs.includes("delivery_area"));
+  const toggleBlock = guestHtml ? guestHtml.match(/<script>\s*const subtotal =[\s\S]*?<\/script>/) : null;
+  check('PR #92 dom: the real inline checkout script (updateTotal + toggleTxnField) is extracted from the rendered page',
+    !!toggleBlock);
+  if (toggleBlock) {
+    const code92 = toggleBlock[0].replace(/<\/?script>/g, '');
+    const els92 = {};
+    ['customer_name', 'email', 'phone', 'district', 'area', 'address_line', 'delivery_area', 'payment_method', 'txn-input', 'place-order-hint', 'txn-field', 'txn-label', 'payment-number-box', 'payment-method-name', 'payment-number-display', 'payment-type-label', 'payment-instructions', 'gateway-box', 'delivery-display', 'review-delivery-display', 'total-display', 'btn-total-display', 'review-total-display'].forEach((id) => { els92[id] = makeStubEl('div'); });
+    ['customer_name-msg', 'email-msg', 'phone-msg', 'district-msg', 'area-msg', 'address_line-msg', 'transaction_id-msg'].forEach((id) => { els92[id] = makeStubEl('span'); });
+    const form92 = makeStubEl('form');
+    const btn92 = makeStubEl('button');
+    els92.district.options = [{ value: '', dataset: {} }];
+    els92.area.options = [{ value: '', dataset: {} }];
+    els92.delivery_area.options = [{ value: 'inside_dhaka', dataset: { charge: '60' } }, { value: 'outside_dhaka', dataset: { charge: '120' } }];
+    els92.delivery_area.value = 'inside_dhaka';
+    els92.delivery_area.selectedIndex = 0;
+    els92.payment_method.options = [
+      { value: 'Cash on Delivery', dataset: {} },
+      { value: 'bKash', dataset: { number: '01814697896', type: 'send_money', instructions: '' } },
+    ];
+    els92.payment_method.value = 'Cash on Delivery';
+    els92.payment_method.selectedIndex = 0;
+    els92['delivery-display'].textContent = '৳60';
+    els92['review-delivery-display'].textContent = '৳60';
+    els92['total-display'].textContent = '৳1,050';
+    els92['btn-total-display'].textContent = '৳1,050';
+    els92['review-total-display'].textContent = '৳1,050';
+    const box92 = {
+      BD_DISTRICTS: { districts: DISTRICTS, areas: AREAS },
+      console,
+      document: {
+        readyState: 'complete',
+        getElementById(id) { return els92[id] || null; },
+        querySelector(sel) {
+          if (sel === '.checkout-form') return form92;
+          if (sel === '.btn-place-order') return btn92;
+          return null;
+        },
+        querySelectorAll() { return []; },
+        addEventListener() {},
+        createElement(tag) { return makeStubEl(tag); },
+      },
+    };
+    box92.window = box92;
+    let boot92Ok = true;
+    try {
+      vm.runInNewContext(code92, box92); // real inline toggle/updateTotal
+      vm.runInNewContext(checkoutJs, box92); // real checkout.js boot (addEventListener wiring)
+    } catch (e) { boot92Ok = false; }
+    check('PR #92 dom: real inline script + real checkout.js boot together in the stubbed DOM (no inline-handler support)',
+      boot92Ok && typeof box92.toggleTxnField === 'function' && typeof box92.updateTotal === 'function');
+    if (boot92Ok) {
+      check('PR #92 dom: Cash on Delivery on load -> Transaction ID field + number box both hidden',
+        els92['txn-field'].style.display === 'none' && els92['payment-number-box'].style.display === 'none');
+      // The exact live failure: pick bKash and fire change — with
+      // only the inline onchange this did nothing under the CSP.
+      els92.payment_method.value = 'bKash';
+      els92.payment_method.selectedIndex = 1;
+      els92.payment_method.fire('change');
+      check('PR #92 dom: selecting bKash + change event -> Transaction ID field VISIBLE, required, number box shows 01814697896',
+        els92['txn-field'].style.display === 'block'
+        && els92['txn-input'].required === true
+        && els92['payment-number-box'].style.display === 'block'
+        && els92['payment-number-display'].textContent === '01814697896'
+        && String(els92['txn-label'].textContent || '').includes('bKash'));
+      els92.payment_method.value = 'Cash on Delivery';
+      els92.payment_method.selectedIndex = 0;
+      els92.payment_method.fire('change');
+      check('PR #92 dom: back to Cash on Delivery -> Transaction ID field hidden again, no longer required',
+        els92['txn-field'].style.display === 'none' && els92['txn-input'].required === false);
+      els92.delivery_area.value = 'outside_dhaka';
+      els92.delivery_area.selectedIndex = 1;
+      els92.delivery_area.fire('change');
+      check('PR #92 dom: changing the delivery zone by hand (listener path, no inline handler) -> totals re-price to ৳1,110',
+        els92['delivery-display'].textContent === '৳120'
+        && els92['review-delivery-display'].textContent === '৳120'
+        && els92['total-display'].textContent === '৳1,110'
+        && els92['review-total-display'].textContent === '৳1,110');
+    }
+  }
+
   console.log(`\n${passes.length} passed, ${failures.length} failed.`);
   if (failures.length) {
     console.log('Failures:');

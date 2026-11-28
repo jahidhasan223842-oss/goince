@@ -84,6 +84,40 @@ const adminBaseLocals = {
     csp.includes("script-src 'self' 'unsafe-inline'") && csp.includes("style-src 'self' 'unsafe-inline'") && !csp.includes('unsafe-eval'), csp);
   check('I14: server.js enables helmet CSP from lib/admin-ops (not contentSecurityPolicy:false)',
     read(path.join(__dirname, '..', 'server.js')).includes('cspPolicy()') && !read(path.join(__dirname, '..', 'server.js')).includes('contentSecurityPolicy: false'));
+  // PR #92 — the live checkout's Transaction ID field stopped
+  // appearing after PR #90 added Helmet: the served header
+  // contained `script-src-attr 'none'` (a Helmet DEFAULT that
+  // survives because Helmet merges your directives with its
+  // defaults) while script-src allowed 'unsafe-inline'. That
+  // blocked every inline on* attribute site-wide. The policy
+  // string alone is not enough to catch it — the old suite only
+  // checked the string — so assert on the header Helmet ACTUALLY
+  // serves, built exactly the way server.js builds it.
+  check('PR #92: CSP policy allows inline event-handler attributes (script-src-attr unsafe-inline, never none)',
+    csp.includes("script-src-attr 'self' 'unsafe-inline'") && !/script-src-attr 'none'/.test(csp) && !csp.includes('unsafe-eval'), csp);
+  check('PR #92: the header Helmet actually serves (server.js wiring) allows inline handlers and keeps the blocks',
+    (() => {
+      try {
+        const helmet = require('helmet');
+        const directives = Object.fromEntries(csp.split('; ').map((d) => { const [k, ...v] = d.split(' '); return [k, v]; }));
+        const mw = helmet({ contentSecurityPolicy: { directives }, hsts: false });
+        const headers = {};
+        const res = {
+          setHeader(name, value) { headers[name] = value; },
+          getHeader(name) { return headers[name]; },
+          removeHeader(name) { delete headers[name]; },
+        };
+        let nextErr = null;
+        mw({}, res, (err) => { nextErr = err || null; });
+        const header = headers['Content-Security-Policy'];
+        if (nextErr || typeof header !== 'string') return false;
+        return header.includes("script-src-attr 'self' 'unsafe-inline'")
+          && !header.includes("script-src-attr 'none'")
+          && header.includes("script-src 'self' 'unsafe-inline'")
+          && header.includes("object-src 'none'")
+          && header.includes("frame-ancestors 'self'");
+      } catch (e) { return false; }
+    })());
 
   // ================= I4 — compare =================
   check('I4: compare caps at 4, dedupes, drops invalid ids',
