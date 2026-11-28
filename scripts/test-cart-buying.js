@@ -265,8 +265,11 @@ const baseLocals = {
   // ---------- 7. B3 — Buy Now: markup + route contract (source) ----------
   check('buy now: button is a second submit in the SAME add-to-cart form (name=buy_now, CSRF field shared)',
     /<form action="\/cart\/add\/<%= product\.id %>" method="POST" class="add-to-cart-form"[\s\S]*?<%- include\('partials\/csrf-field'\) %>[\s\S]*?<button type="submit" name="buy_now" value="1" class="btn-buy-now" id="buy-now-btn"/.test(productEjs));
+  // E6 (feat/payments-messaging, batch 9): the express-gateway
+  // button joins Buy Now in skipping the AJAX interceptor — both
+  // must do a plain POST so the server can redirect to checkout.
   check('buy now: footer JS never AJAX-intercepts a Buy Now submit (it must navigate to /checkout)',
-    /if \(isAdd && submitter && submitter\.name === 'buy_now'\) return;/.test(footerEjs));
+    /if \(isAdd && submitter && \(submitter\.name === 'buy_now' \|\| submitter\.name === 'express_gateway'\)\) return;/.test(footerEjs));
   check('buy now: route adds the item, keeps the rest of the cart, and redirects to /checkout (not /cart)',
     /if \(req\.body\.buy_now === '1'\) return res\.redirect\('\/checkout'\);/.test(shopRoutes));
   check('buy now: the click tracker records which submit button was clicked (Buy Now vs Add to Cart)',

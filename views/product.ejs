@@ -163,6 +163,14 @@
             /checkout-e jay (no-JS-eo eki). Variant na bechle form-ta
             lukano thake, tai vul variant-e Buy Now chapa jay na. */ %>
       <button type="submit" name="buy_now" value="1" class="btn-buy-now" id="buy-now-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>>Buy Now</button>
+      <% /* E6 (feat/payments-messaging): express checkout — sudhu
+            gateway configure thakle dekhay. Item-ta cart-e jog kore
+            /checkout?pay=gateway-e jay (gateway age thekei beche
+            neya). Footer-er AJAX interceptor Buy Now-er motoi
+            ei button-keo chhere dey, jate sadharon POST-e jay. */ %>
+      <% if (typeof gateway !== 'undefined' && gateway && gateway.configured) { %>
+        <button type="submit" name="express_gateway" value="1" class="btn-buy-now" id="express-gateway-btn" <%= product.stock === 0 && !product.allow_backorder ? 'disabled' : '' %>>⚡ Pay with SSLCommerz</button>
+      <% } %>
     </form>
     <% /* G3 trust badges (feat/product-page): shop-er ashol
           sotto gulo — Cash on Delivery, manual bKash/Nagad/Rocket,

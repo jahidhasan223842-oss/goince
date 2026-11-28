@@ -116,7 +116,32 @@
   <input type="text" name="gateway_store_id" value="<%= gatewayStoreId %>" placeholder="e.g. goince001">
   <label>Store Password / API Key <%= gatewayPasswordSet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
   <input type="password" name="gateway_store_password" placeholder="leave blank to keep the current one" autocomplete="new-password">
-  <p class="field-hint">⚠️ To accept real payments through a gateway, you need a merchant account with the provider (SSLCommerz/ShurjoPay/bKash PGW). Saving the config here will show the option at checkout, but taking real payments also requires an API verification step for orders — that still needs to be set up with your merchant credentials.</p>
+  <p class="field-hint">⚠️ To accept real payments, you need a merchant account with SSLCommerz and its Store ID + Store Password saved here. Only SSLCommerz has a live payment flow — ShurjoPay / bKash PGW show no payment option until their flow is built. When a customer pays, the order stays <strong>Unpaid</strong> until SSLCommerz itself confirms the payment (server-side validation) — a callback alone never marks an order paid. Use <strong>Sandbox (test)</strong> with SSLCommerz's test credentials to try the flow without real money; switch to <strong>Live</strong> only with your real merchant credentials.</p>
+
+  <hr style="margin:20px 0;">
+  <h3>📱 SMS Notifications</h3>
+  <p class="field-hint">Order updates by SMS (for example when an order's status changes). No SMS is sent — and no money is spent — until a provider and API key are saved here. The order page "Send SMS update" button and the order-status SMS both use these settings.</p>
+  <% const _sms = (typeof sms !== 'undefined' && sms) ? sms : { provider: 'none', enabled: '0', apiKeySet: false, senderId: '', endpoint: '', orderStatusEnabled: '0' }; %>
+  <label>SMS Provider</label>
+  <select name="sms_provider" style="width:100%; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--surface); color:var(--text);">
+    <option value="none" <%= _sms.provider === 'none' ? 'selected' : '' %>>— No SMS provider —</option>
+    <option value="generic" <%= _sms.provider === 'generic' ? 'selected' : '' %>>Generic HTTP SMS API (JSON)</option>
+  </select>
+  <label><input type="checkbox" name="sms_enabled" value="1" <%= _sms.enabled === '1' ? 'checked' : '' %>> Enable SMS</label>
+  <label>API Endpoint URL (your provider's HTTP endpoint, e.g. https://api.your-sms-provider.com/send)</label>
+  <input type="text" name="sms_endpoint" value="<%= _sms.endpoint %>" placeholder="https://...">
+  <label>API Key <%= _sms.apiKeySet ? '(one is already saved — enter a new one to change it, or leave blank to keep it)' : '(not set yet)' %></label>
+  <input type="password" name="sms_api_key" placeholder="leave blank to keep the current one" autocomplete="new-password">
+  <label>Sender ID (optional — the name/number customers see, if your provider supports it)</label>
+  <input type="text" name="sms_sender_id" value="<%= _sms.senderId %>" placeholder="e.g. GOINCE">
+  <label><input type="checkbox" name="sms_order_status_enabled" value="1" <%= _sms.orderStatusEnabled === '1' ? 'checked' : '' %>> Send SMS when an order's status changes</label>
+  <p class="field-hint">The generic provider sends a JSON POST to your endpoint with { to, message, sender_id } and your API key as a Bearer token. Most Bangladeshi HTTP SMS APIs (SSL Wireless, GreenWeb, BulkSMSBD and similar) have an endpoint of this shape — paste your provider's endpoint URL and key above.</p>
+
+  <hr style="margin:20px 0;">
+  <h3>💾 Database Backups</h3>
+  <p class="field-hint">A full database backup runs automatically once a day. Backups are listed and downloaded under Admin &gt; System &gt; Backups — they are never public.</p>
+  <label>Keep backups for (days — older backup files are deleted automatically)</label>
+  <input type="number" name="backup_retention_days" value="<%= (typeof backupRetentionDays !== 'undefined' && backupRetentionDays) ? backupRetentionDays : '14' %>" min="1" max="90">
 
   <hr style="margin:20px 0;">
   <h3>🚚 Courier API (Steadfast / Pathao)</h3>

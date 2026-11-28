@@ -16,6 +16,7 @@ const { sendOrderConfirmation, sendMail } = require('../config/email');
 const { notifyAdmins } = require('../config/push');
 const ret = require('../lib/retention');
 const ops = require('../lib/admin-ops');
+const ssl = require('../lib/sslcommerz');
 const { buildCategoryTree, ancestorChain, visibleSubtreeIds, isEffectivelyVisible } = require('../lib/categories');
 
 // ---------- PRODUCT-PAGE BATCH (feat/product-page, PR #83) ----------
@@ -75,21 +76,30 @@ async function getDeliveryZones() {
 }
 
 // Payment gateway config (Admin > Settings): gateway chalale manual method
-// off kora jay, na chalale gateway website-e dekhabei na
+// off kora jay, na chalale gateway website-e dekhabei na.
+// E1 (feat/payments-messaging): `configured` ekhon sudhu tokhoni
+// true jokhon provider SSLCommerz + enabled + Store ID + Store
+// Password — duitai — save kora ache. ID eka diye payment shuru
+// kora jay na, tai password chara checkout-e gateway option
+// dekhano hoy na. Onno provider (ShurjoPay / bKash PGW) beche
+// nileo configured false thake — tader ashol flow ekhono nei.
 async function getGatewayConfig() {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_mode')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode')"
   );
   const get = (k, fb) => { const r = rows.find(x => x.setting_key === k); return r ? r.setting_value : fb; };
   const provider = get('gateway_provider', 'none');
   const enabled = get('gateway_enabled', '0') === '1' && provider !== 'none';
   const storeId = get('gateway_store_id', '');
+  const storePassword = get('gateway_store_password', '');
   return {
     mode: get('payment_mode', 'manual'),
     provider,
     enabled,
-    // Gateway sotti cholbe sudhu jodi enable kora + store ID deya thake
-    configured: enabled && storeId.length > 0,
+    // Gateway sotti cholbe sudhu jodi enable kora + Store ID +
+    // Store Password — duitai — deya thake, ar provider
+    // SSLCommerz hoy (onno provider-er flow ekhono toiri hoy ni).
+    configured: provider === 'sslcommerz' && enabled && storeId.length > 0 && String(storePassword || '').length > 0,
     mode_label: get('gateway_mode', 'sandbox')
   };
 }
@@ -837,6 +847,10 @@ router.get('/product/:id', async (req, res) => {
       descriptionHtml,
       flashOffer: flashOffer || null,
       flashPrice,
+      // E6 (feat/payments-messaging): express checkout button-er
+      // jonno — gateway configure na thakle view button-ta
+      // dekhabe na.
+      gateway: await getGatewayConfig(),
       siteName: 'Goince'
     });
   } catch (err) {
@@ -1108,6 +1122,12 @@ router.post('/cart/add/:id', async (req, res) => {
     // kokhono ashar kotha na (footer JS Buy Now-ke intercept kore
     // na), tobu asle uporer AJAX shakha-i uttor dey.
     if (req.body.buy_now === '1') return res.redirect('/checkout');
+    // E6 (feat/payments-messaging): express checkout — product
+    // page-er "Pay with SSLCommerz" button: item-ta cart-e jog
+    // kore sorasori /checkout?pay=gateway-e jay, jekhane gateway
+    // method age thekei beche neya thake. Gateway configure na
+    // thakle button-ta dekhabei na, tai ekhane ar jachai lage na.
+    if (req.body.express_gateway === '1') return res.redirect('/checkout?pay=gateway');
 
     res.redirect('/cart');
   } catch (err) {
@@ -1198,6 +1218,10 @@ router.get('/cart', async (req, res) => {
     relatedProducts: res.locals.relatedProducts,
     estimatedDelivery,
     wishlistProductIds,
+    // E6 (feat/payments-messaging): express checkout button-er
+    // jonno — gateway configure na thakle view button-ta
+    // dekhabe na.
+    gateway: await getGatewayConfig(),
     siteName: 'Goince'
   });
 });
@@ -1608,7 +1632,7 @@ router.get('/checkout', async (req, res) => {
   } catch (e) { /* retention never blocks checkout */ }
   const loyaltyEnabled = ret.isOn(retentionSettings, 'loyalty_enabled');
   const pointsValue = loyaltyEnabled ? ret.redeemValueForPoints(pointsBalance, retentionSettings.loyalty_redeem_points, retentionSettings.loyalty_redeem_taka) : 0;
-  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: null, prefill, form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince', pointsBalance, pointsValue, pointsDiscount: 0, loyaltyEnabled, pointsRedeemPoints: retentionSettings.loyalty_redeem_points, pointsRedeemTaka: retentionSettings.loyalty_redeem_taka, pointsMaxRedeem: retentionSettings.loyalty_max_redeem_taka });
+  res.render('checkout', { cart, subtotal, coupon, discount, deliveryCharges, deliveryZones, deliveryCharge, total, paymentMethods, gateway, expressGateway: req.query.pay === 'gateway', allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: null, prefill, form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince', pointsBalance, pointsValue, pointsDiscount: 0, loyaltyEnabled, pointsRedeemPoints: retentionSettings.loyalty_redeem_points, pointsRedeemTaka: retentionSettings.loyalty_redeem_taka, pointsMaxRedeem: retentionSettings.loyalty_max_redeem_taka });
 });
 
 // ---------- PLACE ORDER ----------
@@ -1657,7 +1681,7 @@ router.post('/checkout', async (req, res) => {
       customer_name: customer_name || '', email: email || '', phone: phone || '',
       district: district || '', area: area || '', address_line: address_line || '',
     };
-    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: errorDeliveryCharge, total: _sub0 - _disc0 + errorDeliveryCharge, paymentMethods, gateway, allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: msg, prefill, form: _form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince', pointsBalance, pointsValue, pointsDiscount: 0, loyaltyEnabled, redeemPointsInput: Math.max(0, parseInt(req.body.redeem_points, 10) || 0), pointsRedeemPoints: retentionSettings.loyalty_redeem_points, pointsRedeemTaka: retentionSettings.loyalty_redeem_taka, pointsMaxRedeem: retentionSettings.loyalty_max_redeem_taka });
+    return res.render('checkout', { cart, subtotal: _sub0, coupon: _coupon, discount: _disc0, deliveryCharges, deliveryZones, deliveryCharge: errorDeliveryCharge, total: _sub0 - _disc0 + errorDeliveryCharge, paymentMethods, gateway, expressGateway: req.query.pay === 'gateway', allFreeShipping: flags.allFreeShipping, codAllowed: flags.codAllowed, error: msg, prefill, form: _form, bdDistricts: { districts: DISTRICTS, areas: AREAS }, isLoggedIn: !!req.session.userId, siteName: 'Goince', pointsBalance, pointsValue, pointsDiscount: 0, loyaltyEnabled, redeemPointsInput: Math.max(0, parseInt(req.body.redeem_points, 10) || 0), pointsRedeemPoints: retentionSettings.loyalty_redeem_points, pointsRedeemTaka: retentionSettings.loyalty_redeem_taka, pointsMaxRedeem: retentionSettings.loyalty_max_redeem_taka });
   };
   // Gateway option: sudhu jodi gateway enable + configure kora thake
   const gatewayMethodName = 'Online Payment (Gateway)';
@@ -1820,6 +1844,36 @@ router.post('/checkout', async (req, res) => {
     // ar sobar jonno upsell. lastOrderId session-e rakha hoy, jate
     // E9 sudhu ei matro deya order diye account banate pare.
     req.session.lastOrderId = orderId;
+    // E1 (feat/payments-messaging): gateway order — the order is
+    // saved as Unpaid (payment_status defaults to 'Unpaid') and
+    // the customer is sent to SSLCommerz to pay. NOTHING here
+    // marks the order paid: only the success / IPN callback, after
+    // server-side validation, may do that
+    // (lib/sslcommerz.js markOrderPaidIfValidated). If the payment
+    // cannot even be started, the customer lands on the pending
+    // page with a retry button instead of a false success page.
+    if (selectedMethod === gatewayMethodName) {
+      const gwConfig = await ssl.getGatewaySettings(db);
+      const init = await ssl.initiatePayment(gwConfig, {
+        id: orderId, total_amount: total,
+        customer_name, email, phone: normalizedPhone, address: fullAddress,
+      }, {
+        success: siteUrl + '/payment/success',
+        fail: siteUrl + '/payment/fail',
+        cancel: siteUrl + '/payment/cancel',
+        ipn: siteUrl + '/payment/ipn',
+      });
+      if (init.ok) {
+        try {
+          await db.query(
+            `INSERT INTO gateway_payment_attempts (order_id, tran_id, val_id, status, amount, currency, validated) VALUES (?, ?, NULL, 'INITIATED', ?, 'BDT', 0)`,
+            [orderId, init.tran_id, total]
+          );
+        } catch (e) { /* the attempt log never blocks the redirect */ }
+        return res.redirect(init.gatewayUrl);
+      }
+      return res.redirect('/payment/pending/' + orderId + '?err=init');
+    }
     const upsell = await getUpsellProducts(cart.map((i) => i.id));
     res.render('order-success', {
       orderId, siteName: 'Goince', cart, total, upsell,
@@ -1833,6 +1887,127 @@ router.post('/checkout', async (req, res) => {
   } finally {
     connection.release();
   }
+});
+
+// ---------- SSLCOMMERZ GATEWAY CALLBACKS (feat/payments-messaging, E1) ----------
+//   initiate (POST /checkout) -> SSLCommerz -> success / fail /
+//   cancel (browser redirect, POST from SSLCommerz — CSRF-exempt
+//   in server.js) + IPN (server-to-server POST).
+//   EVERY one of these validates the val_id against SSLCommerz's
+//   server before anything is marked paid. A callback alone —
+//   however it arrives — never pays an order.
+//   The order a callback refers to comes from its tran_id
+//   (GOINCE-<orderId>-<ms>), never from a bare id in the URL.
+async function orderFromTranId(tranId) {
+  const orderId = ssl.parseTranId(tranId);
+  if (!orderId) return null;
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+  return order || null;
+}
+
+async function renderPaymentPending(req, res, order, message) {
+  const charges = await getDeliveryCharges();
+  res.render('payment-pending', {
+    order, message: message || null,
+    error: req.query.err || null,
+    siteName: 'Goince',
+    deliveryInside: charges.inside_dhaka,
+    deliveryOutside: charges.outside_dhaka,
+  });
+}
+
+// Success: validate first, then — and only then — show the
+// thank-you page. A failed validation lands on the pending page
+// with the reason, the order still Unpaid.
+async function handleGatewaySuccess(req, res) {
+  const valId = (req.body && req.body.val_id) || req.query.val_id;
+  const tranId = (req.body && req.body.tran_id) || req.query.tran_id;
+  const order = await orderFromTranId(tranId);
+  if (!order) return res.redirect('/track-order');
+  const config = await ssl.getGatewaySettings(db);
+  const validation = await ssl.validatePayment(config, valId);
+  const result = await ssl.markOrderPaidIfValidated(db, order, validation);
+  if (!result.paid) {
+    return renderPaymentPending(req, res, order, result.reason || 'Payment could not be verified — your order is still unpaid.');
+  }
+  const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
+  const cart = items.map((it) => ({ id: it.product_id, name: it.product_name, price: Number(it.price), quantity: it.quantity }));
+  const upsell = await getUpsellProducts(cart.map((i) => i.id));
+  const charges = await getDeliveryCharges();
+  req.session.lastOrderId = order.id;
+  res.render('order-success', {
+    orderId: order.id, siteName: 'Goince', cart, total: Number(order.total_amount), upsell,
+    guestCheckout: !order.user_id, accountError: null,
+    deliveryInside: charges.inside_dhaka, deliveryOutside: charges.outside_dhaka,
+  });
+}
+router.get('/payment/success', handleGatewaySuccess);
+router.post('/payment/success', handleGatewaySuccess);
+
+// Fail / cancel: never a payment — the order stays Unpaid and
+// the pending page offers a retry.
+async function handleGatewayUnpaid(req, res, message) {
+  const tranId = (req.body && req.body.tran_id) || req.query.tran_id;
+  const order = await orderFromTranId(tranId);
+  if (!order) return res.redirect('/track-order');
+  return renderPaymentPending(req, res, order, message);
+}
+router.get('/payment/fail', (req, res) => handleGatewayUnpaid(req, res, 'The online payment failed — no money was taken for this order. You can try again below.'));
+router.post('/payment/fail', (req, res) => handleGatewayUnpaid(req, res, 'The online payment failed — no money was taken for this order. You can try again below.'));
+router.get('/payment/cancel', (req, res) => handleGatewayUnpaid(req, res, 'You cancelled the online payment — your order is saved as unpaid. You can try again below, or pay by Cash on Delivery / bKash on a new order.'));
+router.post('/payment/cancel', (req, res) => handleGatewayUnpaid(req, res, 'You cancelled the online payment — your order is saved as unpaid. You can try again below, or pay by Cash on Delivery / bKash on a new order.'));
+
+// IPN: SSLCommerz's server-to-server notification. Same
+// validation, same guard. Always answers 200 so SSLCommerz does
+// not keep retrying a finished decision.
+router.post('/payment/ipn', async (req, res) => {
+  const valId = req.body && req.body.val_id;
+  const tranId = req.body && req.body.tran_id;
+  const order = await orderFromTranId(tranId);
+  if (!order || !valId) return res.status(200).send('OK');
+  try {
+    const config = await ssl.getGatewaySettings(db);
+    const validation = await ssl.validatePayment(config, valId);
+    await ssl.markOrderPaidIfValidated(db, order, validation);
+  } catch (e) { console.error('Gateway IPN failed:', e.message); }
+  return res.status(200).send('OK');
+});
+
+// Pending page: an unpaid gateway order, with its status and a
+// retry button. A paid order shows "already paid" instead.
+router.get('/payment/pending/:id', async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/track-order');
+  return renderPaymentPending(req, res, order,
+    req.query.err === 'init' ? 'The online payment could not be started — your order is saved as unpaid. Please try again below.' : null);
+});
+
+// Retry: start a FRESH SSLCommerz session (new tran_id) for the
+// same unpaid gateway order. Only the customer who placed it may
+// do this — logged-in owner, or this session's last order.
+router.post('/payment/gateway/retry/:id', async (req, res) => {
+  const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.redirect('/track-order');
+  const ownsOrder = (req.session.userId && order.user_id === req.session.userId) || req.session.lastOrderId === Number(order.id);
+  if (!ownsOrder || order.payment_status === 'Paid' || order.payment_method !== 'Online Payment (Gateway)') {
+    return res.redirect('/payment/pending/' + order.id);
+  }
+  const config = await ssl.getGatewaySettings(db);
+  const siteUrl = `${req.protocol}://${req.get('host')}`;
+  const init = await ssl.initiatePayment(config, order, {
+    success: siteUrl + '/payment/success',
+    fail: siteUrl + '/payment/fail',
+    cancel: siteUrl + '/payment/cancel',
+    ipn: siteUrl + '/payment/ipn',
+  });
+  if (!init.ok) return res.redirect('/payment/pending/' + order.id + '?err=init');
+  try {
+    await db.query(
+      `INSERT INTO gateway_payment_attempts (order_id, tran_id, val_id, status, amount, currency, validated) VALUES (?, ?, NULL, 'INITIATED', ?, 'BDT', 0)`,
+      [order.id, init.tran_id, order.total_amount]
+    );
+  } catch (e) { /* the attempt log never blocks the redirect */ }
+  return res.redirect(init.gatewayUrl);
 });
 
 // ---------- CREATE ACCOUNT AFTER PURCHASE (feat/checkout, E9) ----------

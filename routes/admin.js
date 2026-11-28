@@ -3,7 +3,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { getCourierConfig, createConsignment, getTrackingStatus } = require('../lib/courier');
-const { sendSms, SMS_NOT_CONFIGURED } = require('../lib/sms');
+const { sendSms, sendOrderStatusSms, getSmsSettings, SMS_NOT_CONFIGURED } = require('../lib/sms');
+const backups = require('../lib/backups');
 const { invoiceNo, paidAmount, dueAmount } = require('../lib/invoice');
 const { buildInvoicePdf } = require('../lib/invoice-pdf');
 const { getWhatsAppConfig, sendInvoiceDocument, NOT_CONFIGURED: WHATSAPP_NOT_CONFIGURED } = require('../lib/whatsapp');
@@ -2060,6 +2061,12 @@ router.post('/orders/:id/status', requireAdmin, requirePermission('orders.manage
       await ret.completeReferralReward(db, order.user_id, settings);
     }
   } catch (e) { console.error('Retention order-status hook failed:', e.message); }
+  // I2 (feat/payments-messaging): order-status SMS — only when a
+  // provider is configured AND the admin toggle is on. Best
+  // effort: a failed SMS never blocks the status change.
+  try {
+    await sendOrderStatusSms(order, status, db);
+  } catch (e) { console.error('Order-status SMS failed:', e.message); }
   res.redirect(dest);
 });
 
@@ -2124,12 +2131,16 @@ router.post('/orders/:id/notes', requireAdmin, requirePermission('orders.manage'
   res.redirect('/admin/orders/' + req.params.id + '?msg=note-saved');
 });
 
-// ---------- SEND SMS UPDATE (placeholder — no provider connected) ----------
+// ---------- SEND SMS UPDATE (I2, feat/payments-messaging) ----------
+// Real send now: lib/sms.js reads the provider + API key from
+// Settings (passed the live DB here). Still "not configured"
+// until donal saves a provider + key — then this button really
+// sends, and a failed send redirects with the provider's error.
 router.post('/orders/:id/sms', requireAdmin, requirePermission('orders.manage'), async (req, res) => {
   const [[order]] = await db.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.redirect('/admin/orders');
   const message = 'Goince: your order #' + order.id + ' is ' + order.status + '.';
-  const result = await sendSms(order.phone, message);
+  const result = await sendSms(order.phone, message, db);
   if (!result.ok) return res.redirect('/admin/orders/' + req.params.id + '?msg=sms-not-connected');
   res.redirect('/admin/orders/' + req.params.id);
 });
@@ -2744,7 +2755,7 @@ router.post('/delivery-zones/delete/:id', requireAdmin, requirePermission('deliv
 
 router.get('/settings', requireAdmin, requirePermission('settings.manage'), async (req, res) => {
   const [rows] = await db.query(
-    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id', 'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_template_name', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key', 'login_lockout_max_attempts', 'login_lockout_minutes')"
+    "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('shop_phone', 'delivery_charge_inside', 'delivery_charge_outside', 'hero_title', 'hero_subtitle', 'announcement_text', 'shop_address', 'facebook_url', 'hero_product_id', 'footer_about', 'shop_email', 'footer_hours', 'youtube_url', 'instagram_url', 'payment_mode', 'gateway_provider', 'gateway_enabled', 'gateway_store_id', 'gateway_store_password', 'gateway_mode', 'logo_url', 'favicon_url', 'og_image_url', 'courier_provider', 'courier_enabled', 'courier_mode', 'steadfast_api_key', 'steadfast_secret_key', 'pathao_client_id', 'pathao_client_secret', 'pathao_username', 'pathao_password', 'pathao_store_id', 'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_template_name', 'loyalty_enabled', 'loyalty_earn_per', 'loyalty_redeem_points', 'loyalty_redeem_taka', 'loyalty_max_redeem_taka', 'referral_enabled', 'referral_reward_points', 'winback_enabled', 'winback_days', 'winback_discount_percent', 'order_status_email_enabled', 'back_in_stock_enabled', 'price_drop_enabled', 'abandoned_cart_email_enabled', 'abandoned_cart_cooldown_hours', 'campaigns_enabled', 'campaign_max_recipients', 'push_enabled', 'vapid_public_key', 'vapid_private_key', 'login_lockout_max_attempts', 'login_lockout_minutes', 'sms_provider', 'sms_enabled', 'sms_api_key', 'sms_sender_id', 'sms_endpoint', 'sms_order_status_enabled', 'backup_retention_days')"
   );
   const [products] = await db.query('SELECT id, name FROM products ORDER BY created_at DESC');
   const get = (key, fallback) => {
@@ -2797,6 +2808,19 @@ router.get('/settings', requireAdmin, requirePermission('settings.manage'), asyn
     ogImageUrl: get('og_image_url', '/icons/icon-512.png'),
     retention,
     adminOps: { loginLockoutMaxAttempts: get('login_lockout_max_attempts', '5'), loginLockoutMinutes: get('login_lockout_minutes', '15') },
+    // I2 (feat/payments-messaging): SMS provider settings — the
+    // API key is never passed to the view, only whether one is set.
+    sms: {
+      provider: get('sms_provider', 'none'),
+      enabled: get('sms_enabled', '0'),
+      apiKeySet: !!get('sms_api_key', ''),
+      senderId: get('sms_sender_id', ''),
+      endpoint: get('sms_endpoint', ''),
+      orderStatusEnabled: get('sms_order_status_enabled', '0'),
+    },
+    // I12 (feat/payments-messaging): how many days of daily
+    // backups to keep (older files are deleted automatically).
+    backupRetentionDays: get('backup_retention_days', '14'),
     products,
     message: null,
     pwMessage: req.query.pw === 'ok' ? 'Password changed successfully!' :
@@ -3076,6 +3100,16 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
     // many failed attempts lock the account, and for how long.
     ['login_lockout_max_attempts', String(Math.min(20, Math.max(1, parseInt(req.body.login_lockout_max_attempts, 10) || 5)))],
     ['login_lockout_minutes', String(Math.min(1440, Math.max(1, parseInt(req.body.login_lockout_minutes, 10) || 15)))],
+    // I2 (feat/payments-messaging): SMS provider — the API key
+    // is saved only when typed (blank keeps the saved one, like
+    // the gateway password); it is never echoed back to the form.
+    ['sms_provider', ['none', 'generic'].includes(req.body.sms_provider) ? req.body.sms_provider : 'none'],
+    ['sms_enabled', req.body.sms_enabled === '1' ? '1' : '0'],
+    ['sms_sender_id', (req.body.sms_sender_id || '').trim()],
+    ['sms_endpoint', (req.body.sms_endpoint || '').trim()],
+    ['sms_order_status_enabled', req.body.sms_order_status_enabled === '1' ? '1' : '0'],
+    // I12 (feat/payments-messaging): backup retention in days.
+    ['backup_retention_days', String(Math.min(90, Math.max(1, parseInt(req.body.backup_retention_days, 10) || 14)))],
     ['campaign_max_recipients', String(Math.min(500, Math.max(1, parseInt(req.body.campaign_max_recipients, 10) || 200)))],
     ['push_enabled', req.body.push_enabled === '1' ? '1' : '0'],
     ['vapid_public_key', (req.body.vapid_public_key || '').trim()],
@@ -3098,6 +3132,8 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
   if ((req.body.pathao_password || '').trim()) settingsToSave.push(['pathao_password', (req.body.pathao_password || '').trim()]);
   // WhatsApp Business API token: blank keeps the saved one (never shown in the form)
   if ((req.body.whatsapp_access_token || '').trim()) settingsToSave.push(['whatsapp_access_token', (req.body.whatsapp_access_token || '').trim()]);
+  // SMS API key: blank keeps the saved one (never shown in the form)
+  if ((req.body.sms_api_key || '').trim()) settingsToSave.push(['sms_api_key', (req.body.sms_api_key || '').trim()]);
 
   for (const [key, value] of settingsToSave) {
     await db.query(
@@ -3118,6 +3154,8 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
   const [[paPwRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'pathao_password'");
   const courierPathaoPasswordSet = !!((req.body.pathao_password || '').trim() || (paPwRow && paPwRow.setting_value));
   const [[waTokenRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'whatsapp_access_token'");
+  // SMS API key: saved or just entered (never shown in the form)
+  const [[smsKeyRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'sms_api_key'");
   const [[vapidPrivRow]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'vapid_private_key'");
   // Retention re-render values: re-read what was just saved (a form
   // never echoes the private VAPID key back — only whether one is set).
@@ -3161,10 +3199,75 @@ router.post('/settings', requireAdmin, requirePermission('settings.manage'), upl
     ogImageUrl: ogImageUrl || '/icons/icon-512.png',
     retention,
     adminOps: { loginLockoutMaxAttempts: String(Math.min(20, Math.max(1, parseInt(req.body.login_lockout_max_attempts, 10) || 5))), loginLockoutMinutes: String(Math.min(1440, Math.max(1, parseInt(req.body.login_lockout_minutes, 10) || 15))) },
+    // I2/I12 (feat/payments-messaging): re-render the SMS +
+    // backup values just saved (API key itself never echoed).
+    sms: {
+      provider: ['none', 'generic'].includes(req.body.sms_provider) ? req.body.sms_provider : 'none',
+      enabled: req.body.sms_enabled === '1' ? '1' : '0',
+      apiKeySet: !!((req.body.sms_api_key || '').trim() || (smsKeyRow && smsKeyRow.setting_value)),
+      senderId: (req.body.sms_sender_id || '').trim(),
+      endpoint: (req.body.sms_endpoint || '').trim(),
+      orderStatusEnabled: req.body.sms_order_status_enabled === '1' ? '1' : '0',
+    },
+    backupRetentionDays: String(Math.min(90, Math.max(1, parseInt(req.body.backup_retention_days, 10) || 14))),
     products,
     message: 'Settings updated! They will appear on the homepage and footer right away.',
     siteName: 'Goince'
   });
+});
+
+// ==================== DATABASE BACKUPS (I12, feat/payments-messaging) ====================
+// Daily mysqldump (scheduled in server.js) + manual runs + admin-only
+// downloads. Files live in <app>/backups/ and are NEVER served
+// publicly — the only way out is the download route below, guarded
+// by requireAdmin + backups.manage, with a strict filename check
+// (lib/backups.js isSafeBackupFileName — no slashes, no "..").
+router.get('/backups', requireAdmin, requirePermission('backups.manage'), async (req, res) => {
+  const dir = backups.backupDir(path.join(__dirname, '..'));
+  const files = backups.listBackupFiles(dir);
+  let rows = [];
+  try {
+    [rows] = await db.query('SELECT * FROM backups ORDER BY created_at DESC LIMIT 50');
+  } catch (e) { rows = []; }
+  res.render('admin/backups', {
+    files, rows,
+    backupMsg: req.query.msg === 'ok' ? 'Backup finished.' : req.query.msg === 'deleted' ? 'Backup deleted.' : null,
+    backupErr: req.query.err === 'failed' ? (req.query.reason || 'Backup failed.') : null,
+    siteName: 'Goince',
+  });
+});
+
+router.post('/backups/run', requireAdmin, requirePermission('backups.manage'), async (req, res) => {
+  let retentionDays = 14;
+  try {
+    const [[row]] = await db.query("SELECT setting_value FROM settings WHERE setting_key = 'backup_retention_days'");
+    retentionDays = parseInt(row && row.setting_value, 10) || 14;
+  } catch (e) { /* default 14 days */ }
+  const result = await backups.runBackup({ appRoot: path.join(__dirname, '..'), db, triggeredBy: 'manual', retentionDays });
+  await audit(req, 'backup.run', 'backup', result.filename || null, { ok: result.ok });
+  if (!result.ok) {
+    await backups.recordBackupFailure(db, null, 'manual', result.error);
+    return res.redirect('/admin/backups?err=failed&reason=' + encodeURIComponent(result.error));
+  }
+  res.redirect('/admin/backups?msg=ok');
+});
+
+router.get('/backups/download/:file', requireAdmin, requirePermission('backups.manage'), async (req, res) => {
+  const file = req.params.file;
+  if (!backups.isSafeBackupFileName(file)) return res.status(400).send('Invalid backup file name.');
+  const fullPath = path.join(backups.backupDir(path.join(__dirname, '..')), file);
+  if (!fs.existsSync(fullPath)) return res.status(404).send('Backup file not found.');
+  await audit(req, 'backup.download', 'backup', file, {});
+  res.download(fullPath, file);
+});
+
+router.post('/backups/delete/:file', requireAdmin, requirePermission('backups.manage'), async (req, res) => {
+  const file = req.params.file;
+  if (!backups.isSafeBackupFileName(file)) return res.redirect('/admin/backups');
+  try { fs.unlinkSync(path.join(backups.backupDir(path.join(__dirname, '..')), file)); } catch (e) { /* already gone */ }
+  try { await db.query('DELETE FROM backups WHERE filename = ?', [file]); } catch (e) { /* the table row is a bonus */ }
+  await audit(req, 'backup.delete', 'backup', file, {});
+  res.redirect('/admin/backups?msg=deleted');
 });
 
 // ==================== HOMEPAGE BANNERS ====================
