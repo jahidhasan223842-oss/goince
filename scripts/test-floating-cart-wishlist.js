@@ -226,7 +226,11 @@ function searchInputValue(html) {
     check('render: wishlist (empty cart) renders', false, String(e && e.message));
   }
   if (zeroHtml) {
-    check('render: empty cart shows NO side-cart badge (header convention)', !zeroHtml.includes('side-cart-badge'));
+    // UPDATED (fix/ajax-add-to-cart): footer-er inline JS-e ekhon
+    // '.side-cart-badge' class-er naam-ti ache (AJAX add-er pore
+    // badge update kore), tai shudhu string khonja jabe na — asol
+    // badge ELEMENT-ta render hoyeche kina setai check korte hobe.
+    check('render: empty cart shows NO side-cart badge (header convention)', !/<span class="side-cart-badge"/.test(zeroHtml));
     check('render: empty cart shows NO header badge either', !zeroHtml.includes('<span class="badge">'));
     check('render: side-cart tab itself is still there (link to /cart)', /<a href="\/cart" class="side-cart"/.test(zeroHtml));
   }

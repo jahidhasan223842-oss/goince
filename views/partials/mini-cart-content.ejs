@@ -1,0 +1,54 @@
+<% /* ---------- Mini-cart drawer content (fix/ajax-add-to-cart) ----------
+      Drawer-er asol content (head + items / subtotal / foot) — footer.ejs
+      aside-er vitore include hoy, AR AJAX add-to-cart-er JSON
+      uttor-eo eki partial server-e render kore pathano hoy
+      (routes/shop.js POST /cart/add/:id), jate add-er pore
+      drawer-e notun cart-i dekha jay, purono stale content noy.
+      _miniTk / _miniCart / _miniSubtotal ekhanei hisab hoy (locals:
+      miniCart, miniCartSubtotal, cartCount, csrfToken). */ %>
+<% const _miniTk = (v) => { const n = Number(v || 0); return '৳' + (Number.isInteger(n) ? n.toLocaleString('en-BD') : n.toFixed(2)); }; %>
+<% const _miniCart = (typeof miniCart !== 'undefined' && miniCart) ? miniCart : []; %>
+<% const _miniSubtotal = (typeof miniCartSubtotal !== 'undefined' && miniCartSubtotal) ? miniCartSubtotal : _miniCart.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0); %>
+    <div class="mini-cart-head">
+      <h2 id="mini-cart-title">Your Cart<% if (typeof cartCount !== 'undefined' && cartCount > 0) { %> (<%= cartCount %>)<% } %></h2>
+      <button type="button" class="mini-cart-close" aria-label="Close cart">×</button>
+    </div>
+    <% if (_miniCart.length === 0) { %>
+      <div class="mini-cart-empty">
+        <p>Your cart is empty.</p>
+        <a href="/" class="btn-primary">Start Shopping</a>
+      </div>
+    <% } else { %>
+      <ul class="mini-cart-items">
+        <% _miniCart.forEach(function (item) { %>
+          <li class="mini-cart-item">
+            <a href="/product/<%= item.id %>"><img src="/uploads/<%= item.image %>" alt="<%= item.name %>" class="mini-cart-thumb" onerror="this.src='/uploads/no-image.png'"></a>
+            <div class="mini-cart-info">
+              <a href="/product/<%= item.id %>" class="mini-cart-name"><%= item.name %></a>
+              <% if (item.variantLabel) { %><span class="mini-cart-variant"><%= item.variantLabel %></span><% } %>
+              <span class="mini-cart-price"><%= _miniTk(item.price) %> each</span>
+              <form action="/cart/update/<%= item.cartKey || item.id %>" method="POST" class="qty-stepper mini-cart-qty"><%- include('csrf-field') %>
+                <button type="submit" name="quantity" value="<%= Math.max(1, item.quantity - 1) %>" class="qty-btn" aria-label="Decrease quantity">−</button>
+                <input type="number" name="quantity" value="<%= item.quantity %>" min="1" class="qty-input" aria-label="Quantity">
+                <button type="submit" name="quantity" value="<%= item.quantity + 1 %>" class="qty-btn" aria-label="Increase quantity">+</button>
+              </form>
+            </div>
+            <div class="mini-cart-line">
+              <span class="mini-cart-line-total"><%= _miniTk(item.price * item.quantity) %></span>
+              <form action="/cart/remove/<%= item.cartKey || item.id %>" method="POST"><%- include('csrf-field') %>
+                <button type="submit" class="mini-cart-remove" aria-label="Remove <%= item.name %>">×</button>
+              </form>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+      <div class="mini-cart-foot">
+        <p class="mini-cart-subtotal"><span>Subtotal</span><strong><%= _miniTk(_miniSubtotal) %></strong></p>
+        <p class="mini-cart-delivery">🚚 Delivery: ৳60 inside Dhaka / ৳120 outside Dhaka — calculated at checkout.</p>
+        <div class="mini-cart-actions">
+          <a href="/cart" class="mini-cart-view">View Cart</a>
+          <a href="/checkout" class="btn-primary mini-cart-checkout">Checkout</a>
+        </div>
+        <button type="button" class="mini-cart-continue">Continue shopping</button>
+      </div>
+    <% } %>
