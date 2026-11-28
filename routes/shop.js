@@ -490,6 +490,12 @@ router.get('/product/:id', async (req, res) => {
     // number diye. Stock plentiful hole null (bar dekhabe na).
     const stockBar = pp.lowStockBar(soldCount, product.stock, product.low_stock_threshold);
 
+    // D5 — size guide (FIX PR #84): variant attribute Size thakle
+    // to botei, Size OPTION (product_options, option_label "Size")
+    // thakleo dekhabe — A.T.Z (/product/7)-er S/M/L/XL option-e
+    // ase, variant-e noy, tai age guide-ta lukiye thakto.
+    const showSizeGuide = pp.hasSizeChoice(variantAttributes, options, optionLabel);
+
     // D3 — review photos + helpful votes + verified-buyer badge.
     // Photo: review_photos table; helpful: count + ei visitor
     // age vote diyechhe kina; verified: ei product-ta sotti
@@ -617,6 +623,7 @@ router.get('/product/:id', async (req, res) => {
       deliveryEstimate,
       stockBar,
       soldLine,
+      showSizeGuide,
       galleryImages,
       options,
       optionLabel,

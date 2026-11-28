@@ -282,13 +282,18 @@
   </div>
 <% } %>
 
-<% /* D5 size guide (feat/product-page): shudhu Size attribute
-      thaka apparel product-e (jemon A.T.Z dress) dekhabe. Chart-ta
-      static — ei style-er standard approximate measurement (inch),
-      chart-ei lekha ache ashol product-e ±0.5" bodol hote pare.
-      Admin-editable kora hoy ni — donal chart bodlate chaile code-e
-      ei table-ta bodlate hobe (PR body-te lekha ache). */ %>
-<% if (typeof variantAttributes !== 'undefined' && variantAttributes && variantAttributes.some(a => String(a.name || '').trim().toLowerCase() === 'size')) { %>
+<% /* D5 size guide (feat/product-page, FIX PR #84): Size
+      attribute (variant) thaka apparel product-e dekhabe, AR
+      Size OPTION (product_options, option_label "Size") thaka
+      product-eo dekhabe — jemon A.T.Z dress (/product/7), jar
+      S/M/L/XL option-e ase, variant-e noy. Age shudhu variant
+      attribute check kora hoto, tai A.T.Z-te size selector
+      thakleo guide-ta ashto na. Chart-ta static — ei style-er
+      standard approximate measurement (inch), chart-ei lekha
+      ache ashol product-e ±0.5" bodol hote pare. Admin-editable
+      kora hoy ni — donal chart bodlate chaile code-e ei
+      table-ta bodlate hobe (PR body-te lekha ache). */ %>
+<% if (typeof showSizeGuide !== 'undefined' && showSizeGuide) { %>
   <div class="size-guide-section">
     <h2>Size Guide</h2>
     <p class="size-guide-note">Standard size guide for this style — approximate measurements in inches. Actual product may vary slightly (±0.5"). When in doubt, pick the larger size.</p>
@@ -323,7 +328,9 @@
     <summary>What is the return policy?</summary>
     <p>You can request a return within 24 hours of delivery if the product is defective or damaged, or you received the wrong product. Change-of-mind returns are not accepted once delivered. See the <a href="/return-policy">Return &amp; Refund Policy</a> for details.</p>
   </details>
-  <% if (typeof variantAttributes !== 'undefined' && variantAttributes && variantAttributes.some(a => String(a.name || '').trim().toLowerCase() === 'size')) { %>
+  <% /* D5 size FAQ (FIX PR #84): Size attribute BA Size option —
+        showSizeGuide sotti holei proshno-ta ase. */ %>
+  <% if (typeof showSizeGuide !== 'undefined' && showSizeGuide) { %>
   <details class="faq-item">
     <summary>How do I choose the right size?</summary>
     <p>Use the Size Guide table above — match your chest measurement to the chart. Between two sizes, pick the larger one for a comfortable fit.</p>
